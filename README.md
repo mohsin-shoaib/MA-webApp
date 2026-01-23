@@ -2,6 +2,52 @@
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
+## Available Commands
+
+### Development
+```bash
+npm run dev
+```
+Starts the development server with hot module replacement (HMR).
+
+### Build
+```bash
+npm run build
+```
+Builds the app for production. Runs TypeScript type checking and creates optimized production bundle.
+
+### Preview
+```bash
+npm run preview
+```
+Preview the production build locally.
+
+### Linting
+```bash
+npm run lint
+```
+Runs ESLint to check for code quality issues.
+
+### Code Formatting
+```bash
+npm run format
+```
+Automatically formats code using Prettier.
+
+```bash
+npm run format:check
+```
+Checks if code is properly formatted without making changes.
+
+## Git Hooks (Husky)
+
+This project uses [Husky](https://typicode.github.io/husky/) to run git hooks. The pre-commit hook automatically runs:
+- `format:check` - Verifies code formatting
+- `lint` - Runs ESLint
+- `build` - Tests the build
+
+All checks must pass before a commit can proceed.
+
 Currently, two official plugins are available:
 
 - [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
