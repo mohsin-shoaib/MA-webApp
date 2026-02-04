@@ -1,1 +1,21 @@
 @import 'tailwindcss';
+
+@theme {
+  /* Primary Brand Colors */
+  --color-primary-light-blue: #27b7ee;
+  --color-primary-dark-blue: #1f8fd6;
+  --color-primary: #27b7ee;
+  --color-primary-dark: #1f8fd6;
+
+  /* Neutrals */
+  --color-near-black: #0f1720;
+  --color-charcoal: #2a2f36;
+  --color-mid-gray: #6b7280;
+  --color-light-gray: #f3f4f6;
+  --color-white: #ffffff;
+
+  /* System / State Colors */
+  --color-success: #22c55e;
+  --color-warning: #f59e0b;
+  --color-error: #ef4444;
+}
