@@ -4,34 +4,36 @@ export interface LoginProps {
 }
 
 export interface LoginResponse {
-  data: {token: string
-  user: {
-    id: string
-    email: string
-    name: string
-  }}
+  data: {
+    token: string
+    user: {
+      id: string
+      email: string
+      name: string
+    }
+  }
 }
 
 export interface RegisterProps {
-  firstName: string,
-  lastName: string,
-  email: string,
-  password: string,
+  firstName: string
+  lastName: string
+  email: string
+  password: string
   confirmPassword: string
-  role: string,
+  role: string
   rememberMe: boolean
 }
 
-
 export interface RegisterResponse {
-  data: { token: string
-  user: {
-    id: string
-    firstName: string,
-    lastName: string,
-    email: string
-    role: string,
-    rememberMe: boolean
-}
-}
+  data: {
+    token: string
+    user: {
+      id: string
+      firstName: string
+      lastName: string
+      email: string
+      role: string
+      rememberMe: boolean
+    }
+  }
 }

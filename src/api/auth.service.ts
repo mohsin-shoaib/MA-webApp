@@ -1,14 +1,19 @@
-import api from "./axios"
-import type { LoginProps, LoginResponse, RegisterProps, RegisterResponse } from "@/types/auth"
+import api from './axios'
+import type {
+  LoginProps,
+  LoginResponse,
+  RegisterProps,
+  RegisterResponse,
+} from '@/types/auth'
 
 export const authService = {
   login: (payload: LoginProps) =>
-    api.post<LoginResponse>("shared/auth/login", payload),
+    api.post<LoginResponse>('shared/auth/login', payload),
 
-  register: (payload: RegisterProps) => 
-    api.post<RegisterResponse>("shared/auth/register", payload),
+  register: (payload: RegisterProps) =>
+    api.post<RegisterResponse>('shared/auth/register', payload),
 
   logout: () => {
-    localStorage.removeItem("accessToken")
+    localStorage.removeItem('accessToken')
   },
 }
