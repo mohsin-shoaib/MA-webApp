@@ -245,7 +245,7 @@ export function Input({
     <div className={className} style={containerStyle}>
       {label && (
         <div className="flex items-center mb-1.5">
-          <Text as="label" variant="default" className="text-sm font-medium">
+          <Text as="label" variant="secondary" className="text-sm font-medium">
             {label}
           </Text>
           {required && (

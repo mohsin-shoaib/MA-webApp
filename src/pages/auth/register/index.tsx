@@ -2,26 +2,27 @@ import { Button } from '@/components/Button'
 import { Input } from '@/components/Input'
 import { Text } from '@/components/Text'
 import { useForm } from 'react-hook-form'
-import type { LoginProps } from '@/types/auth'
+import type { RegisterProps } from '@/types/auth'
 import { authService } from '@/api/auth.service'
 
-const Login = () => {
+const Register = () => {
   const {
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm<LoginProps>()
+    getValues,
+  } = useForm<RegisterProps>()
 
-  const handleLogin = async (data: LoginProps) => {
+  const handleRegister = async (data: RegisterProps) => {
     try {
-      const response = await authService.login(data)
+      const response = await authService.register(data)
       console.log('login response::', response.data.data)
 
       const { token, user } = response.data.data
 
       localStorage.setItem('accessToken', token)
 
-      console.log('Logged in user:', user)
+      console.log('Register user:', user)
       // navigate("/dashboard")
     } catch (error) {
       console.error(error)
@@ -39,22 +40,38 @@ const Login = () => {
       {/* Right Column */}
       <div className="flex-1 flex flex-col justify-center p-8">
         <div className="mb-6">
-          <Text as="h1" variant="secondary" className="text-2xl font-bold mb-2">
-            Welcome Back!
+          <Text
+            as="h1"
+            variant="secondary"
+            className="text-2xl font-bold mb-2 text-left"
+          >
+            Join Us
           </Text>
-          <Text as="p" variant="secondary" className="text-gray-600">
-            Sign in to continue your journey
+          <Text as="p" variant="secondary" className="text-gray-600 text-left">
+            Enter your details to get started with your new account
           </Text>
         </div>
 
-        <form className="space-y-4" onSubmit={handleSubmit(handleLogin)}>
+        <form className="space-y-4" onSubmit={handleSubmit(handleRegister)}>
+          <Input
+            label="First Name"
+            placeholder="Enter you First Name"
+            error={errors.firstName?.message}
+            {...register('firstName', { required: 'First Name is required' })}
+          />
+          <Input
+            label="Last Name"
+            placeholder="Enter you Last Name"
+            error={errors.lastName?.message}
+            {...register('lastName', { required: 'Last Name is required' })}
+          />
           <Input
             label="Email"
             placeholder="Enter your email"
             className="text-black"
             error={errors.email?.message}
             {...register('email', {
-              required: true,
+              required: 'Email is required',
               validate: {
                 matchPattren: value =>
                   /^([\w._-]+)?\w+@[\w-]+(\.\w+)+$/.test(value) ||
@@ -69,27 +86,40 @@ const Login = () => {
             placeholder="Enter your password"
             error={errors.password?.message}
             {...register('password', {
-              required: true,
+              required: 'Password is required',
+              minLength: {
+                value: 6,
+                message: 'Password must be at least 6 characters',
+              },
             })}
           />
-          <Text
-            as="p"
-            variant="primary"
-            className="text-right font-bold underline"
-          >
-            <a href="/">Forgot Password?</a>
+
+          <Input
+            label="Confirm Password"
+            type="password"
+            showPasswordToggle
+            error={errors.confirmPassword?.message}
+            {...register('confirmPassword', {
+              validate: value =>
+                value === getValues('password') || 'Passwords do not match',
+            })}
+          />
+          <Text as="p" variant="secondary" className="text-gray-600 text-left">
+            By Clicking Create Account, You agree our Terms of Services and
+            Privacy Policy
           </Text>
+
           <Button variant="primary" type="submit" className="w-full">
-            Sign In
+            Create Account
           </Button>
         </form>
 
         <div className="flex p-1 justify-center m-2 gap-1.5">
           <Text as="p" variant="secondary">
-            Don't have an account?
+            Already have an account?
           </Text>
           <Text as="span" variant="primary">
-            <a href="/register">Sign Up</a>
+            <a href="/login">Sign In</a>
           </Text>
         </div>
       </div>
@@ -97,4 +127,4 @@ const Login = () => {
   )
 }
 
-export default Login
+export default Register
