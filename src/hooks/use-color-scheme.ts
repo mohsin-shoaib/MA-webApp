@@ -13,19 +13,20 @@ export function useColorScheme(
   initialScheme: ColorScheme = null
 ): 'light' | 'dark' {
   const [colorScheme, setColorScheme] = useState<'light' | 'dark'>(() => {
-    // If initialScheme is provided, use it
-    if (initialScheme === 'light' || initialScheme === 'dark') {
-      return initialScheme
-    }
-
-    // Otherwise, detect system preference
-    if (typeof globalThis !== 'undefined') {
-      const mediaQuery = globalThis.matchMedia('(prefers-color-scheme: dark)')
-      return mediaQuery.matches ? 'dark' : 'light'
-    }
-
-    // Default to light if globalThis is not available (SSR)
     return 'light'
+    // // If initialScheme is provided, use it
+    // if (initialScheme === 'light' || initialScheme === 'dark') {
+    //   return initialScheme
+    // }
+
+    // // Otherwise, detect system preference
+    // if (typeof globalThis !== 'undefined') {
+    //   const mediaQuery = globalThis.matchMedia('(prefers-color-scheme: dark)')
+    //   return mediaQuery.matches ? 'dark' : 'light'
+    // }
+
+    // // Default to light if globalThis is not available (SSR)
+    // return 'light'
   })
 
   useEffect(() => {

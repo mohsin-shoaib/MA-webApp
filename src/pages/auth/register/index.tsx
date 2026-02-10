@@ -31,14 +31,14 @@ const Register = () => {
     }
   }
   return (
-    <div className="flex h-screen w-[vw]">
+    <div className="flex h-screen w-[vw] ">
       {/* Left Column */}
       <div className="hidden sm:flex flex-1 bg-gray-200 flex items-center justify-center">
         <h1>Image here</h1>
       </div>
 
       {/* Right Column */}
-      <div className="flex-1 flex flex-col justify-center p-8">
+      <div className="flex-1 flex flex-col justify-center p-8 px-12">
         <div className="mb-6">
           <Text
             as="h1"

@@ -1,13 +1,16 @@
-import './App.css'
-import Login from './pages/auth/login/index'
-import Register from './pages/auth/register'
+import { BrowserRouter, useRoutes } from 'react-router-dom'
+import { routes } from '@/routes/index'
+
+function AppRoutes() {
+  const element = useRoutes(routes)
+  return element
+}
 
 function App() {
   return (
-    <>
-      <Login />
-      <Register />
-    </>
+    <BrowserRouter>
+      <AppRoutes />
+    </BrowserRouter>
   )
 }
 
