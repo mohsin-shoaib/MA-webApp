@@ -1,5 +1,6 @@
 import { BrowserRouter, useRoutes } from 'react-router-dom'
 import { routes } from '@/routes/index'
+import { SnackbarProvider } from '@/components/Snackbar/SnackbarProvider'
 
 function AppRoutes() {
   const element = useRoutes(routes)
@@ -9,7 +10,9 @@ function AppRoutes() {
 function App() {
   return (
     <BrowserRouter>
-      <AppRoutes />
+      <SnackbarProvider>
+        <AppRoutes />
+      </SnackbarProvider>
     </BrowserRouter>
   )
 }

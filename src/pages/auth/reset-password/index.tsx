@@ -3,22 +3,26 @@ import { Input } from '@/components/Input'
 import { Text } from '@/components/Text'
 import { Spinner } from '@/components/Spinner'
 import { useForm } from 'react-hook-form'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams, Link } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import { authService } from '@/api/auth.service'
 import type { ResetPasswordProps } from '@/types/auth'
+import AuthLayout from '../authLayout'
+import { Stack } from '@/components/Stack'
+import { useSnackbar } from '@/components/Snackbar/useSnackbar'
 import type { AxiosError } from 'axios'
 
 const ResetPassword = () => {
   const navigate = useNavigate()
+  const { showSuccess, showError } = useSnackbar()
   const [searchParams] = useSearchParams()
   const token = searchParams.get('token')
 
   const [loading, setLoading] = useState(false)
   const [verifying, setVerifying] = useState(true)
-  const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
   const [tokenValid, setTokenValid] = useState(false)
+  const [tokenError, setTokenError] = useState<string | null>(null)
 
   const {
     register,
@@ -35,7 +39,7 @@ const ResetPassword = () => {
   useEffect(() => {
     const verifyToken = async () => {
       if (!token) {
-        setError('Invalid reset link. Missing token.')
+        setTokenError('Invalid reset link. Missing token.')
         setVerifying(false)
         return
       }
@@ -45,7 +49,7 @@ const ResetPassword = () => {
         if (response.data.data.valid) {
           setTokenValid(true)
         } else {
-          setError(
+          setTokenError(
             response.data.data.message || 'Invalid or expired reset token'
           )
         }
@@ -53,10 +57,8 @@ const ResetPassword = () => {
         console.error('Verify token error:', err)
         const axiosError = err as AxiosError<{ message: string }>
         const errorMessage =
-          axiosError.response?.data?.message ||
-          (err instanceof Error ? err.message : null) ||
-          'Failed to verify reset token'
-        setError(errorMessage)
+          axiosError.response?.data?.message || 'Failed to verify reset token'
+        setTokenError(errorMessage)
       } finally {
         setVerifying(false)
       }
@@ -67,11 +69,10 @@ const ResetPassword = () => {
 
   const onSubmit = async (data: ResetPasswordProps) => {
     if (!token) {
-      setError('Invalid reset link. Missing token.')
+      showError('Invalid reset link. Missing token.')
       return
     }
 
-    setError(null)
     setLoading(true)
 
     try {
@@ -79,24 +80,19 @@ const ResetPassword = () => {
       const response = await authService.resetPassword(payload)
       console.log('Reset password response:', response.data.data)
       setSuccess(true)
+      showSuccess('Password reset successful! Redirecting to login...')
 
       // Redirect to login after 3 seconds
       setTimeout(() => {
-        navigate('/login', {
-          state: {
-            message:
-              'Password reset successful. Please login with your new password.',
-          },
-        })
+        navigate('/login')
       }, 3000)
-    } catch (err) {
-      console.error('Reset password error:', err)
-      const axiosError = err as AxiosError<{ message: string }>
+    } catch (error) {
+      console.error('Reset password error:', error)
+      const axiosError = error as AxiosError<{ message: string }>
       const errorMessage =
         axiosError.response?.data?.message ||
-        (err instanceof Error ? err.message : null) ||
-        'An unexpected error occurred. Please try again.'
-      setError(errorMessage)
+        'Failed to reset password. Please try again.'
+      showError(errorMessage)
     } finally {
       setLoading(false)
     }
@@ -105,138 +101,95 @@ const ResetPassword = () => {
   // Loading state while verifying token
   if (verifying) {
     return (
-      <div className="flex h-screen w-[vw]">
-        {/* Left Column */}
-        <div className="hidden sm:flex flex-1 bg-gray-200 flex items-center justify-center">
-          <h1>Image here</h1>
-        </div>
-
-        {/* Right Column */}
-        <div className="flex-1 flex flex-col justify-center p-8 items-center">
+      <AuthLayout>
+        <Stack className="flex justify-center items-center flex-1 space-y-4">
           <Spinner size="medium" variant="primary" />
-          <Text as="p" variant="secondary" className="mt-4">
+          <Text as="p" variant="muted">
             Verifying reset token...
           </Text>
-        </div>
-      </div>
+        </Stack>
+      </AuthLayout>
     )
   }
 
   // Invalid token state
   if (!tokenValid) {
     return (
-      <div className="flex h-screen w-[vw]">
-        {/* Left Column */}
-        <div className="hidden sm:flex flex-1 bg-gray-200 flex items-center justify-center">
-          <h1>Image here</h1>
-        </div>
-
-        {/* Right Column */}
-        <div className="flex-1 flex flex-col justify-center p-8">
-          <div className="mb-6 text-center">
-            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Text as="span" className="text-3xl text-red-600">
-                ✕
-              </Text>
-            </div>
-            <Text
-              as="h1"
-              variant="secondary"
-              className="text-2xl font-bold mb-2"
-            >
-              Invalid Reset Link
+      <AuthLayout>
+        <Stack className="flex justify-center items-center flex-1 space-y-4">
+          <div className="w-16 h-16 bg-error/20 rounded-full flex items-center justify-center mb-4">
+            <Text as="span" variant="error" className="text-3xl font-bold">
+              ✕
             </Text>
-            <Text as="p" variant="error" className="mb-4">
-              {error || 'This reset link is invalid or has expired.'}
+          </div>
+          <Text as="h1" variant="secondary" className="text-2xl font-bold">
+            Invalid Reset Link
+          </Text>
+          <Stack direction="vertical" spacing={8} className="text-center w-3/4">
+            <Text as="p" variant="error">
+              {tokenError || 'This reset link is invalid or has expired.'}
             </Text>
-            <Text
-              as="p"
-              variant="secondary"
-              className="text-sm text-gray-500 mb-6"
-            >
+            <Text as="p" variant="muted" className="text-sm">
               The link may have expired (15 minutes) or already been used.
             </Text>
-          </div>
-          <div className="space-y-3">
-            <Button
-              variant="primary"
-              onClick={() => navigate('/forgot-password')}
-              className="w-full"
-            >
-              Request New Reset Link
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => navigate('/login')}
-              className="w-full"
-            >
-              Back to Login
-            </Button>
-          </div>
-        </div>
-      </div>
+          </Stack>
+          <Stack direction="vertical" spacing={12} className="w-3/4">
+            <Link to="/forgot-password" className="w-full">
+              <Button variant="primary" className="w-full">
+                Request New Reset Link
+              </Button>
+            </Link>
+            <Link to="/login" className="w-full">
+              <Button variant="outline" className="w-full">
+                Back to Login
+              </Button>
+            </Link>
+          </Stack>
+        </Stack>
+      </AuthLayout>
     )
   }
 
   // Success state
   if (success) {
     return (
-      <div className="flex h-screen w-[vw]">
-        {/* Left Column */}
-        <div className="hidden sm:flex flex-1 bg-gray-200 flex items-center justify-center">
-          <h1>Image here</h1>
-        </div>
-
-        {/* Right Column */}
-        <div className="flex-1 flex flex-col justify-center p-8">
-          <div className="mb-6 text-center">
-            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Text as="span" className="text-3xl text-green-600">
-                ✓
-              </Text>
-            </div>
-            <Text
-              as="h1"
-              variant="secondary"
-              className="text-2xl font-bold mb-2"
-            >
-              Password Reset Successful
-            </Text>
-            <Text as="p" variant="secondary" className="text-gray-600 mb-4">
-              Your password has been successfully reset.
-            </Text>
-            <Text as="p" variant="secondary" className="text-sm text-gray-500">
-              You can now login with your new password.
-            </Text>
-            <Text as="p" variant="primary" className="text-sm italic mt-2">
-              Redirecting to login page...
+      <AuthLayout>
+        <Stack className="flex justify-center items-center flex-1 space-y-4">
+          <div className="w-16 h-16 bg-success/20 rounded-full flex items-center justify-center mb-4">
+            <Text as="span" variant="success" className="text-3xl font-bold">
+              ✓
             </Text>
           </div>
-        </div>
-      </div>
+          <Text as="h1" variant="secondary" className="text-2xl font-bold">
+            Password Reset Successful
+          </Text>
+          <Stack direction="vertical" spacing={8} className="text-center w-3/4">
+            <Text as="p" variant="muted">
+              Your password has been successfully reset.
+            </Text>
+            <Text as="p" variant="muted" className="text-sm">
+              You can now login with your new password.
+            </Text>
+            <Text as="p" variant="primary" className="text-sm italic">
+              Redirecting to login page...
+            </Text>
+          </Stack>
+        </Stack>
+      </AuthLayout>
     )
   }
 
   // Reset form
   return (
-    <div className="flex h-screen w-[vw]">
-      {/* Left Column */}
-      <div className="hidden sm:flex flex-1 bg-gray-200 flex items-center justify-center">
-        <h1>Image here</h1>
-      </div>
-
-      {/* Right Column */}
-      <div className="flex-1 flex flex-col justify-center p-8">
-        <div className="mb-6">
-          <Text as="h1" variant="secondary" className="text-2xl font-bold mb-2">
-            Reset Your Password
-          </Text>
-          <Text as="p" variant="secondary" className="text-gray-600">
-            Enter your new password below.
-          </Text>
-        </div>
-
-        <form className="space-y-4" onSubmit={handleSubmit(onSubmit)}>
+    <AuthLayout>
+      <Stack className="flex justify-center items-center flex-1 space-y-4">
+        <Text as="h1" variant="secondary" className="text-2xl font-bold">
+          Reset Your Password
+        </Text>
+        <Text as="p" variant="muted">
+          Enter your new password below.
+        </Text>
+        <form className="space-y-4 w-3/4" onSubmit={handleSubmit(onSubmit)}>
           <Input
             label="New Password"
             type="password"
@@ -268,14 +221,6 @@ const ResetPassword = () => {
             })}
           />
 
-          {error && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-              <Text variant="error" className="text-sm">
-                {error}
-              </Text>
-            </div>
-          )}
-
           <Button
             variant="primary"
             type="submit"
@@ -285,20 +230,17 @@ const ResetPassword = () => {
           >
             Reset Password
           </Button>
-
-          <div className="text-center">
-            <Text
-              as="p"
-              variant="primary"
-              className="font-bold underline cursor-pointer"
-              onClick={() => navigate('/login')}
-            >
-              ← Back to Login
-            </Text>
-          </div>
         </form>
-      </div>
-    </div>
+        <Stack className="flex flex-row justify-center items-center space-x-2">
+          <Text as="p" variant="secondary">
+            Remember your password?
+          </Text>
+          <Text as="span" variant="primary">
+            <Link to="/login">Sign In</Link>
+          </Text>
+        </Stack>
+      </Stack>
+    </AuthLayout>
   )
 }
 

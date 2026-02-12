@@ -2,16 +2,18 @@ import { Button } from '@/components/Button'
 import { Input } from '@/components/Input'
 import { Text } from '@/components/Text'
 import { useForm } from 'react-hook-form'
-import { useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { useState } from 'react'
 import { authService } from '@/api/auth.service'
 import type { ForgotPasswordProps } from '@/types/auth'
+import AuthLayout from '../authLayout'
+import { Stack } from '@/components/Stack'
+import { useSnackbar } from '@/components/Snackbar/useSnackbar'
 import type { AxiosError } from 'axios'
 
 const ForgotPassword = () => {
-  const navigate = useNavigate()
+  const { showSuccess, showError } = useSnackbar()
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
 
   const {
@@ -21,21 +23,20 @@ const ForgotPassword = () => {
   } = useForm<ForgotPasswordProps>()
 
   const onSubmit = async (data: ForgotPasswordProps) => {
-    setError(null)
     setLoading(true)
 
     try {
       const response = await authService.forgotPassword(data)
       console.log('Forgot password response:', response.data.data)
       setSuccess(true)
-    } catch (err) {
-      console.error('Forgot password error:', err)
-      const axiosError = err as AxiosError<{ message: string }>
+      showSuccess('Password reset link sent! Please check your email.')
+    } catch (error) {
+      console.error('Forgot password error:', error)
+      const axiosError = error as AxiosError<{ message: string }>
       const errorMessage =
         axiosError.response?.data?.message ||
-        (err instanceof Error ? err.message : null) ||
-        'An unexpected error occurred. Please try again.'
-      setError(errorMessage)
+        'Failed to send reset link. Please try again.'
+      showError(errorMessage)
     } finally {
       setLoading(false)
     }
@@ -43,68 +44,47 @@ const ForgotPassword = () => {
 
   if (success) {
     return (
-      <div className="flex h-screen w-[vw]">
-        {/* Left Column */}
-        <div className="hidden sm:flex flex-1 bg-gray-200 flex items-center justify-center">
-          <h1>Image here</h1>
-        </div>
-
-        {/* Right Column */}
-        <div className="flex-1 flex flex-col justify-center p-8">
-          <div className="mb-6 text-center">
-            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Text as="span" className="text-3xl text-green-600">
-                ✓
-              </Text>
-            </div>
-            <Text
-              as="h1"
-              variant="secondary"
-              className="text-2xl font-bold mb-2"
-            >
-              Check Your Email
+      <AuthLayout>
+        <Stack className="flex justify-center items-center flex-1 space-y-4">
+          <div className="w-16 h-16 bg-success/20 rounded-full flex items-center justify-center mb-4">
+            <Text as="span" variant="success" className="text-3xl font-bold">
+              ✓
             </Text>
-            <Text as="p" variant="secondary" className="text-gray-600 mb-4">
+          </div>
+          <Text as="h1" variant="secondary" className="text-2xl font-bold">
+            Check Your Email
+          </Text>
+          <Stack direction="vertical" spacing={8} className="text-center w-3/4">
+            <Text as="p" variant="muted">
               If an account with that email exists, a password reset link has
               been sent.
             </Text>
-            <Text as="p" variant="secondary" className="text-sm text-gray-500">
+            <Text as="p" variant="muted" className="text-sm">
               Please check your email and click the link to reset your password.
               The link will expire in 15 minutes.
             </Text>
-          </div>
-          <Button
-            variant="primary"
-            onClick={() => navigate('/login')}
-            className="w-full"
-          >
-            Back to Login
-          </Button>
-        </div>
-      </div>
+          </Stack>
+          <Link to="/login" className="w-3/4">
+            <Button variant="primary" className="w-full">
+              Back to Login
+            </Button>
+          </Link>
+        </Stack>
+      </AuthLayout>
     )
   }
 
   return (
-    <div className="flex h-screen w-[vw]">
-      {/* Left Column */}
-      <div className="hidden sm:flex flex-1 bg-gray-200 flex items-center justify-center">
-        <h1>Image here</h1>
-      </div>
-
-      {/* Right Column */}
-      <div className="flex-1 flex flex-col justify-center p-8">
-        <div className="mb-6">
-          <Text as="h1" variant="secondary" className="text-2xl font-bold mb-2">
-            Forgot Password
-          </Text>
-          <Text as="p" variant="secondary" className="text-gray-600">
-            Enter your email address and we'll send you a link to reset your
-            password.
-          </Text>
-        </div>
-
-        <form className="space-y-4" onSubmit={handleSubmit(onSubmit)}>
+    <AuthLayout>
+      <Stack className="flex justify-center items-center flex-1 space-y-4">
+        <Text as="h1" variant="secondary" className="text-2xl font-bold">
+          Forgot Password
+        </Text>
+        <Text as="p" variant="muted">
+          Enter your email address and we'll send you a link to reset your
+          password.
+        </Text>
+        <form className="space-y-4 w-3/4" onSubmit={handleSubmit(onSubmit)}>
           <Input
             label="Email Address"
             placeholder="Enter your email"
@@ -115,19 +95,11 @@ const ForgotPassword = () => {
               required: 'Email is required',
               validate: {
                 matchPattren: value =>
-                  /^([\w._-]+)?\w+@[\w-]+(\.\w+)+$/.test(value) ||
+                  /^([\w.-]+)?\w+@[\w-]+(\.\w+)+$/.test(value) ||
                   'Email Address must be valid',
               },
             })}
           />
-
-          {error && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-              <Text variant="error" className="text-sm">
-                {error}
-              </Text>
-            </div>
-          )}
 
           <Button
             variant="primary"
@@ -138,20 +110,17 @@ const ForgotPassword = () => {
           >
             Send Reset Link
           </Button>
-
-          <div className="text-center">
-            <Text
-              as="p"
-              variant="primary"
-              className="font-bold underline cursor-pointer"
-              onClick={() => navigate('/login')}
-            >
-              ← Back to Login
-            </Text>
-          </div>
         </form>
-      </div>
-    </div>
+        <Stack className="flex flex-row justify-center items-center space-x-2">
+          <Text as="p" variant="secondary">
+            Remember your password?
+          </Text>
+          <Text as="span" variant="primary">
+            <Link to="/login">Sign In</Link>
+          </Text>
+        </Stack>
+      </Stack>
+    </AuthLayout>
   )
 }
 

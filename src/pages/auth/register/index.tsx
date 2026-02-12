@@ -1,64 +1,86 @@
 import { Button } from '@/components/Button'
 import { Input } from '@/components/Input'
 import { Text } from '@/components/Text'
-import { useForm } from 'react-hook-form'
+import { Radio } from '@/components/Radio'
+import { useForm, useWatch } from 'react-hook-form'
 import type { RegisterProps } from '@/types/auth'
 import { authService } from '@/api/auth.service'
+import AuthLayout from '../authLayout'
+import { Stack } from '@/components/Stack'
+import { Link } from 'react-router-dom'
+import { useSnackbar } from '@/components/Snackbar/useSnackbar'
+import type { AxiosError } from 'axios'
 
 interface FormValues extends RegisterProps {
   confirmPassword: string // only frontend use
 }
 
 const Register = () => {
+  const { showSuccess, showError } = useSnackbar()
   const {
     register,
     handleSubmit,
     formState: { errors },
     getValues,
-  } = useForm<FormValues>()
+    control,
+    setValue,
+  } = useForm<FormValues>({
+    defaultValues: {
+      role: 'ATHLETE', // Default role
+    },
+  })
+
+  const selectedRole = useWatch({
+    control,
+    name: 'role',
+    defaultValue: 'ATHLETE',
+  })
 
   const handleRegister = async (data: FormValues) => {
     try {
-      const { confirmPassword, ...payload } = data
-      const response = await authService.register(payload)
+      // Ensure role is included in payload
+      // confirmPassword is excluded as it's only for frontend validation
+      const registerPayload: RegisterProps = {
+        firstName: data.firstName,
+        lastName: data.lastName,
+        email: data.email,
+        password: data.password,
+        role: data.role || 'ATHLETE',
+        rememberMe: false, // Add default value for rememberMe
+      }
+      const response = await authService.register(registerPayload)
       console.log('login response::', response.data.data)
 
       const { token, user } = response.data.data
 
-      localStorage.setItem('accessToken', confirmPassword)
       localStorage.setItem('accessToken', token)
 
       console.log('Register user:', user)
+      showSuccess('Registration successful!')
       // navigate("/dashboard")
     } catch (error) {
       console.error(error)
-      // show error message / toast
-      console.log('Api error::', error)
+      // Show error message from API or default message
+      const axiosError = error as AxiosError<{ message: string }>
+      const errorMessage =
+        axiosError.response?.data?.message ||
+        'Registration failed. Please try again.'
+      showError(errorMessage)
     }
   }
   return (
-    <div className="flex h-screen w-[vw] ">
-      {/* Left Column */}
-      <div className="hidden sm:flex flex-1 bg-gray-200 flex items-center justify-center">
-        <h1>Image here</h1>
-      </div>
-
-      {/* Right Column */}
-      <div className="flex-1 flex flex-col justify-center p-8 px-12">
-        <div className="mb-6">
-          <Text
-            as="h1"
-            variant="secondary"
-            className="text-2xl font-bold mb-2 text-left"
-          >
-            Join Us
-          </Text>
-          <Text as="p" variant="secondary" className="text-gray-600 text-left">
-            Enter your details to get started with your new account
-          </Text>
-        </div>
-
-        <form className="space-y-4" onSubmit={handleSubmit(handleRegister)}>
+    <AuthLayout>
+      <Stack className="flex justify-center items-center flex-1 space-y-4">
+        <Text as="h1" variant="secondary" className="text-2xl font-bold">
+          Join Us
+        </Text>
+        <Text as="p" variant="muted">
+          Enter your details to get started with your new account
+        </Text>
+        <form
+          className="space-y-4 w-3/4"
+          onSubmit={handleSubmit(handleRegister)}
+        >
           <Input
             label="First Name"
             placeholder="Enter you First Name"
@@ -74,13 +96,12 @@ const Register = () => {
           <Input
             label="Email"
             placeholder="Enter your email"
-            className="text-black"
             error={errors.email?.message}
             {...register('email', {
               required: 'Email is required',
               validate: {
                 matchPattren: value =>
-                  /^([\w._-]+)?\w+@[\w-]+(\.\w+)+$/.test(value) ||
+                  /^([\w.-]+)?\w+@[\w-]+(\.\w+)+$/.test(value) ||
                   'Email Address must be valid',
               },
             })}
@@ -111,26 +132,63 @@ const Register = () => {
             })}
           />
 
-          <Text as="p" variant="secondary" className="text-gray-600 text-left">
-            By Clicking Create Account, You agree our Terms of Services and
-            Privacy Policy
-          </Text>
+          {/* Role Selection */}
+          <Stack direction="vertical" spacing={8}>
+            <Text as="label" variant="default" className="text-sm font-medium">
+              Role <span className="text-error">*</span>
+            </Text>
+            <Stack direction="horizontal" spacing={16} className="flex-wrap">
+              <Radio
+                selected={selectedRole === 'ATHLETE'}
+                onPress={() =>
+                  setValue('role', 'ATHLETE', { shouldValidate: true })
+                }
+                label="Athlete"
+                value="ATHLETE"
+                name="role"
+              />
+              <Radio
+                selected={selectedRole === 'COACH'}
+                onPress={() =>
+                  setValue('role', 'COACH', { shouldValidate: true })
+                }
+                label="Coach"
+                value="COACH"
+                name="role"
+              />
+            </Stack>
+            {errors.role && (
+              <Text variant="error" className="text-sm">
+                {errors.role.message}
+              </Text>
+            )}
+          </Stack>
+          {/* Hidden input for form validation */}
+          <input
+            type="hidden"
+            {...register('role', {
+              required: 'Please select a role',
+              validate: value =>
+                value === 'ATHLETE' ||
+                value === 'COACH' ||
+                'Please select a valid role',
+            })}
+          />
 
           <Button variant="primary" type="submit" className="w-full">
             Create Account
           </Button>
         </form>
-
-        <div className="flex p-1 justify-center m-2 gap-1.5">
+        <Stack className="flex flex-row justify-center items-center space-x-2">
           <Text as="p" variant="secondary">
             Already have an account?
           </Text>
           <Text as="span" variant="primary">
-            <a href="/login">Sign In</a>
+            <Link to="/login">Sign In</Link>
           </Text>
-        </div>
-      </div>
-    </div>
+        </Stack>
+      </Stack>
+    </AuthLayout>
   )
 }
 

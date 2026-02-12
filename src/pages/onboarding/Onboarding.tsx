@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Stepper, type StepperStep } from '@/components/Stepper'
+import { Stepper, type StepperStep } from '@/components/Stepper/index'
 import OnboardingForm from './OnboardingForm'
 import RecommendationStep from './Readiness'
 import ConfirmationStep from './confirmation'

@@ -5,6 +5,8 @@ import { useForm } from 'react-hook-form'
 import type { LoginProps } from '@/types/auth'
 import { authService } from '@/api/auth.service'
 import { useNavigate, Link } from 'react-router-dom'
+import { Stack } from '@/components/Stack'
+import AuthLayout from '../authLayout'
 
 const Login = () => {
   const navigate = useNavigate()
@@ -34,34 +36,24 @@ const Login = () => {
     }
   }
   return (
-    <div className="flex h-screen w-[vw]">
-      {/* Left Column */}
-      <div className="hidden sm:flex flex-1 bg-gray-200 flex items-center justify-center">
-        <h1>Image here</h1>
-      </div>
-
-      {/* Right Column */}
-      <div className="flex-1 flex flex-col justify-center p-8">
-        <div className="mb-6">
-          <Text as="h1" variant="secondary" className="text-2xl font-bold mb-2">
-            Welcome Back!
-          </Text>
-          <Text as="p" variant="secondary" className="text-gray-600">
-            Sign in to continue your journey
-          </Text>
-        </div>
-
-        <form className="space-y-4" onSubmit={handleSubmit(handleLogin)}>
+    <AuthLayout>
+      <Stack className="flex justify-center items-center flex-1 space-y-4">
+        <Text as="h1" variant="secondary" className="text-2xl font-bold">
+          Welcome Back!
+        </Text>
+        <Text as="p" variant="muted">
+          Sign in to continue your journey
+        </Text>
+        <form className="space-y-4 w-3/4" onSubmit={handleSubmit(handleLogin)}>
           <Input
             label="Email"
             placeholder="Enter your email"
-            className="text-black"
             error={errors.email?.message}
             {...register('email', {
               required: true,
               validate: {
                 matchPattren: value =>
-                  /^([\w._-]+)?\w+@[\w-]+(\.\w+)+$/.test(value) ||
+                  /^([\w.-]+)?\w+@[\w-]+(\.\w+)+$/.test(value) ||
                   'Email Address must be valid',
               },
             })}
@@ -76,28 +68,23 @@ const Login = () => {
               required: true,
             })}
           />
-          <Text
-            as="p"
-            variant="primary"
-            className="text-right font-bold underline"
-          >
+          <Text as="p" variant="primary" className="text-right font-bold">
             <Link to="/forgot-password">Forgot Password?</Link>
           </Text>
           <Button variant="primary" type="submit" className="w-full">
             Sign In
           </Button>
         </form>
-
-        <div className="flex p-1 justify-center m-2 gap-1.5">
+        <Stack className="flex flex-row justify-center items-center space-x-2">
           <Text as="p" variant="secondary">
             Don't have an account?
           </Text>
           <Text as="span" variant="primary">
             <Link to="/register">Sign Up</Link>
           </Text>
-        </div>
-      </div>
-    </div>
+        </Stack>
+      </Stack>
+    </AuthLayout>
   )
 }
 
