@@ -9,6 +9,8 @@ import type {
   VerifyTokenResponse,
   ResetPasswordProps,
   ResetPasswordResponse,
+  ChangePasswordProps,
+  ChangePasswordResponse,
 } from '@/types/auth'
 
 export const authService = {
@@ -32,4 +34,7 @@ export const authService = {
 
   resetPassword: (payload: ResetPasswordProps) =>
     api.post<ResetPasswordResponse>('shared/auth/reset-password', payload),
+
+  changePassword: (payload: ChangePasswordProps) =>
+    api.post<ChangePasswordResponse>('shared/auth/change-password', payload),
 }

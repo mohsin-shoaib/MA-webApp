@@ -6,7 +6,11 @@ import Onboarding from '@/pages/onboarding/Onboarding'
 import Program from '@/pages/program/program'
 import AdminUserManagement from '@/pages/admin/user-management'
 import CoachHeadUserManagement from '@/pages/coach-head/user-management'
+import Profile from '@/pages/profile'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
+import { AuthRedirect } from '@/components/AuthRedirect'
+import { NotFound } from '@/components/NotFound'
+import { AppLayout } from '@/components/AppLayout'
 import { Navigate } from 'react-router-dom'
 
 export const routes = [
@@ -16,19 +20,35 @@ export const routes = [
   },
   {
     path: '/login',
-    element: <Login />,
+    element: (
+      <AuthRedirect>
+        <Login />
+      </AuthRedirect>
+    ),
   },
   {
     path: '/register',
-    element: <Register />,
+    element: (
+      <AuthRedirect>
+        <Register />
+      </AuthRedirect>
+    ),
   },
   {
     path: '/forgot-password',
-    element: <ForgotPassword />,
+    element: (
+      <AuthRedirect>
+        <ForgotPassword />
+      </AuthRedirect>
+    ),
   },
   {
     path: '/reset-password',
-    element: <ResetPassword />,
+    element: (
+      <AuthRedirect>
+        <ResetPassword />
+      </AuthRedirect>
+    ),
   },
   {
     path: '/onboarding',
@@ -42,7 +62,9 @@ export const routes = [
     path: '/create_program',
     element: (
       <ProtectedRoute allowedRoles={['COACH']}>
-        <Program />
+        <AppLayout>
+          <Program />
+        </AppLayout>
       </ProtectedRoute>
     ),
   },
@@ -50,7 +72,9 @@ export const routes = [
     path: '/admin/user-management',
     element: (
       <ProtectedRoute allowedRoles={['ADMIN']}>
-        <AdminUserManagement />
+        <AppLayout>
+          <AdminUserManagement />
+        </AppLayout>
       </ProtectedRoute>
     ),
   },
@@ -58,8 +82,24 @@ export const routes = [
     path: '/coach-head/user-management',
     element: (
       <ProtectedRoute allowedRoles={['COACH_HEAD']}>
-        <CoachHeadUserManagement />
+        <AppLayout>
+          <CoachHeadUserManagement />
+        </AppLayout>
       </ProtectedRoute>
     ),
+  },
+  {
+    path: '/profile',
+    element: (
+      <ProtectedRoute>
+        <AppLayout>
+          <Profile />
+        </AppLayout>
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '*',
+    element: <NotFound />,
   },
 ]
