@@ -7,9 +7,14 @@ import { authService } from '@/api/auth.service'
 import { useNavigate, Link } from 'react-router-dom'
 import { Stack } from '@/components/Stack'
 import AuthLayout from '../authLayout'
+import { useSnackbar } from '@/components/Snackbar/useSnackbar'
+import { useAuth } from '@/contexts/useAuth'
+import type { AxiosError } from 'axios'
 
 const Login = () => {
   const navigate = useNavigate()
+  const { showError } = useSnackbar()
+  const { login: setAuth } = useAuth()
   const {
     register,
     handleSubmit,
@@ -19,20 +24,36 @@ const Login = () => {
   const handleLogin = async (data: LoginProps) => {
     try {
       const response = await authService.login(data)
-      console.log('login response::', response.data.data)
-
       const { token, user } = response.data.data
 
-      localStorage.setItem('accessToken', token)
+      // Update auth context
+      setAuth(token, {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+      })
 
-      console.log('Logged in user:', user)
+      // Navigate based on user role
       if (user.role === 'ATHLETE') {
         navigate('/onboarding')
+      } else if (user.role === 'COACH') {
+        navigate('/create_program')
+      } else if (user.role === 'ADMIN') {
+        navigate('/admin/user-management')
+      } else if (user.role === 'COACH_HEAD') {
+        navigate('/coach-head/user-management')
+      } else {
+        // Default redirect for other roles
+        navigate('/')
       }
     } catch (error) {
-      console.error(error)
-      // show error message / toast
-      console.log('Api error::', error)
+      console.error('Login error:', error)
+      const axiosError = error as AxiosError<{ message: string }>
+      const errorMessage =
+        axiosError.response?.data?.message ||
+        'Login failed. Please check your credentials.'
+      showError(errorMessage)
     }
   }
   return (

@@ -7,8 +7,9 @@ import type { RegisterProps } from '@/types/auth'
 import { authService } from '@/api/auth.service'
 import AuthLayout from '../authLayout'
 import { Stack } from '@/components/Stack'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useSnackbar } from '@/components/Snackbar/useSnackbar'
+import { useAuth } from '@/contexts/useAuth'
 import type { AxiosError } from 'axios'
 
 interface FormValues extends RegisterProps {
@@ -16,7 +17,9 @@ interface FormValues extends RegisterProps {
 }
 
 const Register = () => {
+  const navigate = useNavigate()
   const { showSuccess, showError } = useSnackbar()
+  const { login: setAuth } = useAuth()
   const {
     register,
     handleSubmit,
@@ -53,11 +56,30 @@ const Register = () => {
 
       const { token, user } = response.data.data
 
-      localStorage.setItem('accessToken', token)
+      // Update auth context
+      setAuth(token, {
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        role: user.role,
+        rememberMe: user.rememberMe,
+      })
 
-      console.log('Register user:', user)
       showSuccess('Registration successful!')
-      // navigate("/dashboard")
+
+      // Navigate based on user role
+      if (user.role === 'ATHLETE') {
+        navigate('/onboarding')
+      } else if (user.role === 'COACH') {
+        navigate('/create_program')
+      } else if (user.role === 'ADMIN') {
+        navigate('/admin/user-management')
+      } else if (user.role === 'COACH_HEAD') {
+        navigate('/coach-head/user-management')
+      } else {
+        navigate('/')
+      }
     } catch (error) {
       console.error(error)
       // Show error message from API or default message
