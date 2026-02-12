@@ -1,164 +1,150 @@
-import { onboardingService } from '@/api/onboarding.service'
-import { Button } from '@/components/Button'
-import { Dropdown } from '@/components/Dropdown'
-import { Input } from '@/components/Input'
-import type { OnboardingProps } from '@/types/onboarding'
+// OnboardingForm.tsx
 import { useState } from 'react'
-import { useForm } from 'react-hook-form'
-const genderOptions = [
-  { label: 'FEMALE', value: 'FEMALE' },
-  { label: 'MALE', value: 'MALE' },
-]
+import { useForm, type SubmitHandler } from 'react-hook-form'
+import { Input } from '@/components/Input'
+import { Dropdown } from '@/components/Dropdown'
+import { Button } from '@/components/Button'
+import type { OnboardingProps } from '@/types/onboarding'
 
-const trainingExpOptions = [
-  { label: 'BEGINNER', value: 'BEGINNER' },
-  { label: 'INTERMEDIATE', value: 'INTERMEDIATE' },
-  { label: 'ADVANCE', value: 'ADVANCE' },
-]
-
-const equipmentOptions = [
-  { label: 'No Equipment (Bodyweight)', value: 'BODYWEIGHT' },
-  { label: 'Dumbbells', value: 'DUMBBELLS' },
-  { label: 'Barbell', value: 'BARBELL' },
-  { label: 'Kettle Bells', value: 'KETTLEBELLS' },
-  { label: 'Resistance Bands', value: 'RESISTANCE_BANDS' },
-  { label: 'Pull-up Bar', value: 'PULL_UP_BAR' },
-  { label: 'Bench', value: 'BENCH' },
-  { label: 'Squat Rack', value: 'SQUAT_RACK' },
-  { label: 'Cardio Machine', value: 'CARDIO_MACHINE' },
-]
 interface OnboardingFormProps {
-  onChange: (data: {
-    trainingExperience: string
-    primaryGoal: string
-    testDate: string
-  }) => void
+  initialValues?: Partial<OnboardingProps>
+  onSubmit: (data: OnboardingProps) => void
+  loading?: boolean
 }
 
-const OnboardingForm = ({ onChange }: OnboardingFormProps) => {
-  const [gender, setGender] = useState('')
-  const [trainingExp, setTrainingExp] = useState('')
-  const [equipment, setEquipment] = useState<string[]>([])
+export default function OnboardingForm({
+  initialValues,
+  onSubmit,
+  loading = false,
+}: OnboardingFormProps) {
+  const [gender, setGender] = useState(initialValues?.gender || '')
+  const [trainingExp, setTrainingExp] = useState(
+    initialValues?.trainingExperience || ''
+  )
+  const [equipment, setEquipment] = useState<string[]>(
+    initialValues?.equipment || []
+  )
+
+  const genderOptions = [
+    { label: 'Male', value: 'male' },
+    { label: 'Female', value: 'female' },
+    { label: 'Other', value: 'other' },
+  ]
+
+  const trainingExpOptions = [
+    { label: 'BEGINNER', value: 'BEGINNER' },
+    { label: 'INTERMEDIATE', value: 'INTERMEDIATE' },
+    { label: 'ADVANCED', value: 'ADVANCED' },
+  ]
+
+  const equipmentOptions = [
+    { label: 'Dumbbells', value: 'dumbbells' },
+    { label: 'Barbell', value: 'barbell' },
+    { label: 'Kettlebell', value: 'kettlebell' },
+    { label: 'Resistance Bands', value: 'resistance_bands' },
+  ]
+
   const {
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm<OnboardingProps>()
+  } = useForm<OnboardingProps>({
+    defaultValues: initialValues,
+  })
 
-  const handleOnboarding = async (onboardData: OnboardingProps) => {
-    try {
-      const payload = {
-        ...onboardData,
-        gender,
-        trainingExperience: trainingExp,
-        equipment,
-      }
-      const response = await onboardingService.createOnboarding(payload)
-      console.log('login response::', response.data.data)
-
-      const { onboarding } = response.data.data
-
-      const data = {
-        trainingExperience: onboarding.trainingExperience,
-        primaryGoal: onboarding.primaryGoal,
-        testDate: onboarding.testDate,
-      }
-
-      onChange(data)
-
-      console.log('successfully onboarded', onboarding)
-      alert('you are onboarded')
-      // navigate("/dashboard")
-    } catch (error) {
-      console.error(error)
-      // show error message / toast
-      console.log('Api error::', error)
-      alert('you are not onboarded')
-    }
+  const submitHandler: SubmitHandler<OnboardingProps> = data => {
+    onSubmit({
+      ...data,
+      gender,
+      trainingExperience: trainingExp,
+      equipment,
+    })
   }
 
   return (
-    <div className="space-y-3 mt-4">
-      <form onSubmit={handleSubmit(handleOnboarding)}>
-        <Input
-          label="Height"
-          required
-          placeholder="In inches"
-          error={errors.height?.message}
-          {...register('height', { required: 'This field is required' })}
-        />
-        <Input
-          label="Weight"
-          required
-          placeholder="In kg"
-          error={errors.weight?.message}
-          {...register('weight', { required: 'This field is required' })}
-        />
-        <Input
-          label="Age"
-          type="number"
-          required
-          error={errors.age?.message}
-          {...register('age', { required: 'This field is required' })}
-        />
+    <form onSubmit={handleSubmit(submitHandler)} className="space-y-4">
+      <Input
+        label="Height (in inches)"
+        type="number"
+        {...register('height', {
+          required: 'Height is required',
+          valueAsNumber: true,
+        })}
+        error={errors.height?.message}
+      />
+      <Input
+        label="Weight (in kg)"
+        type="number"
+        {...register('weight', {
+          required: 'Weight is required',
+          valueAsNumber: true,
+        })}
+        error={errors.weight?.message}
+      />
+      <Input
+        label="Age"
+        type="number"
+        {...register('age', {
+          required: 'Age is required',
+          valueAsNumber: true,
+        })}
+        error={errors.age?.message}
+      />
 
-        <Dropdown
-          label="Gender"
-          placeholder="Select gender"
-          value={gender}
-          error={errors.gender?.message}
-          onValueChange={v => setGender(v as string)}
-          options={genderOptions}
-          required
-          fullWidth
-        />
+      <Dropdown
+        label="Gender"
+        placeholder="Select gender"
+        value={gender}
+        onValueChange={v => setGender(v as string)}
+        options={genderOptions}
+        required
+        fullWidth
+        error={errors.gender?.message}
+      />
 
-        <Dropdown
-          label="Training Experience"
-          placeholder="Select experience"
-          value={trainingExp}
-          error={errors.trainingExperience?.message}
-          onValueChange={v => setTrainingExp(v as string)}
-          options={trainingExpOptions}
-          required
-          fullWidth
-        />
-        <Input
-          label="Primary Goal"
-          required
-          placeholder="Enter you Primary Goal"
-          error={errors.primaryGoal?.message}
-          {...register('primaryGoal', { required: 'This field is required' })}
-        />
-        <Input
-          label="Secondary Goal"
-          required
-          placeholder="Enter you Secondary Goal"
-          error={errors.secondaryGoal?.message}
-          {...register('secondaryGoal', { required: 'This field is required' })}
-        />
-        <Input
-          label="Test Date"
-          type="date"
-          error={errors.testDate?.message}
-          {...register('testDate', { required: 'Test date is required' })}
-        />
-        <Dropdown
-          label="Equipments"
-          placeholder="Select available equipments"
-          multiple
-          value={equipment}
-          error={errors.equipment?.message}
-          onValueChange={v => setEquipment(v as string[])}
-          options={equipmentOptions}
-          fullWidth
-        />
-        <Button variant="primary" type="submit" className="w-full mt-4">
-          On board
-        </Button>
-      </form>
-    </div>
+      <Dropdown
+        label="Training Experience"
+        placeholder="Select experience"
+        value={trainingExp}
+        onValueChange={v => setTrainingExp(v as string)}
+        options={trainingExpOptions}
+        required
+        fullWidth
+        error={errors.trainingExperience?.message}
+      />
+
+      <Input
+        label="Primary Goal"
+        {...register('primaryGoal', { required: 'Primary goal is required' })}
+        error={errors.primaryGoal?.message}
+      />
+      <Input
+        label="Secondary Goal"
+        {...register('secondaryGoal')}
+        error={errors.secondaryGoal?.message}
+      />
+
+      <Input
+        label="Test Date"
+        type="date"
+        {...register('testDate', { required: 'Test date is required' })}
+        error={errors.testDate?.message}
+      />
+
+      <Dropdown
+        label="Equipments"
+        placeholder="Select available equipments"
+        multiple
+        value={equipment}
+        onValueChange={v => setEquipment(v as string[])}
+        options={equipmentOptions}
+        fullWidth
+        error={errors.equipment?.message}
+      />
+
+      <Button type="submit" loading={loading}>
+        Submit
+      </Button>
+    </form>
   )
 }
-
-export default OnboardingForm
