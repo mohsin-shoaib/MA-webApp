@@ -4,6 +4,11 @@ import type {
   LoginResponse,
   RegisterProps,
   RegisterResponse,
+  ForgotPasswordProps,
+  ForgotPasswordResponse,
+  VerifyTokenResponse,
+  ResetPasswordProps,
+  ResetPasswordResponse,
 } from '@/types/auth'
 
 export const authService = {
@@ -16,4 +21,15 @@ export const authService = {
   logout: () => {
     localStorage.removeItem('accessToken')
   },
+
+  forgotPassword: (payload: ForgotPasswordProps) =>
+    api.post<ForgotPasswordResponse>('shared/auth/forgot-password', payload),
+
+  verifyResetToken: (token: string) =>
+    api.get<VerifyTokenResponse>('shared/auth/verify-reset-token', {
+      params: { token },
+    }),
+
+  resetPassword: (payload: ResetPasswordProps) =>
+    api.post<ResetPasswordResponse>('shared/auth/reset-password', payload),
 }
