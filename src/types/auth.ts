@@ -37,3 +37,32 @@ export interface RegisterResponse {
     }
   }
 }
+
+export interface ForgotPasswordProps {
+  email: string
+}
+
+export interface ForgotPasswordResponse {
+  data: {
+    message: string
+  }
+}
+
+export interface VerifyTokenResponse {
+  data: {
+    valid: boolean
+    message?: string
+  }
+}
+
+export interface ResetPasswordProps {
+  token: string
+  password: string
+  confirmPassword: string
+}
+
+export interface ResetPasswordResponse {
+  data: {
+    message: string
+  }
+}

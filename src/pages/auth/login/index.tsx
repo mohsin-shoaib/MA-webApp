@@ -4,7 +4,7 @@ import { Text } from '@/components/Text'
 import { useForm } from 'react-hook-form'
 import type { LoginProps } from '@/types/auth'
 import { authService } from '@/api/auth.service'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 
 const Login = () => {
   const navigate = useNavigate()
@@ -81,7 +81,7 @@ const Login = () => {
             variant="primary"
             className="text-right font-bold underline"
           >
-            <a href="/">Forgot Password?</a>
+            <Link to="/forgot-password">Forgot Password?</Link>
           </Text>
           <Button variant="primary" type="submit" className="w-full">
             Sign In
@@ -93,7 +93,7 @@ const Login = () => {
             Don't have an account?
           </Text>
           <Text as="span" variant="primary">
-            <a href="/register">Sign Up</a>
+            <Link to="/register">Sign Up</Link>
           </Text>
         </div>
       </div>
