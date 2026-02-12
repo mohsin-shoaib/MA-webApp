@@ -25,8 +25,8 @@ export interface OnboardingResponse {
       trainingExperience: string
       primaryGoal: string
       secondaryGoal: string
-      equipment: EquipmentAvailability[]
-      testDate: Date | null
+      equipment: string[]
+      testDate: string
       userId: number
     }
   }

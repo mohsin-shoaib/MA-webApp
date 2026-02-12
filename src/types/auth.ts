@@ -10,6 +10,7 @@ export interface LoginResponse {
       id: string
       email: string
       name: string
+      role: string
     }
   }
 }
@@ -19,7 +20,6 @@ export interface RegisterProps {
   lastName: string
   email: string
   password: string
-  confirmPassword: string
   role: string
   rememberMe: boolean
 }

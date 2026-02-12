@@ -4,8 +4,10 @@ import { Text } from '@/components/Text'
 import { useForm } from 'react-hook-form'
 import type { LoginProps } from '@/types/auth'
 import { authService } from '@/api/auth.service'
+import { useNavigate } from 'react-router-dom'
 
 const Login = () => {
+  const navigate = useNavigate()
   const {
     register,
     handleSubmit,
@@ -22,7 +24,9 @@ const Login = () => {
       localStorage.setItem('accessToken', token)
 
       console.log('Logged in user:', user)
-      // navigate("/dashboard")
+      if (user.role === 'ATHLETE') {
+        navigate('/onboarding')
+      }
     } catch (error) {
       console.error(error)
       // show error message / toast

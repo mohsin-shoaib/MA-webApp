@@ -27,8 +27,15 @@ const equipmentOptions = [
   { label: 'Squat Rack', value: 'SQUAT_RACK' },
   { label: 'Cardio Machine', value: 'CARDIO_MACHINE' },
 ]
+interface OnboardingFormProps {
+  onChange: (data: {
+    trainingExperience: string
+    primaryGoal: string
+    testDate: string
+  }) => void
+}
 
-const OnboardingForm = () => {
+const OnboardingForm = ({ onChange }: OnboardingFormProps) => {
   const [gender, setGender] = useState('')
   const [trainingExp, setTrainingExp] = useState('')
   const [equipment, setEquipment] = useState<string[]>([])
@@ -38,10 +45,10 @@ const OnboardingForm = () => {
     formState: { errors },
   } = useForm<OnboardingProps>()
 
-  const handleOnboarding = async (data: OnboardingProps) => {
+  const handleOnboarding = async (onboardData: OnboardingProps) => {
     try {
       const payload = {
-        ...data,
+        ...onboardData,
         gender,
         trainingExperience: trainingExp,
         equipment,
@@ -50,6 +57,14 @@ const OnboardingForm = () => {
       console.log('login response::', response.data.data)
 
       const { onboarding } = response.data.data
+
+      const data = {
+        trainingExperience: onboarding.trainingExperience,
+        primaryGoal: onboarding.primaryGoal,
+        testDate: onboarding.testDate,
+      }
+
+      onChange(data)
 
       console.log('successfully onboarded', onboarding)
       alert('you are onboarded')
@@ -122,7 +137,12 @@ const OnboardingForm = () => {
           error={errors.secondaryGoal?.message}
           {...register('secondaryGoal', { required: 'This field is required' })}
         />
-        <Input label="Test Date" type="date" placeholder="Enter you TestDate" />
+        <Input
+          label="Test Date"
+          type="date"
+          error={errors.testDate?.message}
+          {...register('testDate', { required: 'Test date is required' })}
+        />
         <Dropdown
           label="Equipments"
           placeholder="Select available equipments"

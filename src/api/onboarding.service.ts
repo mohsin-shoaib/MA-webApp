@@ -3,5 +3,5 @@ import api from './axios'
 
 export const onboardingService = {
   createOnboarding: (payload: OnboardingProps) =>
-    api.post<OnboardingResponse>('onboarding/create', payload),
+    api.post<OnboardingResponse>('create', payload),
 }

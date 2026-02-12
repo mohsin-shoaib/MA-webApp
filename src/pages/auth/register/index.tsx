@@ -5,21 +5,27 @@ import { useForm } from 'react-hook-form'
 import type { RegisterProps } from '@/types/auth'
 import { authService } from '@/api/auth.service'
 
+interface FormValues extends RegisterProps {
+  confirmPassword: string // only frontend use
+}
+
 const Register = () => {
   const {
     register,
     handleSubmit,
     formState: { errors },
     getValues,
-  } = useForm<RegisterProps>()
+  } = useForm<FormValues>()
 
-  const handleRegister = async (data: RegisterProps) => {
+  const handleRegister = async (data: FormValues) => {
     try {
-      const response = await authService.register(data)
+      const { confirmPassword, ...payload } = data
+      const response = await authService.register(payload)
       console.log('login response::', response.data.data)
 
       const { token, user } = response.data.data
 
+      localStorage.setItem('accessToken', confirmPassword)
       localStorage.setItem('accessToken', token)
 
       console.log('Register user:', user)
@@ -104,6 +110,7 @@ const Register = () => {
                 value === getValues('password') || 'Passwords do not match',
             })}
           />
+
           <Text as="p" variant="secondary" className="text-gray-600 text-left">
             By Clicking Create Account, You agree our Terms of Services and
             Privacy Policy
