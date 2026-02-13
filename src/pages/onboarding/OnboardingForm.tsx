@@ -1,19 +1,30 @@
 // OnboardingForm.tsx
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useForm, type SubmitHandler } from 'react-hook-form'
 import { Input } from '@/components/Input'
 import { Dropdown } from '@/components/Dropdown'
 import { Button } from '@/components/Button'
-import type { OnboardingProps, OnboardingResponse } from '@/types/onboarding'
+import { DatePicker } from '@/components/DatePicker'
+import type {
+  OnboardingProps,
+  OnboardingResponse,
+  CreateOnboardingDTO,
+  OnboardingResponseV2,
+} from '@/types/onboarding'
 import { onboardingService } from '@/api/onboarding.service'
+import { goalTypeService } from '@/api/goal-type.service'
+import type { GoalType } from '@/types/goal-type'
 import type { AxiosError } from 'axios'
 
 interface OnboardingFormProps {
-  onNext: (formData: OnboardingProps, response: OnboardingResponse) => void
-  loading: boolean
-  setLoading: (value: boolean) => void
-  setError: (value: string | null) => void
-  initialValues?: Partial<OnboardingProps>
+  readonly onNext: (
+    formData: OnboardingProps,
+    response: OnboardingResponse
+  ) => void
+  readonly loading: boolean
+  readonly setLoading: (value: boolean) => void
+  readonly setError: (value: string | null) => void
+  readonly initialValues?: Partial<OnboardingProps>
 }
 
 export default function OnboardingForm({
@@ -30,32 +41,130 @@ export default function OnboardingForm({
   const [equipment, setEquipment] = useState<string[]>(
     initialValues?.equipment || []
   )
+  const [eventDate, setEventDate] = useState<string>(
+    (initialValues as Partial<OnboardingProps & { eventDate?: string }>)
+      ?.eventDate || ''
+  )
+  const [primaryGoal, setPrimaryGoal] = useState<string>(
+    initialValues?.primaryGoal || ''
+  )
+  const [secondaryGoal, setSecondaryGoal] = useState<string>(
+    initialValues?.secondaryGoal || ''
+  )
+  const [goalTypes, setGoalTypes] = useState<GoalType[]>([])
+  const [loadingGoals, setLoadingGoals] = useState(false)
 
   const {
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm<OnboardingProps>({
-    defaultValues: initialValues,
+    setValue,
+  } = useForm<CreateOnboardingDTO>({
+    defaultValues: {
+      ...(initialValues as Partial<CreateOnboardingDTO>),
+      primaryGoal: initialValues?.primaryGoal || '',
+      secondaryGoal: initialValues?.secondaryGoal || '',
+    },
   })
 
-  const submitHandler: SubmitHandler<OnboardingProps> = async data => {
+  // Register primary and secondary goals for validation
+  useEffect(() => {
+    register('primaryGoal', { required: 'Primary goal is required' })
+    register('secondaryGoal', { required: 'Secondary goal is required' })
+  }, [register])
+
+  // Fetch goal types on mount
+  useEffect(() => {
+    const fetchGoalTypes = async () => {
+      try {
+        setLoadingGoals(true)
+        const response = await goalTypeService.getAll({ limit: 100 })
+        setGoalTypes(response.data.data.rows || [])
+      } catch (error) {
+        const axiosError = error as AxiosError<{ message: string }>
+        console.error(
+          'Failed to fetch goal types:',
+          axiosError.response?.data?.message || 'Unknown error'
+        )
+        // Continue with empty list - user can still type if needed
+        setGoalTypes([])
+      } finally {
+        setLoadingGoals(false)
+      }
+    }
+
+    fetchGoalTypes()
+  }, [])
+
+  const submitHandler: SubmitHandler<CreateOnboardingDTO> = async data => {
     setError(null)
     setLoading(true)
 
+    // Validate goals are selected
+    if (!primaryGoal) {
+      setError('Please select a primary goal')
+      setLoading(false)
+      setValue('primaryGoal', '', { shouldValidate: true })
+      return
+    }
+
+    if (!secondaryGoal) {
+      setError('Please select a secondary goal')
+      setLoading(false)
+      setValue('secondaryGoal', '', { shouldValidate: true })
+      return
+    }
+
     try {
-      const payload: OnboardingProps = {
+      const payload: CreateOnboardingDTO = {
         ...data,
         gender,
-        trainingExperience: trainingExp,
-        equipment,
+        trainingExperience: trainingExp as
+          | 'BEGINNER'
+          | 'INTERMEDIATE'
+          | 'ADVANCED',
+        primaryGoal: primaryGoal,
+        secondaryGoal: secondaryGoal,
+        equipment: equipment.length > 0 ? equipment : undefined,
+        eventDate: eventDate || undefined,
       }
 
-      const axiosResponse = await onboardingService.createOnboarding(payload)
-      const response: OnboardingResponse = axiosResponse.data // now TS is happy
+      // Use new service method
+      const axiosResponse = await onboardingService.createOnboardingV2(payload)
+      const response: OnboardingResponseV2 = axiosResponse.data
 
-      // Same pattern as Step1
-      onNext(payload, response)
+      // Convert to legacy format for backward compatibility
+      const legacyPayload: OnboardingProps & { eventDate?: string } = {
+        height: payload.height,
+        weight: payload.weight,
+        age: payload.age,
+        gender: payload.gender,
+        trainingExperience: payload.trainingExperience,
+        primaryGoal: payload.primaryGoal,
+        secondaryGoal: payload.secondaryGoal,
+        equipment: payload.equipment || [],
+        eventDate: payload.eventDate || '',
+      }
+
+      const legacyResponse: OnboardingResponse = {
+        data: {
+          onboarding: {
+            id: response.data.id,
+            height: response.data.height,
+            weight: response.data.weight,
+            age: response.data.age,
+            gender: response.data.gender,
+            trainingExperience: response.data.trainingExperience,
+            primaryGoal: response.data.primaryGoal,
+            secondaryGoal: response.data.secondaryGoal,
+            equipment: response.data.equipment || [],
+            testDate: response.data.testDate || response.data.eventDate || '',
+            userId: response.data.userId,
+          },
+        },
+      }
+
+      onNext(legacyPayload, legacyResponse)
     } catch (error) {
       const axiosError = error as AxiosError<{ message: string }>
       const errorMessage =
@@ -136,27 +245,65 @@ export default function OnboardingForm({
         fullWidth
       />
 
-      <Input
+      <Dropdown
         label="Primary Goal"
-        {...register('primaryGoal', {
-          required: 'Primary goal is required',
+        value={primaryGoal}
+        onValueChange={v => {
+          const value = v as string
+          setPrimaryGoal(value)
+          setValue('primaryGoal', value, { shouldValidate: true })
+        }}
+        options={goalTypes.map(gt => {
+          const categoryLabel = gt.category ? ` (${gt.category})` : ''
+          return {
+            label: `${gt.subCategory}${categoryLabel}`,
+            value: gt.subCategory,
+          }
         })}
+        required
+        fullWidth
+        disabled={loadingGoals}
+        placeholder={loadingGoals ? 'Loading goals...' : 'Select primary goal'}
         error={errors.primaryGoal?.message}
       />
 
-      <Input
+      <Dropdown
         label="Secondary Goal"
-        {...register('secondaryGoal')}
+        value={secondaryGoal}
+        onValueChange={v => {
+          const value = v as string
+          setSecondaryGoal(value)
+          setValue('secondaryGoal', value, { shouldValidate: true })
+        }}
+        options={goalTypes.map(gt => {
+          const categoryLabel = gt.category ? ` (${gt.category})` : ''
+          return {
+            label: `${gt.subCategory}${categoryLabel}`,
+            value: gt.subCategory,
+          }
+        })}
+        required
+        fullWidth
+        disabled={loadingGoals}
+        placeholder={
+          loadingGoals ? 'Loading goals...' : 'Select secondary goal'
+        }
         error={errors.secondaryGoal?.message}
       />
 
+      <DatePicker
+        label="Event Date"
+        value={eventDate}
+        onChange={date => setEventDate(date || '')}
+        helperText="Primary event date for training timeline and roadmap generation"
+        error={errors.eventDate?.message}
+      />
+
       <Input
-        label="Test Date"
-        type="date"
-        {...register('testDate', {
-          required: 'Test date is required',
-        })}
-        error={errors.testDate?.message}
+        label="Job/Role"
+        {...register('job')}
+        placeholder="e.g., Soldier"
+        error={errors.job?.message}
       />
 
       <Dropdown
