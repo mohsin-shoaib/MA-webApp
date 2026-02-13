@@ -8,6 +8,7 @@ interface User {
   lastName?: string
   role: string
   rememberMe?: boolean
+  profilePicture?: string
 }
 
 export interface AuthContextValue {

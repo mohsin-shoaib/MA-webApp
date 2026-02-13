@@ -9,7 +9,9 @@ export interface LoginResponse {
     user: {
       id: string
       email: string
-      name: string
+      name?: string
+      firstName?: string
+      lastName?: string
       role: string
     }
   }
@@ -62,6 +64,18 @@ export interface ResetPasswordProps {
 }
 
 export interface ResetPasswordResponse {
+  data: {
+    message: string
+  }
+}
+
+export interface ChangePasswordProps {
+  currentPassword: string
+  newPassword: string
+  confirmPassword: string
+}
+
+export interface ChangePasswordResponse {
   data: {
     message: string
   }

@@ -1,30 +1,349 @@
+import { useState, useEffect, useMemo } from 'react'
 import { Text } from '@/components/Text'
 import { Stack } from '@/components/Stack'
-import { useAuth } from '@/contexts/useAuth'
+import { DataTable, type Column } from '@/components/DataTable'
+import { Tabs } from '@/components/Tabs'
+import { adminService } from '@/api/admin.service'
+import { useSnackbar } from '@/components/Snackbar/useSnackbar'
+import type { User } from '@/types/admin'
+import { AxiosError } from 'axios'
+import { Avatar } from '@/components/Avatar'
+import { Badge } from '@/components/Badge'
 import { Button } from '@/components/Button'
+import { Icon } from '@/components/Icon'
+import { useAuth } from '@/contexts/useAuth'
 
 const UserManagement = () => {
-  const { user, logout } = useAuth()
+  const [activeTab, setActiveTab] = useState('all')
+  const [users, setUsers] = useState<User[]>([])
+  const [loading, setLoading] = useState(true)
+  const [updatingRoles, setUpdatingRoles] = useState<
+    Record<string | number, boolean>
+  >({})
+  const { showError, showSuccess } = useSnackbar()
+  const { user: currentUser } = useAuth()
+
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        setLoading(true)
+        const response = await adminService.getUsers()
+
+        // Extract users from response.data.data.rows
+        const usersData = response.data.data?.rows || []
+        setUsers(usersData)
+      } catch (error) {
+        const axiosError = error as AxiosError<{ message: string }>
+        const errorMessage =
+          axiosError.response?.data?.message ||
+          'Failed to load users. Please try again.'
+        showError(errorMessage)
+        setUsers([])
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchUsers()
+  }, [showError])
+
+  const handlePromoteToCoachHead = async (userId: string | number) => {
+    try {
+      setUpdatingRoles(prev => ({ ...prev, [userId]: true }))
+      await adminService.updateUserRole(userId, { role: 'COACH_HEAD' })
+      showSuccess('User role updated to Coach Head successfully')
+
+      // Refresh the user list
+      const response = await adminService.getUsers()
+      const usersData = response.data.data?.rows || []
+      setUsers(usersData)
+    } catch (error) {
+      const axiosError = error as AxiosError<{ message: string }>
+      const errorMessage =
+        axiosError.response?.data?.message ||
+        'Failed to update user role. Please try again.'
+      showError(errorMessage)
+    } finally {
+      setUpdatingRoles(prev => ({ ...prev, [userId]: false }))
+    }
+  }
+
+  // Filter users by role based on active tab
+  const filteredUsers = useMemo(() => {
+    if (activeTab === 'all') return users
+    return users.filter(user => {
+      const role = user.role?.toUpperCase()
+      switch (activeTab) {
+        case 'athletes':
+          return role === 'ATHLETE'
+        case 'coaches':
+          return role === 'COACH'
+        case 'coach_heads':
+          return role === 'COACH_HEAD'
+        case 'admins':
+          return role === 'ADMIN'
+        default:
+          return true
+      }
+    })
+  }, [users, activeTab])
+
+  // Calculate counts for each role
+  const roleCounts = useMemo(() => {
+    return {
+      all: users.length,
+      athletes: users.filter(u => u.role?.toUpperCase() === 'ATHLETE').length,
+      coaches: users.filter(u => u.role?.toUpperCase() === 'COACH').length,
+      coach_heads: users.filter(u => u.role?.toUpperCase() === 'COACH_HEAD')
+        .length,
+      admins: users.filter(u => u.role?.toUpperCase() === 'ADMIN').length,
+    }
+  }, [users])
+
+  const columns: Column<User>[] = [
+    {
+      key: 'profilePicture',
+      label: 'Avatar',
+      sortable: false,
+      width: '80px',
+      align: 'center',
+      render: (_value, row) => (
+        <Avatar
+          source={row.profilePicture}
+          name={row.name || row.email}
+          size="small"
+        />
+      ),
+    },
+    {
+      key: 'name',
+      label: 'Name',
+      sortable: true,
+      render: (_value, row) => {
+        const displayName =
+          row.name ||
+          [row.firstName, row.lastName].filter(Boolean).join(' ') ||
+          row.email
+        return (
+          <Text variant="default" className="text-sm font-medium">
+            {displayName}
+          </Text>
+        )
+      },
+    },
+    {
+      key: 'email',
+      label: 'Email',
+      sortable: true,
+      render: value => (
+        <Text variant="default" className="text-sm">
+          {value as string}
+        </Text>
+      ),
+    },
+    {
+      key: 'role',
+      label: 'Role',
+      sortable: true,
+      render: value => {
+        const role = (value as string) || 'N/A'
+        const roleColors: Record<
+          string,
+          'primary' | 'secondary' | 'success' | 'warning' | 'error'
+        > = {
+          ADMIN: 'primary',
+          COACH: 'success',
+          ATHLETE: 'secondary',
+          COACH_HEAD: 'warning',
+        }
+        return (
+          <Badge variant={roleColors[role.toUpperCase()] || 'secondary'}>
+            {role}
+          </Badge>
+        )
+      },
+    },
+    {
+      key: 'isActive',
+      label: 'Status',
+      sortable: true,
+      align: 'center',
+      render: (_value, row) => {
+        const isActive = row.isActive !== false // Default to true if not specified
+        return (
+          <Badge variant={isActive ? 'success' : 'error'}>
+            {isActive ? 'Active' : 'Inactive'}
+          </Badge>
+        )
+      },
+    },
+    {
+      key: 'createdAt',
+      label: 'Created At',
+      sortable: true,
+      render: value => {
+        if (!value) return <Text variant="muted">—</Text>
+        try {
+          const date = new Date(value as string)
+          return (
+            <Text variant="default" className="text-sm">
+              {date.toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+              })}
+            </Text>
+          )
+        } catch {
+          return <Text variant="muted">—</Text>
+        }
+      },
+    },
+    {
+      key: 'actions',
+      label: 'Actions',
+      sortable: false,
+      align: 'right',
+      width: '150px',
+      render: (_value, row) => {
+        // Only show promote button for COACH users and only if current user is ADMIN
+        const isCoach = row.role === 'COACH'
+        const isAdmin = currentUser?.role === 'ADMIN'
+        const isUpdating = updatingRoles[row.id] || false
+
+        if (!isCoach || !isAdmin) {
+          return <Text variant="muted">—</Text>
+        }
+
+        return (
+          <Button
+            variant="outline"
+            size="small"
+            onClick={() => handlePromoteToCoachHead(row.id)}
+            loading={isUpdating}
+            disabled={isUpdating}
+            leftIcon={<Icon name="arrow-up" family="solid" size={14} />}
+          >
+            Promote
+          </Button>
+        )
+      },
+    },
+  ]
+
+  const renderTable = (tableUsers: User[], title: string, total: number) => (
+    <div className="border border-light-gray rounded-xl bg-white overflow-hidden">
+      <div
+        className="flex items-center justify-between px-4 py-4 border-b"
+        style={{ borderColor: '#F3F4F6' }}
+      >
+        <Text variant="default" className="text-lg font-semibold">
+          {title}
+        </Text>
+        <Text variant="secondary" className="text-sm">
+          Total: {total} user{total === 1 ? '' : 's'}
+        </Text>
+      </div>
+      <DataTable<User>
+        data={tableUsers}
+        columns={columns}
+        loading={loading}
+        searchable={true}
+        searchPlaceholder="Search users by name, email, or role..."
+        paginated={true}
+        pageSize={10}
+        rowKey="id"
+        emptyMessage="No users found"
+        customSearchFilter={(row, searchTerm) => {
+          // Search in firstName
+          const firstName = row.firstName
+            ? String(row.firstName).toLowerCase()
+            : ''
+          // Search in lastName
+          const lastName = row.lastName
+            ? String(row.lastName).toLowerCase()
+            : ''
+          // Search in full name (firstName + lastName)
+          const fullName = `${firstName} ${lastName}`.trim()
+          // Search in email
+          const email = row.email ? String(row.email).toLowerCase() : ''
+          // Search in role
+          const role = row.role ? String(row.role).toLowerCase() : ''
+          // Search in name field if it exists
+          const name = row.name ? String(row.name).toLowerCase() : ''
+
+          return (
+            firstName.includes(searchTerm) ||
+            lastName.includes(searchTerm) ||
+            fullName.includes(searchTerm) ||
+            email.includes(searchTerm) ||
+            role.includes(searchTerm) ||
+            name.includes(searchTerm)
+          )
+        }}
+      />
+    </div>
+  )
+
+  const tabs = [
+    {
+      id: 'all',
+      label: 'All Users',
+      icon: 'users',
+      content: renderTable(filteredUsers, 'All Users', roleCounts.all),
+      badge: roleCounts.all > 0 ? roleCounts.all : undefined,
+    },
+    {
+      id: 'athletes',
+      label: 'Athletes',
+      icon: 'user',
+      content: renderTable(filteredUsers, 'Athletes', roleCounts.athletes),
+      badge: roleCounts.athletes > 0 ? roleCounts.athletes : undefined,
+    },
+    {
+      id: 'coaches',
+      label: 'Coaches',
+      icon: 'user',
+      content: renderTable(filteredUsers, 'Coaches', roleCounts.coaches),
+      badge: roleCounts.coaches > 0 ? roleCounts.coaches : undefined,
+    },
+    {
+      id: 'coach_heads',
+      label: 'Coach Heads',
+      icon: 'shield',
+      content: renderTable(
+        filteredUsers,
+        'Coach Heads',
+        roleCounts.coach_heads
+      ),
+      badge: roleCounts.coach_heads > 0 ? roleCounts.coach_heads : undefined,
+    },
+    {
+      id: 'admins',
+      label: 'Admins',
+      icon: 'cog',
+      content: renderTable(filteredUsers, 'Admins', roleCounts.admins),
+      badge: roleCounts.admins > 0 ? roleCounts.admins : undefined,
+    },
+  ]
 
   return (
-    <div className="min-h-screen p-8">
-      <Stack direction="vertical" spacing={16}>
-        <Stack direction="horizontal" justify="space-between" align="center">
-          <Text as="h1" variant="secondary" className="text-3xl font-bold">
-            User Management
-          </Text>
-          <Stack direction="horizontal" spacing={8} align="center">
-            <Text variant="muted">Welcome, {user?.email}</Text>
-            <Button variant="outline" onClick={logout}>
-              Logout
-            </Button>
-          </Stack>
-        </Stack>
-        <Text as="p" variant="muted">
-          Admin user management page - Coming soon
+    <Stack direction="vertical" spacing={16}>
+      <div>
+        <Text as="h1" variant="secondary" className="text-3xl font-bold">
+          User Management
         </Text>
-      </Stack>
-    </div>
+        <Text as="p" variant="muted" className="mt-2">
+          Manage and view all users in the system
+        </Text>
+      </div>
+      <Tabs
+        items={tabs}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        variant="default"
+      />
+    </Stack>
   )
 }
 
