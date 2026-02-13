@@ -5,11 +5,14 @@ import { Input } from '@/components/Input'
 import { Button } from '@/components/Button'
 import { Avatar } from '@/components/Avatar'
 import { Icon } from '@/components/Icon'
+import { ProgressBar } from '@/components/ProgressBar'
 import { useAuth } from '@/contexts/useAuth'
 import { useForm, Controller } from 'react-hook-form'
 import { authService } from '@/api/auth.service'
 import { userService } from '@/api/user.service'
 import { useSnackbar } from '@/components/Snackbar/useSnackbar'
+import { useProfilePictureUpload } from '@/hooks/useProfilePictureUpload'
+import { getProfilePicture } from '@/utils/profilePicture'
 import type { ChangePasswordProps } from '@/types/auth'
 import type { UpdateProfileProps } from '@/types/user'
 import { AxiosError } from 'axios'
@@ -21,9 +24,71 @@ const Profile = () => {
   const { showSuccess, showError } = useSnackbar()
   const [loading, setLoading] = useState(false)
   const [updateLoading, setUpdateLoading] = useState(false)
-  const [uploadingPicture, setUploadingPicture] = useState(false)
   const [previewImage, setPreviewImage] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Initialize preview image from user's profile picture
+  useEffect(() => {
+    const profilePic = getProfilePicture(user)
+    if (profilePic) {
+      setPreviewImage(profilePic)
+    }
+    console.log('Profile page - User object:', user)
+    console.log('Profile page - User profile picture:', getProfilePicture(user))
+  }, [user])
+
+  // Profile picture upload hook with presigned URL flow
+  const {
+    uploadAndUpdate,
+    uploading: uploadingPicture,
+    progress,
+    error: uploadError,
+    reset: resetUpload,
+  } = useProfilePictureUpload({
+    onSuccess: updatedUser => {
+      showSuccess('Profile picture updated successfully!')
+
+      // Normalize profile picture - handle both profileImageUrl and profilePicture
+      const normalizedProfilePicture =
+        updatedUser.profileImageUrl && updatedUser.profileImageUrl.trim() !== ''
+          ? updatedUser.profileImageUrl
+          : updatedUser.profilePicture &&
+              updatedUser.profilePicture.trim() !== ''
+            ? updatedUser.profilePicture
+            : undefined
+
+      console.log('Profile page - Updated user:', {
+        profileImageUrl: updatedUser.profileImageUrl,
+        profilePicture: updatedUser.profilePicture,
+        normalized: normalizedProfilePicture,
+      })
+
+      // Update user in auth context
+      const token = localStorage.getItem('accessToken')
+      if (token && updatedUser) {
+        login(token, {
+          id: updatedUser.id,
+          email: updatedUser.email,
+          name: updatedUser.name,
+          firstName: updatedUser.firstName,
+          lastName: updatedUser.lastName,
+          role: updatedUser.role,
+          profilePicture: normalizedProfilePicture,
+        })
+      }
+
+      // Clear preview and file input
+      setPreviewImage(null)
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
+    },
+    onError: error => {
+      showError(
+        error.message || 'Failed to upload profile picture. Please try again.'
+      )
+    },
+  })
 
   // Change Password Form
   const {
@@ -91,15 +156,19 @@ const Profile = () => {
       if (response.data.data.user) {
         const token = localStorage.getItem('accessToken')
         if (token) {
+          const updatedUser = response.data.data.user
           login(token, {
-            id: response.data.data.user.id,
-            email: response.data.data.user.email,
-            name: response.data.data.user.name,
-            firstName: response.data.data.user.firstName,
-            lastName: response.data.data.user.lastName,
-            role: response.data.data.user.role,
+            id: updatedUser.id,
+            email: updatedUser.email,
+            name: updatedUser.name,
+            firstName: updatedUser.firstName,
+            lastName: updatedUser.lastName,
+            role: updatedUser.role,
+            // Use profileImageUrl if available, otherwise fallback to profilePicture
             profilePicture:
-              response.data.data.user.profilePicture || user?.profilePicture,
+              updatedUser.profileImageUrl ||
+              updatedUser.profilePicture ||
+              user?.profilePicture,
           })
         }
       }
@@ -117,18 +186,6 @@ const Profile = () => {
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (file) {
-      // Validate file type
-      if (!file.type.startsWith('image/')) {
-        showError('Please select a valid image file')
-        return
-      }
-
-      // Validate file size (max 5MB)
-      if (file.size > 5 * 1024 * 1024) {
-        showError('Image size should be less than 5MB')
-        return
-      }
-
       // Create preview
       const reader = new FileReader()
       reader.onloadend = () => {
@@ -145,48 +202,18 @@ const Profile = () => {
       return
     }
 
-    setUploadingPicture(true)
-
     try {
-      const response = await userService.uploadProfilePicture(file)
-      showSuccess(
-        response.data.data.message || 'Profile picture updated successfully!'
-      )
-
-      // Update user in auth context
-      if (response.data.data.user) {
-        const token = localStorage.getItem('accessToken')
-        if (token) {
-          login(token, {
-            id: response.data.data.user.id,
-            email: response.data.data.user.email,
-            name: response.data.data.user.name,
-            firstName: response.data.data.user.firstName,
-            lastName: response.data.data.user.lastName,
-            role: response.data.data.user.role,
-            profilePicture: response.data.data.user.profilePicture,
-          })
-        }
-      }
-
-      // Clear preview and file input
-      setPreviewImage(null)
-      if (fileInputRef.current) {
-        fileInputRef.current.value = ''
-      }
+      // Upload and update profile using presigned URL flow
+      await uploadAndUpdate(file)
     } catch (error) {
-      const axiosError = error as AxiosError<{ message: string }>
-      const errorMessage =
-        axiosError.response?.data?.message ||
-        'Failed to upload profile picture. Please try again.'
-      showError(errorMessage)
-    } finally {
-      setUploadingPicture(false)
+      // Error is handled by the hook's onError callback
+      console.error('Upload error:', error)
     }
   }
 
   const handleRemovePreview = () => {
     setPreviewImage(null)
+    resetUpload()
     if (fileInputRef.current) {
       fileInputRef.current.value = ''
     }
@@ -206,65 +233,89 @@ const Profile = () => {
         <Stack direction="vertical" spacing={16} align="start">
           <div className="flex items-center gap-6">
             <Avatar
-              source={previewImage || user?.profilePicture}
+              source={previewImage || getProfilePicture(user)}
               name={user?.name || user?.firstName || user?.email || 'User'}
               size="xlarge"
               showBorder
               borderVariant="primary"
             />
-            <Stack direction="vertical" spacing={8}>
+            <Stack direction="vertical" spacing={8} className="flex-1">
               <Text variant="muted" className="text-sm">
                 Upload a new profile picture
               </Text>
-              <div className="flex items-center gap-3">
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleFileChange}
-                  className="hidden"
-                  id="profile-picture-input"
-                />
-                <label
-                  htmlFor="profile-picture-input"
-                  className={cn(
-                    'px-4 py-2 rounded-lg cursor-pointer',
-                    'border-2 border-primary text-primary',
-                    'hover:bg-primary hover:text-white',
-                    'transition-colors duration-200',
-                    'flex items-center gap-2'
-                  )}
-                >
-                  <Icon
-                    name="image"
-                    family="solid"
-                    size={16}
-                    variant="default"
+              <div className="flex flex-col gap-3">
+                <div className="flex items-center gap-3">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    onChange={handleFileChange}
+                    className="hidden"
+                    id="profile-picture-input"
+                    disabled={uploadingPicture}
                   />
-                  <Text variant="default" className="text-sm font-medium">
-                    Choose Image
-                  </Text>
-                </label>
-                {previewImage && (
-                  <>
-                    <Button
-                      type="button"
+                  <label
+                    htmlFor="profile-picture-input"
+                    className={cn(
+                      'px-4 py-2 rounded-lg cursor-pointer',
+                      'border-2 border-primary text-primary',
+                      'hover:bg-primary hover:text-white',
+                      'transition-colors duration-200',
+                      'flex items-center gap-2',
+                      uploadingPicture && 'opacity-50 cursor-not-allowed'
+                    )}
+                  >
+                    <Icon
+                      name="image"
+                      family="solid"
+                      size={16}
+                      variant="default"
+                    />
+                    <Text variant="default" className="text-sm font-medium">
+                      Choose Image
+                    </Text>
+                  </label>
+                  {previewImage && (
+                    <>
+                      <Button
+                        type="button"
+                        variant="primary"
+                        onClick={handleUploadProfilePicture}
+                        loading={uploadingPicture}
+                        disabled={uploadingPicture}
+                      >
+                        Upload
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        onClick={handleRemovePreview}
+                        disabled={uploadingPicture}
+                      >
+                        Cancel
+                      </Button>
+                    </>
+                  )}
+                </div>
+
+                {/* Progress Bar */}
+                {uploadingPicture && progress && (
+                  <div className="w-full max-w-md">
+                    <ProgressBar
+                      progress={progress.percent}
+                      showPercentage={true}
                       variant="primary"
-                      onClick={handleUploadProfilePicture}
-                      loading={uploadingPicture}
-                      disabled={uploadingPicture}
-                    >
-                      Upload
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      onClick={handleRemovePreview}
-                      disabled={uploadingPicture}
-                    >
-                      Cancel
-                    </Button>
-                  </>
+                      size="medium"
+                      label="Uploading..."
+                    />
+                  </div>
+                )}
+
+                {/* Error Message */}
+                {uploadError && !uploadingPicture && (
+                  <div className="text-error text-sm">
+                    {uploadError.message}
+                  </div>
                 )}
               </div>
             </Stack>

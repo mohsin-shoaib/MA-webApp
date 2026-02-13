@@ -7,6 +7,7 @@ import { useNavigate } from 'react-router-dom'
 import { useState, useRef, useEffect } from 'react'
 import { cn } from '@/utils/cn'
 import { BrandColors } from '@/constants/theme'
+import { getProfilePicture } from '@/utils/profilePicture'
 import logoImage from '@/assets/images/logo/logo.svg'
 
 /**
@@ -22,6 +23,11 @@ export function Header() {
   const menuRef = useRef<HTMLDivElement>(null)
 
   const userDisplayName = user?.name || user?.firstName || user?.email || 'User'
+
+  // Debug: Log profile picture value
+  useEffect(() => {
+    console.log('Header - User profile picture:', user?.profilePicture)
+  }, [user?.profilePicture])
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -83,6 +89,7 @@ export function Header() {
           aria-label="User menu"
         >
           <Avatar
+            source={getProfilePicture(user)}
             name={userDisplayName}
             size="medium"
             showBorder
