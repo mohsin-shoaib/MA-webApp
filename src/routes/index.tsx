@@ -6,6 +6,7 @@ import Onboarding from '@/pages/onboarding/Onboarding'
 import Program from '@/pages/program/program'
 import AdminUserManagement from '@/pages/admin/user-management'
 import CoachHeadUserManagement from '@/pages/coach-head/user-management'
+import CoachUserManagement from '@/pages/coach/user-management'
 import Profile from '@/pages/profile'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 import { AuthRedirect } from '@/components/AuthRedirect'
@@ -64,6 +65,16 @@ export const routes = [
       <ProtectedRoute allowedRoles={['COACH']}>
         <AppLayout>
           <Program />
+        </AppLayout>
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/coach/user-management',
+    element: (
+      <ProtectedRoute allowedRoles={['COACH']}>
+        <AppLayout>
+          <CoachUserManagement />
         </AppLayout>
       </ProtectedRoute>
     ),

@@ -37,6 +37,12 @@ export function Sidebar() {
       roles: ['COACH'],
     },
     {
+      path: '/coach/user-management',
+      label: 'Athlete Management',
+      icon: 'users',
+      roles: ['COACH'],
+    },
+    {
       path: '/admin/user-management',
       label: 'User Management',
       icon: 'users',
