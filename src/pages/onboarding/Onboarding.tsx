@@ -88,15 +88,22 @@ export default function OnboardingFlow() {
   // ------------------------------
   // Step Navigation
   // ------------------------------
-  const goToStep = (step: number) => {
+  const goToStep = (stepIndex: number) => {
+    // Stepper passes 0-based index, convert to 1-based
+    const step = (stepIndex + 1) as StepIndex
     if (step >= 1 && step <= currentStep) {
-      setCurrentStep(step as StepIndex)
+      setCurrentStep(step)
     }
   }
 
   return (
     <div className="max-w-2xl mx-auto p-6">
-      <Stepper steps={STEPS} activeStep={currentStep} onStepClick={goToStep} />
+      <Stepper
+        steps={STEPS}
+        activeStep={currentStep - 1}
+        onStepClick={goToStep}
+        clickable
+      />
 
       <div className="mt-6">
         {error && (
