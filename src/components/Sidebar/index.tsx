@@ -49,6 +49,12 @@ export function Sidebar() {
       roles: ['ADMIN'],
     },
     {
+      path: '/admin/goal-types',
+      label: 'Goal Types',
+      icon: 'bullseye',
+      roles: ['ADMIN'],
+    },
+    {
       path: '/coach-head/user-management',
       label: 'User Management',
       icon: 'users',

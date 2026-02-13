@@ -5,6 +5,7 @@ import ResetPassword from '@/pages/auth/reset-password'
 import Onboarding from '@/pages/onboarding/Onboarding'
 import Program from '@/pages/program/program'
 import AdminUserManagement from '@/pages/admin/user-management'
+import AdminGoalTypes from '@/pages/admin/goal-types'
 import CoachHeadUserManagement from '@/pages/coach-head/user-management'
 import CoachUserManagement from '@/pages/coach/user-management'
 import Profile from '@/pages/profile'
@@ -85,6 +86,16 @@ export const routes = [
       <ProtectedRoute allowedRoles={['ADMIN']}>
         <AppLayout>
           <AdminUserManagement />
+        </AppLayout>
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/admin/goal-types',
+    element: (
+      <ProtectedRoute allowedRoles={['ADMIN']}>
+        <AppLayout>
+          <AdminGoalTypes />
         </AppLayout>
       </ProtectedRoute>
     ),
