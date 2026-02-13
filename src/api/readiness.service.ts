@@ -1,19 +1,25 @@
 import type {
-  ConfirmProps,
-  ConfirmResponse,
-  ReadinessProps,
-  RecommendationResponse,
-  SelectionProps,
+  EvaluateReadinessDTO,
+  ReadinessRecommendationResponse,
 } from '@/types/readiness'
 import api from './axios'
 
 export const readinessService = {
-  readinessRecommendation: (payload: ReadinessProps) =>
-    api.post<RecommendationResponse>('cycle/readiness/recommendation', payload),
+  // New methods for recommendation flow
+  /**
+   * Get current readiness recommendation for authenticated athlete
+   */
+  getReadinessRecommendation: () =>
+    api.get<ReadinessRecommendationResponse>(
+      'athlete/readiness/recommendation'
+    ),
 
-  confirmation: (payload: ConfirmProps) =>
-    api.post<ConfirmResponse>('cycle/confirm', payload),
-
-  readinessSelection: (payload: SelectionProps) =>
-    api.post<ConfirmResponse>('cycle/readiness/selection', payload),
+  /**
+   * Evaluate readiness with custom inputs (preview mode)
+   */
+  evaluateReadiness: (data: EvaluateReadinessDTO) =>
+    api.post<ReadinessRecommendationResponse>(
+      'athlete/readiness/evaluate',
+      data
+    ),
 }

@@ -1,20 +1,19 @@
 // ConfirmationStep.tsx
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Text } from '@/components/Text'
 import { Button } from '@/components/Button'
-import { readinessService } from '@/api/readiness.service'
-import type {
-  ConfirmProps,
-  ConfirmResponse,
-  SelectionProps,
-} from '@/types/readiness'
+import { Card } from '@/components/Card'
+import { Modal } from '@/components/Modal'
+import { cycleTransitionService } from '@/api/cycle-transition.service'
+import type { ReadinessRecommendation } from '@/types/readiness'
+import type { CycleTransitionResponse } from '@/types/cycle-transition'
 import { Dropdown } from '@/components/Dropdown'
 import type { AxiosError } from 'axios'
 
 interface ConfirmationStepProps {
   recommendedCycle: string
-  primaryGoal: string
-  onComplete: (response: ConfirmResponse['data']) => void
+  recommendation?: ReadinessRecommendation // Optional new recommendation data
+  onComplete: (response: CycleTransitionResponse['data']) => void
   loading: boolean
   setLoading: (value: boolean) => void
   setError: (value: string | null) => void
@@ -22,7 +21,7 @@ interface ConfirmationStepProps {
 
 export default function ConfirmationStep({
   recommendedCycle,
-  primaryGoal,
+  recommendation,
   onComplete,
   loading,
   setLoading,
@@ -31,138 +30,179 @@ export default function ConfirmationStep({
   const [showModal, setShowModal] = useState(false)
   const [cycleName, setCycleName] = useState('')
 
-  const handleConfirm = async (confirmed: boolean) => {
-    if (confirmed) {
-      setError(null)
-      setLoading(true)
+  // Ensure modal is closed when component mounts
+  useEffect(() => {
+    setShowModal(false)
+    setCycleName('')
+  }, [])
 
-      try {
-        const payload: ConfirmProps = {
-          cycle: recommendedCycle,
-          confirmed: true,
-        }
+  const handleConfirmRecommended = async (e?: React.MouseEvent) => {
+    e?.preventDefault()
+    e?.stopPropagation()
 
-        const response = await readinessService.confirmation(payload)
-
-        onComplete(response.data.data)
-      } catch (error) {
-        const axiosError = error as AxiosError<{ message: string }>
-        const errorMessage =
-          axiosError.response?.data?.message || 'Confirmation failed.'
-        setError(errorMessage)
-        console.error(errorMessage)
-        setError(errorMessage)
-      } finally {
-        setLoading(false)
-      }
-    } else {
-      setShowModal(true)
-    }
-  }
-
-  const handleSelection = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-
+    // Ensure modal is closed
+    setShowModal(false)
     setError(null)
     setLoading(true)
-    setShowModal(false)
 
     try {
-      const payload: SelectionProps = {
-        primaryGoal,
-        cycleName,
+      // Use new API
+      if (!recommendation) {
+        throw new Error('No recommendation available')
       }
 
-      const response = await readinessService.readinessSelection(payload)
+      const response = await cycleTransitionService.confirmCycleTransition({
+        cycleName: recommendation.recommendedCycle,
+        programId: recommendation.recommendedProgramId || undefined,
+      })
 
-      onComplete(response.data.data)
+      // Axios wraps the response, so data is in response.data
+      const apiResponse = response.data
+      if (apiResponse.statusCode === 200 && apiResponse.data) {
+        // Ensure modal is closed before completing
+        setShowModal(false)
+        onComplete(apiResponse.data)
+      } else {
+        throw new Error(apiResponse.message || 'Failed to confirm cycle')
+      }
     } catch (error) {
       const axiosError = error as AxiosError<{ message: string }>
       const errorMessage =
-        axiosError.response?.data?.message || 'Selection failed.'
+        axiosError.response?.data?.message ||
+        axiosError.message ||
+        'Confirmation failed.'
       setError(errorMessage)
-      console.error(errorMessage)
+      console.error('Confirmation error:', errorMessage, error)
+      // Ensure modal stays closed on error
+      setShowModal(false)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleSelectAlternative = async () => {
+    if (!cycleName) {
+      setError('Please select a cycle')
+      return
+    }
+
+    setError(null)
+    setLoading(true)
+    // Close modal immediately when user confirms selection
+    setShowModal(false)
+
+    try {
+      // Use new API
+      const response = await cycleTransitionService.confirmCycleTransition({
+        cycleName: cycleName,
+        programId: undefined, // Will be determined by backend
+      })
+
+      // Axios wraps the response, so data is in response.data
+      const apiResponse = response.data
+      if (apiResponse.statusCode === 200 && apiResponse.data) {
+        // Ensure modal stays closed and navigate to next step
+        setShowModal(false)
+        setCycleName('') // Reset cycle name
+        onComplete(apiResponse.data)
+      } else {
+        throw new Error(apiResponse.message || 'Failed to confirm cycle')
+      }
+    } catch (error) {
+      const axiosError = error as AxiosError<{ message: string }>
+      const errorMessage =
+        axiosError.response?.data?.message ||
+        axiosError.message ||
+        'Selection failed.'
       setError(errorMessage)
+      console.error('Selection error:', errorMessage, error)
+      // Keep modal closed on error - user can click "Choose Another" again if needed
+      setShowModal(false)
     } finally {
       setLoading(false)
     }
   }
 
   const cycleOptions = [
-    { label: 'Red Cycle', value: 'Red Cycle' },
-    { label: 'Amber Cycle', value: 'Amber Cycle' },
-    { label: 'Green Cycle', value: 'Green Cycle' },
+    { label: 'Red Cycle', value: 'Red' },
+    { label: 'Amber Cycle', value: 'Amber' },
+    { label: 'Green Cycle', value: 'Green' },
   ]
 
   return (
-    <div className="text-center space-y-6 p-6 border rounded">
-      <Text variant="primary" className="text-2xl font-semibold">
-        Confirm Your Recommended Cycle
-      </Text>
-
-      <div className="border rounded p-4 bg-gray-50">
-        <Text variant="default" className="font-semibold">
-          {recommendedCycle}
+    <div className="space-y-6">
+      <Card className="p-6 border-2 border-blue-500">
+        <Text variant="primary" className="text-2xl font-semibold mb-4">
+          Recommended: {recommendedCycle} Cycle
         </Text>
-      </div>
-
-      <div className="flex justify-center gap-4">
-        <Button
-          variant="secondary"
-          onClick={() => handleConfirm(false)}
-          disabled={loading}
-        >
-          No, choose another
-        </Button>
-
-        <Button onClick={() => handleConfirm(true)} loading={loading}>
-          Confirm Cycle
-        </Button>
-      </div>
-
-      {/* Selection Modal */}
-      {showModal && (
-        <div
-          className="fixed inset-0 flex items-center justify-center bg-black/40"
-          onClick={() => setShowModal(false)}
-        >
-          <div
-            className="bg-white rounded p-6 w-96 space-y-4"
-            onClick={e => e.stopPropagation()}
+        {recommendation && (
+          <Text variant="secondary" className="mb-4">
+            {recommendation.reason}
+          </Text>
+        )}
+        <div className="flex gap-4">
+          <Button
+            type="button"
+            onClick={handleConfirmRecommended}
+            disabled={loading}
+            loading={loading}
+            className="flex-1"
           >
-            <Text variant="primary" className="font-semibold">
-              Select Another Cycle
-            </Text>
-
-            <form onSubmit={handleSelection} className="space-y-4">
-              <div>
-                <Dropdown
-                  label="Selet Cycle"
-                  value={cycleName}
-                  onValueChange={v => setCycleName(v as string)}
-                  options={cycleOptions}
-                  required
-                  fullWidth
-                />
-              </div>
-
-              <div className="flex justify-end gap-3">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={() => setShowModal(false)}
-                >
-                  Cancel
-                </Button>
-
-                <Button type="submit" loading={loading}>
-                  Select Cycle
-                </Button>
-              </div>
-            </form>
-          </div>
+            {loading ? 'Confirming...' : 'Confirm Cycle'}
+          </Button>
+          <Button
+            type="button"
+            onClick={() => {
+              setShowModal(true)
+            }}
+            disabled={loading}
+            variant="secondary"
+            className="flex-1"
+          >
+            No, Choose Another
+          </Button>
         </div>
-      )}
+      </Card>
+
+      <Modal
+        visible={showModal && !loading}
+        onClose={() => {
+          if (!loading) {
+            setShowModal(false)
+            setCycleName('')
+          }
+        }}
+        title="Select Alternative Cycle"
+        primaryAction={{
+          label: loading ? 'Confirming...' : 'Confirm Selection',
+          onPress: handleSelectAlternative,
+          loading: loading,
+          disabled: !cycleName || loading,
+        }}
+        secondaryAction={{
+          label: 'Cancel',
+          onPress: () => {
+            if (!loading) {
+              setShowModal(false)
+              setCycleName('')
+            }
+          },
+          disabled: loading,
+        }}
+        closeOnBackdropPress={!loading}
+        closeOnEscape={!loading}
+      >
+        <div className="space-y-4">
+          <Dropdown
+            label="Select Cycle"
+            value={cycleName}
+            onValueChange={v => setCycleName(v as string)}
+            options={cycleOptions}
+            required
+            fullWidth
+          />
+        </div>
+      </Modal>
     </div>
   )
 }

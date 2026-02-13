@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Stepper, type StepperStep } from '@/components/Stepper'
 import OnboardingForm from './OnboardingForm'
 import RecommendationStep from './Readiness'
@@ -6,8 +7,12 @@ import ConfirmationStep from './confirmation'
 import RoadmapStep from './Roadmap'
 
 import type { OnboardingProps } from '@/types/onboarding'
-import type { ConfirmationResponse, ConfirmProps } from '@/types/readiness'
+import type { ConfirmProps, ReadinessRecommendation } from '@/types/readiness'
 import type { RoadmapProps } from '@/types/roadmap'
+import type {
+  CycleTransitionResponse,
+  CycleTransition,
+} from '@/types/cycle-transition'
 
 type StepIndex = 1 | 2 | 3 | 4
 
@@ -19,11 +24,14 @@ const STEPS: StepperStep[] = [
 ]
 
 export default function OnboardingFlow() {
+  const navigate = useNavigate()
   const [currentStep, setCurrentStep] = useState<StepIndex>(1)
 
   const [onboardData, setOnboardData] = useState<OnboardingProps | null>(null)
 
   const [recommendedCycle, setRecommendedCycle] = useState<string | null>(null)
+  const [recommendation, setRecommendation] =
+    useState<ReadinessRecommendation | null>(null)
 
   const [confirmed, setConfirmed] = useState<boolean | null>(null)
 
@@ -55,34 +63,70 @@ export default function OnboardingFlow() {
     setCurrentStep(3)
   }
 
+  // Store recommendation data from Readiness component
+  // This is called when Readiness component fetches recommendation
+  // We'll need to update Readiness component to pass this data
+
   // ------------------------------
   // Step 3 → Confirm
   // ------------------------------
   const handleStep3Confirm = (
     didConfirm: boolean,
-    responseData: ConfirmationResponse
+    responseData: CycleTransitionResponse['data']
   ) => {
     setConfirmed(didConfirm)
 
-    /**
-     * Build roadmap payload from confirmation response
-     * Adjust mapping based on your backend response
-     */
-    const payload: RoadmapProps = {
-      // goalId: responseData.goalId,
-      currentCycleId: responseData.cycle_details.id,
-
-      primaryGoalStart: responseData.start_date,
-      primaryGoalEnd: responseData.start_date,
-      sustainmentStart: responseData.start_date,
-
-      timeline: {},
-      dailyExercise: {},
+    // Handle new API response (CycleTransition)
+    if (Array.isArray(responseData)) {
+      // If array, take first transition
+      const transition = responseData[0]
+      if (transition?.toCycleId) {
+        const payload: RoadmapProps = {
+          currentCycleId: transition.toCycleId,
+          primaryGoalStart: transition.requestedAt,
+          primaryGoalEnd: transition.requestedAt,
+          sustainmentStart: transition.requestedAt,
+          timeline: {},
+          dailyExercise: {},
+        }
+        setRoadmapPayload(payload)
+        setError(null)
+        setCurrentStep(4)
+        return
+      }
+    } else if (
+      responseData &&
+      typeof responseData === 'object' &&
+      'toCycleId' in responseData
+    ) {
+      // Single CycleTransition object
+      const transition = responseData as CycleTransition
+      const payload: RoadmapProps = {
+        currentCycleId: transition.toCycleId,
+        primaryGoalStart: transition.requestedAt || new Date().toISOString(),
+        primaryGoalEnd: transition.requestedAt || new Date().toISOString(),
+        sustainmentStart: transition.requestedAt || new Date().toISOString(),
+        timeline: {},
+        dailyExercise: {},
+      }
+      setRoadmapPayload(payload)
+      setError(null)
+      setCurrentStep(4)
+      return
     }
 
-    setRoadmapPayload(payload)
-    setError(null)
-    setCurrentStep(4)
+    // If we reach here, the response format is unexpected
+    console.error('Unexpected response format:', responseData)
+    setError('Invalid response format. Please try again.')
+  }
+
+  // ------------------------------
+  // Step 4 → Complete
+  // ------------------------------
+  const handleComplete = () => {
+    // Navigate to profile after onboarding completion
+    // Dashboard route can be added later if needed
+    navigate('/profile')
   }
 
   // ------------------------------
@@ -127,6 +171,7 @@ export default function OnboardingFlow() {
           <RecommendationStep
             onboardingData={onboardData}
             onConfirm={handleStep2Next}
+            onRecommendationFetched={setRecommendation}
             loading={loading}
             setLoading={setLoading}
             setError={setError}
@@ -137,8 +182,8 @@ export default function OnboardingFlow() {
         {currentStep === 3 && recommendedCycle && (
           <ConfirmationStep
             recommendedCycle={recommendedCycle}
-            primaryGoal={onboardData?.primaryGoal ?? ''}
-            onComplete={(data: ConfirmationResponse) =>
+            recommendation={recommendation || undefined}
+            onComplete={(data: CycleTransitionResponse['data']) =>
               handleStep3Confirm(true, data)
             }
             loading={loading}
@@ -148,13 +193,14 @@ export default function OnboardingFlow() {
         )}
 
         {/* Step 4 */}
-        {currentStep === 4 && roadmapPayload && (
+        {currentStep === 4 && (
           <RoadmapStep
-            payload={roadmapPayload}
+            payload={roadmapPayload || undefined}
             confirmed={confirmed}
             loading={loading}
             setLoading={setLoading}
             setError={setError}
+            onComplete={handleComplete}
           />
         )}
       </div>
