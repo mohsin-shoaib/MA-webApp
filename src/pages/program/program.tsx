@@ -2,7 +2,11 @@ import { programService } from '@/api/program.service'
 import { Button } from '@/components/Button'
 import { Input } from '@/components/Input'
 import { Text } from '@/components/Text'
-import type { ProgramProps } from '@/types/program'
+import type {
+  CreateProgramDTO,
+  DailyExerciseDTO,
+  ExerciseDTO,
+} from '@/types/program'
 import { useFieldArray, useForm } from 'react-hook-form'
 
 const Program = () => {
@@ -11,9 +15,9 @@ const Program = () => {
     handleSubmit,
     control,
     formState: { errors },
-  } = useForm<ProgramProps>()
+  } = useForm<CreateProgramDTO>()
 
-  const handleProgram = async (payload: ProgramProps) => {
+  const handleProgram = async (payload: CreateProgramDTO) => {
     try {
       const response = await programService.createProgram(payload)
       console.log('login response::', response.data)
@@ -28,18 +32,13 @@ const Program = () => {
     }
   }
 
-  const { fields, append, remove } = useFieldArray({
-    control,
-    name: 'alternateExercise',
-  })
-
   const {
     fields: exerciseFields,
     append: appendExercise,
     remove: removeExercise,
   } = useFieldArray({
     control,
-    name: 'dailyExercise',
+    name: 'dailyExercises',
   })
 
   return (
@@ -52,16 +51,20 @@ const Program = () => {
           label="Program Name"
           placeholder="Enter program name"
           className="text-black"
-          error={errors.name?.message}
-          {...register('name', { required: 'Program name is required' })}
+          error={errors.program_name?.message}
+          {...register('program_name', {
+            required: 'Program name is required',
+          })}
         />
 
         <Input
           label="Description"
           placeholder="Enter program description"
           className="text-black"
-          error={errors.description?.message}
-          {...register('description', { required: 'Description is required' })}
+          error={errors.program_description?.message}
+          {...register('program_description', {
+            required: 'Description is required',
+          })}
         />
 
         <Input
@@ -99,14 +102,29 @@ const Program = () => {
         {exerciseFields.map((field, index) => (
           <div key={field.id} className="flex gap-2 items-end">
             <Input
+              label="Day"
+              placeholder="e.g., day1, day2, or date"
+              className="text-black"
+              error={errors.dailyExercises?.[index]?.day?.message}
+              {...register(`dailyExercises.${index}.day` as const, {
+                required: 'Day is required',
+              })}
+            />
+            <Input
               label="Exercises (comma separated)"
               placeholder="e.g., Squat, Bench Press"
               className="text-black"
-              error={errors.dailyExercise?.[index]?.exercises?.message}
-              {...register(`dailyExercise.${index}.exercises` as const, {
+              error={errors.dailyExercises?.[index]?.exercises?.message}
+              {...register(`dailyExercises.${index}.exercises` as const, {
                 required: 'Exercises are required',
                 setValueAs: (value: string) =>
-                  value.split(',').map(e => e.trim()),
+                  value.split(',').map(
+                    (e, idx) =>
+                      ({
+                        exercise_id: `exercise-${index}-${idx}`,
+                        name: e.trim(),
+                      }) as ExerciseDTO
+                  ),
               })}
             />
 
@@ -127,50 +145,13 @@ const Program = () => {
           variant="primary"
           onClick={() =>
             appendExercise({
-              day: exerciseFields.length + 1,
+              day: `day${exerciseFields.length + 1}`,
+              exercise_name: '',
               exercises: [],
-            })
+            } as DailyExerciseDTO)
           }
         >
           Add Exercise
-        </Button>
-
-        {fields.map((field, index) => (
-          <div key={field.id} className="flex gap-2 items-end">
-            <Input
-              label={`Main Exercise`}
-              placeholder="e.g., Bench Press"
-              className="text-black"
-              {...register(`alternateExercise.${index}.main` as const, {
-                required: 'Main exercise is required',
-              })}
-            />
-            <Input
-              label={`Alternate Exercise`}
-              placeholder="e.g., Push-ups"
-              className="text-black"
-              {...register(`alternateExercise.${index}.alternate` as const, {
-                required: 'Alternate exercise is required',
-              })}
-            />
-            {fields.length > 1 && (
-              <Button
-                type="button"
-                variant="primary"
-                onClick={() => remove(index)}
-              >
-                Remove
-              </Button>
-            )}
-          </div>
-        ))}
-
-        <Button
-          type="button"
-          variant="secondary"
-          onClick={() => append({ main: '', alternate: '' })}
-        >
-          Add Alternate Exercise
         </Button>
         <div>
           <Button type="submit" variant="primary">

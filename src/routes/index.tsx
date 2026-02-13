@@ -6,6 +6,8 @@ import Onboarding from '@/pages/onboarding/Onboarding'
 import Program from '@/pages/program/program'
 import AdminUserManagement from '@/pages/admin/user-management'
 import AdminGoalTypes from '@/pages/admin/goal-types'
+import AdminProgramManagement from '@/pages/admin/program-management'
+import CyclePrograms from '@/pages/admin/program-management/cycle-programs'
 import CoachHeadUserManagement from '@/pages/coach-head/user-management'
 import CoachUserManagement from '@/pages/coach/user-management'
 import Profile from '@/pages/profile'
@@ -96,6 +98,26 @@ export const routes = [
       <ProtectedRoute allowedRoles={['ADMIN']}>
         <AppLayout>
           <AdminGoalTypes />
+        </AppLayout>
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/admin/program-management',
+    element: (
+      <ProtectedRoute allowedRoles={['ADMIN']}>
+        <AppLayout>
+          <AdminProgramManagement />
+        </AppLayout>
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/admin/program-management/cycles/:cycleId/programs',
+    element: (
+      <ProtectedRoute allowedRoles={['ADMIN']}>
+        <AppLayout>
+          <CyclePrograms />
         </AppLayout>
       </ProtectedRoute>
     ),

@@ -55,6 +55,12 @@ export function Sidebar() {
       roles: ['ADMIN'],
     },
     {
+      path: '/admin/program-management',
+      label: 'Manage Program',
+      icon: 'clipboard-list',
+      roles: ['ADMIN'],
+    },
+    {
       path: '/coach-head/user-management',
       label: 'User Management',
       icon: 'users',
