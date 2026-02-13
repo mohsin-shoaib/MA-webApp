@@ -1,0 +1,232 @@
+name: Deploy to AWS EC2
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch: # Allows manual triggering from GitHub Actions UI
+
+jobs:
+  pre-build-checks:
+    name: Pre-build Checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Create .env file from secrets
+        env:
+          VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
+        run: |
+          echo "🔐 Creating .env file from GitHub secrets..."
+          
+          # Create .env file with all VITE_ prefixed variables
+          {
+            [ -n "$VITE_API_BASE_URL" ] && echo "VITE_API_BASE_URL=$VITE_API_BASE_URL"
+          } > .env
+          
+          # Display .env file (without values for security)
+          echo "✅ Environment variables configured:"
+          cat .env | sed 's/=.*/=***/' || true
+          
+          # Verify .env file was created
+          if [ ! -s .env ]; then
+            echo "⚠️  Warning: .env file is empty. Make sure you've added VITE_API_BASE_URL secret in GitHub."
+          fi
+
+      - name: Check for deprecated packages
+        run: |
+          echo "🔍 Checking for deprecated packages..."
+
+          # Create a Node.js script to check for deprecated packages
+          node << 'EOF'
+          const fs = require('fs');
+          const { execSync } = require('child_process');
+
+          const packageJson = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+          const allDeps = { ...packageJson.dependencies, ...packageJson.devDependencies };
+          const packages = Object.keys(allDeps);
+
+          let deprecatedCount = 0;
+          const deprecatedPackages = [];
+
+          console.log(`Checking ${packages.length} packages for deprecation...`);
+
+          for (const pkg of packages) {
+            try {
+              const result = execSync(`npm view ${pkg} deprecated --json`, { 
+                encoding: 'utf8',
+                stdio: ['pipe', 'pipe', 'ignore']
+              }).trim();
+              
+              if (result && result !== 'null' && result !== '') {
+                const deprecatedMessage = result.replace(/^"|"$/g, '');
+                deprecatedPackages.push({ name: pkg, message: deprecatedMessage });
+                deprecatedCount++;
+                console.log(`❌ ${pkg}: ${deprecatedMessage}`);
+              }
+            } catch (error) {
+              // Package might not exist or npm view failed, skip it
+              continue;
+            }
+          }
+
+          if (deprecatedCount > 0) {
+            console.error(`\n❌ Found ${deprecatedCount} deprecated package(s):`);
+            deprecatedPackages.forEach(pkg => {
+              console.error(`   - ${pkg.name}: ${pkg.message}`);
+            });
+            console.error('\nPlease update these packages before deploying.');
+            process.exit(1);
+          }
+
+          console.log('✅ No deprecated packages found');
+          EOF
+
+      - name: Check code formatting
+        run: |
+          npm run format:check || (echo "❌ Code is not formatted. Run 'npm run format' to fix." && exit 1)
+          echo "✅ Code is properly formatted"
+
+      - name: Run ESLint
+        run: npm run lint
+
+      - name: TypeScript type check
+        run: npx tsc --noEmit
+
+      - name: Build check
+        run: npm run build
+
+  deploy:
+    name: Deploy to EC2
+    runs-on: ubuntu-latest
+    needs: pre-build-checks
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Create .env file from secrets
+        env:
+          VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
+        run: |
+          echo "🔐 Creating .env file from GitHub secrets..."
+          
+          # Create .env file with all VITE_ prefixed variables
+          {
+            [ -n "$VITE_API_BASE_URL" ] && echo "VITE_API_BASE_URL=$VITE_API_BASE_URL"
+          } > .env
+          
+          # Display .env file (without values for security)
+          echo "✅ Environment variables configured:"
+          cat .env | sed 's/=.*/=***/' || true
+          
+          # Verify .env file was created
+          if [ ! -s .env ]; then
+            echo "⚠️  Warning: .env file is empty. Make sure you've added VITE_API_BASE_URL secret in GitHub."
+          fi
+
+      - name: Build application
+        run: npm run build
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/deploy_key.pem
+          chmod 600 ~/.ssh/deploy_key.pem
+          ssh-keyscan -H ec2-13-59-128-26.us-east-2.compute.amazonaws.com >> ~/.ssh/known_hosts
+
+      - name: Deploy to EC2
+        env:
+          EC2_HOST: ubuntu@ec2-13-59-128-26.us-east-2.compute.amazonaws.com
+          DEPLOY_PATH: /var/www/react-app
+        run: |
+          # Create deployment archive
+          tar -czf dist.tar.gz -C dist .
+          
+          # Copy dist files to EC2
+          scp -i ~/.ssh/deploy_key.pem -o StrictHostKeyChecking=no dist.tar.gz $EC2_HOST:/tmp/
+          
+          # Extract and deploy on EC2
+          ssh -i ~/.ssh/deploy_key.pem -o StrictHostKeyChecking=no $EC2_HOST << ENDSSH
+            set -e
+            echo "🚀 Starting frontend deployment..."
+            
+            # Create deployment directory if it doesn't exist
+            sudo mkdir -p $DEPLOY_PATH
+            
+            # Backup current deployment (optional, for rollback)
+            if [ -d "$DEPLOY_PATH" ] && [ "\$(ls -A $DEPLOY_PATH 2>/dev/null)" ]; then
+              echo "📦 Creating backup..."
+              BACKUP_DIR="$DEPLOY_PATH.backup.\$(date +%Y%m%d_%H%M%S)"
+              sudo cp -r $DEPLOY_PATH "\$BACKUP_DIR" || true
+            fi
+            
+            # Extract new build to temporary location
+            echo "📥 Extracting new build..."
+            TEMP_DIR="/tmp/react-app-deploy-\$(date +%s)"
+            mkdir -p "\$TEMP_DIR"
+            tar -xzf /tmp/dist.tar.gz -C "\$TEMP_DIR"
+            
+            # Remove old files (except backups)
+            echo "🗑️  Removing old files..."
+            sudo find $DEPLOY_PATH -mindepth 1 -maxdepth 1 ! -name "*.backup.*" -exec rm -rf {} + || true
+            
+            # Move new files to deployment directory
+            echo "📦 Installing new build..."
+            sudo mv "\$TEMP_DIR"/* $DEPLOY_PATH/ 2>/dev/null || sudo cp -r "\$TEMP_DIR"/* $DEPLOY_PATH/
+            sudo rm -rf "\$TEMP_DIR"
+            
+            # Set proper permissions (nginx typically runs as www-data)
+            echo "🔐 Setting permissions..."
+            sudo chown -R www-data:www-data $DEPLOY_PATH || sudo chown -R ubuntu:ubuntu $DEPLOY_PATH
+            sudo chmod -R 755 $DEPLOY_PATH
+            
+            # Clean up old backups (keep only last 3)
+            echo "🧹 Cleaning up old backups..."
+            sudo find \$(dirname $DEPLOY_PATH) -maxdepth 1 -type d -name "\$(basename $DEPLOY_PATH).backup.*" | sort -r | tail -n +4 | sudo xargs rm -rf || true
+            
+            # Clean up temp file
+            rm -f /tmp/dist.tar.gz
+            
+            # Reload nginx to serve new files
+            echo "🔄 Reloading nginx..."
+            if sudo nginx -t; then
+              sudo systemctl reload nginx
+              echo "✅ Nginx reloaded successfully"
+            else
+              echo "⚠️  Nginx configuration test failed, skipping reload"
+            fi
+            
+            echo "✅ Frontend deployment completed successfully!"
+          ENDSSH
+          
+          # Clean up local archive
+          rm -f dist.tar.gz
+
+      - name: Deployment Summary
+        run: |
+          echo "✅ Frontend deployment to EC2 completed!"
+          echo "Application is running at: ec2-13-59-128-26.us-east-2.compute.amazonaws.com"
+          echo "Deployed to: /var/www/react-app"
+
