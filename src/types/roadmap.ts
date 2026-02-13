@@ -10,9 +10,8 @@ export interface RoadmapDailyExercise {
 
 // Main Roadmap Create Payload
 export interface RoadmapProps {
-  userId: number
   currentCycleId: number
-  goalId: number
+  // goalId: number
 
   primaryGoalStart: string // ISO date string
   primaryGoalEnd: string // ISO date string

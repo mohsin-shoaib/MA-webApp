@@ -2,14 +2,14 @@ import type {
   ConfirmProps,
   ConfirmResponse,
   ReadinessProps,
-  ReadinessResponse,
+  RecommendationResponse,
   SelectionProps,
 } from '@/types/readiness'
 import api from './axios'
 
 export const readinessService = {
   readinessRecommendation: (payload: ReadinessProps) =>
-    api.post<ReadinessResponse>('cycle/readiness/recommendation', payload),
+    api.post<RecommendationResponse>('cycle/readiness/recommendation', payload),
 
   confirmation: (payload: ConfirmProps) =>
     api.post<ConfirmResponse>('cycle/confirm', payload),

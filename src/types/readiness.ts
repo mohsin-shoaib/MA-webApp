@@ -1,15 +1,20 @@
 export interface ReadinessProps {
   trainingExperience: string
   primaryGoal: string
-  testDate: string
+  eventDate: string
 }
 
-export interface ReadinessResponse {
-  data: {
-    cycle: {
-      recommendedCycle: string
-    }
-  }
+export interface RecommendationData {
+  recommended_cycle: string
+  recommended_program_family: string
+  confidence: number
+  reason: string
+  weeks_to_event: number
+  cycle_details: CycleDetails
+}
+
+export interface RecommendationResponse {
+  data: RecommendationData
 }
 
 export interface ConfirmProps {
