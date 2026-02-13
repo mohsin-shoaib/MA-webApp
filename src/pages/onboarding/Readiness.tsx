@@ -2,79 +2,152 @@
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/Button'
 import { Text } from '@/components/Text'
-import type { ConfirmProps } from '@/types/readiness'
-import { readinessService } from '@/api/readiness.service'
+import type { ConfirmProps, RecommendationData } from '@/types/readiness'
 import type { OnboardingProps } from '@/types/onboarding'
+import { readinessService } from '@/api/readiness.service'
+import type { AxiosError } from 'axios'
 
 interface RecommendationStepProps {
-  onboardingData: OnboardingProps
+  onboardingData?: OnboardingProps
   onConfirm: (selected: ConfirmProps) => void
-  loading?: boolean
+  loading: boolean
+  setLoading: (value: boolean) => void
+  setError: (value: string | null) => void
 }
 
 export default function RecommendationStep({
   onboardingData,
   onConfirm,
-  loading = false,
+  loading,
+  setLoading,
+  setError,
 }: RecommendationStepProps) {
-  const [selected, setSelected] = useState<ConfirmProps>()
-  const [recommendations, setRecommendations] = useState<string>('')
+  const [selected, setSelected] = useState<ConfirmProps | null>(null)
+  const [recommendedCycle, setRecommendedCycle] = useState<string | null>(null)
+  const [fetched, setFetched] = useState(false)
+  const [responseData, setResponseData] = useState<RecommendationData | null>(
+    null
+  )
 
   useEffect(() => {
+    if (!onboardingData || fetched) return
+
     const fetchRecommendation = async () => {
-      if (!onboardingData) return
+      setError(null)
+      setLoading(true)
+
       try {
         const response = await readinessService.readinessRecommendation({
           trainingExperience: onboardingData.trainingExperience,
           primaryGoal: onboardingData.primaryGoal,
-          testDate: onboardingData.testDate,
+          eventDate: onboardingData.testDate,
         })
-        setRecommendations(response.data.data.cycle.recommendedCycle)
+
+        const { data } = response.data
+        setResponseData(data)
+
+        console.log('recommendation data', data)
+
+        const cycleName = data.recommended_cycle
+
+        setRecommendedCycle(cycleName)
+
         setSelected({
-          cycle: response.data.data.cycle.recommendedCycle,
+          cycle: cycleName,
           confirmed: true,
         })
+
+        setFetched(true)
       } catch (error) {
-        console.log('API error', error)
+        const axiosError = error as AxiosError<{ message: string }>
+        const errorMessage =
+          axiosError.response?.data?.message ||
+          'Failed to fetch recommendation.'
+
+        // Optional fallback like your Step2
+        setRecommendedCycle(errorMessage)
+        setSelected({
+          cycle: 'No cycle',
+          confirmed: false,
+        })
+        setFetched(true)
+      } finally {
+        setLoading(false)
       }
     }
 
     fetchRecommendation()
-  }, [onboardingData])
+  }, [onboardingData, fetched, setLoading, setError])
+
+  if (!onboardingData) {
+    return (
+      <div>
+        <Text variant="secondary">No onboarding data found.</Text>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-4">
       <Text variant="primary" className="font-semibold text-lg">
-        Recommended Cycles
+        Recommended Cycle
       </Text>
 
-      {/* {recommendations.length === 0 && <p>No recommendations found.</p>} */}
+      {loading && !recommendedCycle && (
+        <Text variant="secondary">Loading...</Text>
+      )}
 
-      <div className="flex flex-col gap-3">
-        {/* {recommendations.map((rec, index) => (
-          <div
-            key={index}
-            onClick={() => setSelected(rec)}
-            className={`border rounded p-4 cursor-pointer transition
-              ${selected?.trainingExperience === rec.trainingExperience ? 'border-primary bg-primary/10' : 'border-gray-300'}
-            `}
-          >
-            <Text variant="default" className="font-semibold">
-              {rec.trainingExperience} ({rec.testDate} weeks)
+      {recommendedCycle && (
+        <div className="border rounded p-4">
+          <Text variant="default" className="font-semibold">
+            {recommendedCycle}
+          </Text>
+        </div>
+      )}
+
+      {responseData && (
+        <div className="border rounded p-4 space-y-2">
+          <Text variant="default" className="font-semibold">
+            Cycle Description:{' '}
+            <Text as="span" variant="muted">
+              {responseData.cycle_details?.description}{' '}
             </Text>
-            <Text variant="secondary">{rec.primaryGoal}</Text>
-          </div>
-        ))} */}
+          </Text>
 
-        <h1>{recommendations}</h1>
-      </div>
+          <Text as="p" variant="default" className="font-semibold">
+            Program:{' '}
+            <Text as="span" variant="muted">
+              {responseData.recommended_program_family}
+            </Text>
+          </Text>
+
+          <Text as="p" variant="default" className="font-semibold">
+            Confidence:{' '}
+            <Text as="span" variant="muted">
+              {responseData.confidence}
+            </Text>
+          </Text>
+          <Text as="p" variant="default" className="font-semibold">
+            Reason:{' '}
+            <Text as="span" variant="muted">
+              {responseData.reason}{' '}
+            </Text>
+          </Text>
+          <Text as="p" variant="default" className="font-semibold">
+            Weeks to Start:{' '}
+            <Text as="span" variant="muted">
+              {responseData.weeks_to_event}-week{' '}
+            </Text>
+          </Text>
+        </div>
+      )}
 
       <Button
         onClick={() => selected && onConfirm(selected)}
-        disabled={!selected}
+        disabled={!selected || loading}
         loading={loading}
       >
-        Confirm Recommendation
+        {loading ? 'Loading' : 'Confirm Recommendation'}
       </Button>
     </div>
   )

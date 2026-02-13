@@ -1,129 +1,155 @@
 import { useState } from 'react'
-import { Stepper, type StepperStep } from '@/components/Stepper/index'
+import { Stepper, type StepperStep } from '@/components/Stepper'
 import OnboardingForm from './OnboardingForm'
 import RecommendationStep from './Readiness'
 import ConfirmationStep from './confirmation'
-import { onboardingService } from '@/api/onboarding.service'
-import type { OnboardingProps } from '@/types/onboarding'
-import { Button } from '@/components/Button'
-import axios from 'axios'
-import { readinessService } from '@/api/readiness.service'
-import type { ConfirmProps } from '@/types/readiness'
+import RoadmapStep from './Roadmap'
 
-type StepIndex = 0 | 1 | 2
+import type { OnboardingProps } from '@/types/onboarding'
+import type { ConfirmationResponse, ConfirmProps } from '@/types/readiness'
+import type { RoadmapProps } from '@/types/roadmap'
+
+type StepIndex = 1 | 2 | 3 | 4
+
+const STEPS: StepperStep[] = [
+  { id: '1', label: 'Onboard' },
+  { id: '2', label: 'Program' },
+  { id: '3', label: 'Confirm' },
+  { id: '4', label: 'Roadmap' },
+]
 
 export default function OnboardingFlow() {
-  const [activeStep, setActiveStep] = useState<StepIndex>(0)
-  const [onboardingData, setOnboardingData] = useState<OnboardingProps>()
+  const [currentStep, setCurrentStep] = useState<StepIndex>(1)
+
+  const [onboardData, setOnboardData] = useState<OnboardingProps | null>(null)
+
+  const [recommendedCycle, setRecommendedCycle] = useState<string | null>(null)
+
+  const [confirmed, setConfirmed] = useState<boolean | null>(null)
+
+  const [roadmapPayload, setRoadmapPayload] = useState<RoadmapProps | null>(
+    null
+  )
+
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const steps: StepperStep[] = [
-    { id: 'onboarding', label: 'Onboarding' },
-    { id: 'recommendation', label: 'Recommendations' },
-    { id: 'confirmation', label: 'Confirmation' },
-  ]
-
   // ------------------------------
-  // Step 1: Submit onboarding
+  // Step 1 → Next
   // ------------------------------
-  const handleOnboardingSubmit = async (data: OnboardingProps) => {
-    try {
-      setLoading(true)
-      setError(null)
-      const response = await onboardingService.createOnboarding(data)
-      setOnboardingData(response.data.data.onboarding) // save data
-
-      setActiveStep(1)
-    } catch (err: unknown) {
-      if (axios.isAxiosError(err)) {
-        setError(err.response?.data?.message ?? 'API Error')
-      } else if (err instanceof Error) {
-        setError(err.message)
-      } else {
-        setError('Something went wrong')
-      }
-    }
+  const handleStep1Next = (
+    formData: OnboardingProps
+    // apiResponse: OnboardingResponse
+  ) => {
+    setOnboardData(formData)
+    setError(null)
+    setCurrentStep(2)
   }
 
   // ------------------------------
-  // Step 2: Confirm recommendation
+  // Step 2 → Next
   // ------------------------------
-  const handleConfirmRecommendation = async (
-    selectedRecommendation: ConfirmProps
+  const handleStep2Next = (selected: ConfirmProps) => {
+    setRecommendedCycle(selected.cycle)
+    setError(null)
+    setCurrentStep(3)
+  }
+
+  // ------------------------------
+  // Step 3 → Confirm
+  // ------------------------------
+  const handleStep3Confirm = (
+    didConfirm: boolean,
+    responseData: ConfirmationResponse
   ) => {
-    if (!onboardingData) return
-    try {
-      setLoading(true)
-      setError(null)
-      await readinessService.confirmation(selectedRecommendation)
-      setActiveStep(2)
-    } catch (err: unknown) {
-      if (axios.isAxiosError(err)) {
-        setError(err.response?.data?.message ?? 'API Error')
-      } else if (err instanceof Error) {
-        setError(err.message)
-      } else {
-        setError('Something went wrong')
-      }
-    } finally {
-      setLoading(false)
+    setConfirmed(didConfirm)
+
+    /**
+     * Build roadmap payload from confirmation response
+     * Adjust mapping based on your backend response
+     */
+    const payload: RoadmapProps = {
+      // goalId: responseData.goalId,
+      currentCycleId: responseData.cycle_details.id,
+
+      primaryGoalStart: responseData.start_date,
+      primaryGoalEnd: responseData.start_date,
+      sustainmentStart: responseData.start_date,
+
+      timeline: {},
+      dailyExercise: {},
+    }
+
+    setRoadmapPayload(payload)
+    setError(null)
+    setCurrentStep(4)
+  }
+
+  // ------------------------------
+  // Step Navigation
+  // ------------------------------
+  const goToStep = (step: number) => {
+    if (step >= 1 && step <= currentStep) {
+      setCurrentStep(step as StepIndex)
     }
   }
 
   return (
-    <div className="max-w-xl mx-auto p-4">
-      <Stepper steps={steps} activeStep={activeStep} />
+    <div className="max-w-2xl mx-auto p-6">
+      <Stepper steps={STEPS} activeStep={currentStep} onStepClick={goToStep} />
 
       <div className="mt-6">
-        {error && <p className="text-red-500 mb-4">{error}</p>}
+        {error && (
+          <div className="bg-red-100 text-red-600 p-3 rounded mb-4">
+            {error}
+          </div>
+        )}
 
-        {activeStep === 0 && (
+        {/* Step 1 */}
+        {currentStep === 1 && (
           <OnboardingForm
-            initialValues={onboardingData || {}}
-            onSubmit={handleOnboardingSubmit}
+            onNext={handleStep1Next}
             loading={loading}
+            setLoading={setLoading}
+            setError={setError}
           />
         )}
 
-        {activeStep === 1 && onboardingData && (
+        {/* Step 2 */}
+        {currentStep === 2 && onboardData && (
           <RecommendationStep
-            onboardingData={onboardingData}
-            onConfirm={handleConfirmRecommendation}
+            onboardingData={onboardData}
+            onConfirm={handleStep2Next}
             loading={loading}
+            setLoading={setLoading}
+            setError={setError}
           />
         )}
 
-        {activeStep === 2 && <ConfirmationStep />}
-      </div>
-
-      <div className="mt-6">
-        {/* Navigation Buttons */}
-        <div className="flex justify-between mt-6">
-          <Button
-            type="button"
-            onClick={() =>
-              setActiveStep(prev => Math.max(prev - 1, 0) as StepIndex)
+        {/* Step 3 */}
+        {currentStep === 3 && recommendedCycle && (
+          <ConfirmationStep
+            recommendedCycle={recommendedCycle}
+            primaryGoal={onboardData?.primaryGoal ?? ''}
+            onComplete={(data: ConfirmationResponse) =>
+              handleStep3Confirm(true, data)
             }
-            disabled={activeStep === 0 || loading}
-            className="px-4 py-2 border rounded bg-gray-100 disabled:opacity-50"
-          >
-            Prev
-          </Button>
+            loading={loading}
+            setLoading={setLoading}
+            setError={setError}
+          />
+        )}
 
-          {activeStep < 2 && (
-            <Button
-              type="button"
-              onClick={() =>
-                setActiveStep(prev => Math.min(prev + 1, 2) as StepIndex)
-              }
-              disabled={loading}
-              className="px-4 py-2 border rounded bg-blue-500 text-white disabled:opacity-50"
-            >
-              Next
-            </Button>
-          )}
-        </div>
+        {/* Step 4 */}
+        {currentStep === 4 && roadmapPayload && (
+          <RoadmapStep
+            payload={roadmapPayload}
+            confirmed={confirmed}
+            loading={loading}
+            setLoading={setLoading}
+            setError={setError}
+          />
+        )}
       </div>
     </div>
   )

@@ -4,26 +4,68 @@ import { useForm, type SubmitHandler } from 'react-hook-form'
 import { Input } from '@/components/Input'
 import { Dropdown } from '@/components/Dropdown'
 import { Button } from '@/components/Button'
-import type { OnboardingProps } from '@/types/onboarding'
+import type { OnboardingProps, OnboardingResponse } from '@/types/onboarding'
+import { onboardingService } from '@/api/onboarding.service'
+import type { AxiosError } from 'axios'
 
 interface OnboardingFormProps {
+  onNext: (formData: OnboardingProps, response: OnboardingResponse) => void
+  loading: boolean
+  setLoading: (value: boolean) => void
+  setError: (value: string | null) => void
   initialValues?: Partial<OnboardingProps>
-  onSubmit: (data: OnboardingProps) => void
-  loading?: boolean
 }
 
 export default function OnboardingForm({
+  onNext,
+  loading,
+  setLoading,
+  setError,
   initialValues,
-  onSubmit,
-  loading = false,
 }: OnboardingFormProps) {
-  const [gender, setGender] = useState(initialValues?.gender || '')
-  const [trainingExp, setTrainingExp] = useState(
+  const [gender, setGender] = useState<string>(initialValues?.gender || '')
+  const [trainingExp, setTrainingExp] = useState<string>(
     initialValues?.trainingExperience || ''
   )
   const [equipment, setEquipment] = useState<string[]>(
     initialValues?.equipment || []
   )
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<OnboardingProps>({
+    defaultValues: initialValues,
+  })
+
+  const submitHandler: SubmitHandler<OnboardingProps> = async data => {
+    setError(null)
+    setLoading(true)
+
+    try {
+      const payload: OnboardingProps = {
+        ...data,
+        gender,
+        trainingExperience: trainingExp,
+        equipment,
+      }
+
+      const axiosResponse = await onboardingService.createOnboarding(payload)
+      const response: OnboardingResponse = axiosResponse.data // now TS is happy
+
+      // Same pattern as Step1
+      onNext(payload, response)
+    } catch (error) {
+      const axiosError = error as AxiosError<{ message: string }>
+      const errorMessage =
+        axiosError.response?.data?.message || 'Onboarding failed.'
+      setError(errorMessage)
+      console.error(errorMessage)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const genderOptions = [
     { label: 'Male', value: 'male' },
@@ -44,23 +86,6 @@ export default function OnboardingForm({
     { label: 'Resistance Bands', value: 'resistance_bands' },
   ]
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-  } = useForm<OnboardingProps>({
-    defaultValues: initialValues,
-  })
-
-  const submitHandler: SubmitHandler<OnboardingProps> = data => {
-    onSubmit({
-      ...data,
-      gender,
-      trainingExperience: trainingExp,
-      equipment,
-    })
-  }
-
   return (
     <form onSubmit={handleSubmit(submitHandler)} className="space-y-4">
       <Input
@@ -72,6 +97,7 @@ export default function OnboardingForm({
         })}
         error={errors.height?.message}
       />
+
       <Input
         label="Weight (in kg)"
         type="number"
@@ -81,6 +107,7 @@ export default function OnboardingForm({
         })}
         error={errors.weight?.message}
       />
+
       <Input
         label="Age"
         type="number"
@@ -93,31 +120,30 @@ export default function OnboardingForm({
 
       <Dropdown
         label="Gender"
-        placeholder="Select gender"
         value={gender}
         onValueChange={v => setGender(v as string)}
         options={genderOptions}
         required
         fullWidth
-        error={errors.gender?.message}
       />
 
       <Dropdown
         label="Training Experience"
-        placeholder="Select experience"
         value={trainingExp}
         onValueChange={v => setTrainingExp(v as string)}
         options={trainingExpOptions}
         required
         fullWidth
-        error={errors.trainingExperience?.message}
       />
 
       <Input
         label="Primary Goal"
-        {...register('primaryGoal', { required: 'Primary goal is required' })}
+        {...register('primaryGoal', {
+          required: 'Primary goal is required',
+        })}
         error={errors.primaryGoal?.message}
       />
+
       <Input
         label="Secondary Goal"
         {...register('secondaryGoal')}
@@ -127,23 +153,23 @@ export default function OnboardingForm({
       <Input
         label="Test Date"
         type="date"
-        {...register('testDate', { required: 'Test date is required' })}
+        {...register('testDate', {
+          required: 'Test date is required',
+        })}
         error={errors.testDate?.message}
       />
 
       <Dropdown
         label="Equipments"
-        placeholder="Select available equipments"
         multiple
         value={equipment}
         onValueChange={v => setEquipment(v as string[])}
         options={equipmentOptions}
         fullWidth
-        error={errors.equipment?.message}
       />
 
       <Button type="submit" loading={loading}>
-        Submit
+        {loading ? 'Submitting...' : 'Next'}
       </Button>
     </form>
   )
