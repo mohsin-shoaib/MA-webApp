@@ -6,13 +6,8 @@ import RecommendationStep from './Readiness'
 import ConfirmationStep from './confirmation'
 import RoadmapStep from './Roadmap'
 
-import type { OnboardingProps } from '@/types/onboarding'
+import type { CreateOnboardingDTO } from '@/types/onboarding'
 import type { ConfirmProps, ReadinessRecommendation } from '@/types/readiness'
-import type { RoadmapProps } from '@/types/roadmap'
-import type {
-  CycleTransitionResponse,
-  CycleTransition,
-} from '@/types/cycle-transition'
 
 type StepIndex = 1 | 2 | 3 | 4
 
@@ -27,7 +22,9 @@ export default function OnboardingFlow() {
   const navigate = useNavigate()
   const [currentStep, setCurrentStep] = useState<StepIndex>(1)
 
-  const [onboardData, setOnboardData] = useState<OnboardingProps | null>(null)
+  const [onboardData, setOnboardData] = useState<CreateOnboardingDTO | null>(
+    null
+  )
 
   const [recommendedCycle, setRecommendedCycle] = useState<string | null>(null)
   const [recommendation, setRecommendation] =
@@ -35,21 +32,18 @@ export default function OnboardingFlow() {
 
   const [confirmed, setConfirmed] = useState<boolean | null>(null)
 
-  const [roadmapPayload, setRoadmapPayload] = useState<RoadmapProps | null>(
-    null
-  )
-
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   // ------------------------------
-  // Step 1 → Next
+  // Step 1 → Next (defer-save: store form data + recommendation from evaluate; no DB save)
   // ------------------------------
   const handleStep1Next = (
-    formData: OnboardingProps
-    // apiResponse: OnboardingResponse
+    formData: CreateOnboardingDTO,
+    recommendationFromEvaluate: ReadinessRecommendation
   ) => {
     setOnboardData(formData)
+    setRecommendation(recommendationFromEvaluate)
     setError(null)
     setCurrentStep(2)
   }
@@ -63,61 +57,13 @@ export default function OnboardingFlow() {
     setCurrentStep(3)
   }
 
-  // Store recommendation data from Readiness component
-  // This is called when Readiness component fetches recommendation
-  // We'll need to update Readiness component to pass this data
-
   // ------------------------------
-  // Step 3 → Confirm
+  // Step 3 → Confirm (defer-save: confirm endpoint saves onboarding + recommendation + roadmap + transition; Step 4 loads roadmap via GET)
   // ------------------------------
-  const handleStep3Confirm = (
-    didConfirm: boolean,
-    responseData: CycleTransitionResponse['data']
-  ) => {
-    setConfirmed(didConfirm)
-
-    // Handle new API response (CycleTransition)
-    if (Array.isArray(responseData)) {
-      // If array, take first transition
-      const transition = responseData[0]
-      if (transition?.toCycleId) {
-        const payload: RoadmapProps = {
-          currentCycleId: transition.toCycleId,
-          primaryGoalStart: transition.requestedAt,
-          primaryGoalEnd: transition.requestedAt,
-          sustainmentStart: transition.requestedAt,
-          timeline: {},
-          dailyExercise: {},
-        }
-        setRoadmapPayload(payload)
-        setError(null)
-        setCurrentStep(4)
-        return
-      }
-    } else if (
-      responseData &&
-      typeof responseData === 'object' &&
-      'toCycleId' in responseData
-    ) {
-      // Single CycleTransition object
-      const transition = responseData as CycleTransition
-      const payload: RoadmapProps = {
-        currentCycleId: transition.toCycleId,
-        primaryGoalStart: transition.requestedAt || new Date().toISOString(),
-        primaryGoalEnd: transition.requestedAt || new Date().toISOString(),
-        sustainmentStart: transition.requestedAt || new Date().toISOString(),
-        timeline: {},
-        dailyExercise: {},
-      }
-      setRoadmapPayload(payload)
-      setError(null)
-      setCurrentStep(4)
-      return
-    }
-
-    // If we reach here, the response format is unexpected
-    console.error('Unexpected response format:', responseData)
-    setError('Invalid response format. Please try again.')
+  const handleStep3Confirm = () => {
+    setConfirmed(true)
+    setError(null)
+    setCurrentStep(4)
   }
 
   // ------------------------------
@@ -166,26 +112,32 @@ export default function OnboardingFlow() {
           />
         )}
 
-        {/* Step 2 */}
+        {/* Step 2: use recommendation from state (from Step 1 evaluate); no GET */}
         {currentStep === 2 && onboardData && (
           <RecommendationStep
-            onboardingData={onboardData}
+            onboardingData={{
+              ...onboardData,
+              equipment: onboardData.equipment ?? [],
+            }}
+            recommendationFromParent={recommendation}
             onConfirm={handleStep2Next}
-            onRecommendationFetched={setRecommendation}
             loading={loading}
             setLoading={setLoading}
             setError={setError}
           />
         )}
 
-        {/* Step 3 */}
-        {currentStep === 3 && recommendedCycle && (
+        {/* Step 3: confirm onboarding with full payload (defer-save) */}
+        {currentStep === 3 && recommendedCycle && onboardData && (
           <ConfirmationStep
             recommendedCycle={recommendedCycle}
-            recommendation={recommendation || undefined}
-            onComplete={(data: CycleTransitionResponse['data']) =>
-              handleStep3Confirm(true, data)
-            }
+            recommendation={recommendation ?? undefined}
+            onboardData={onboardData}
+            onComplete={handleStep3Confirm}
+            onAlreadyOnboarded={() => {
+              setError('You have already completed onboarding.')
+              navigate('/profile')
+            }}
             loading={loading}
             setLoading={setLoading}
             setError={setError}
@@ -195,7 +147,7 @@ export default function OnboardingFlow() {
         {/* Step 4 */}
         {currentStep === 4 && (
           <RoadmapStep
-            payload={roadmapPayload || undefined}
+            payload={undefined}
             confirmed={confirmed}
             loading={loading}
             setLoading={setLoading}

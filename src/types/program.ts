@@ -93,9 +93,17 @@ export interface GetProgramsQueryDTO {
   q?: string
   cycleId?: number
   category?: string
+  subCategory?: string
   isActive?: boolean
   sortBy?: string
   sortOrder?: 'ASC' | 'DESC'
+}
+
+/** Response from athlete program list (by cycle / subCategory) */
+export interface ProgramListByCycleResponse {
+  statusCode: number
+  data: Program[] | { rows: Program[] }
+  message?: string
 }
 
 export interface GetProgramsResponse {

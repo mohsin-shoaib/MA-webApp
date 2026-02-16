@@ -7,6 +7,8 @@ import type {
   GetProgramResponse,
   GetProgramsResponse,
   GetProgramsQueryDTO,
+  ProgramListByCycleResponse,
+  Program,
 } from '@/types/program'
 
 export const programService = {
@@ -53,6 +55,28 @@ export const programService = {
   // Legacy method (kept for backward compatibility)
   createProgram: (payload: CreateProgramDTO) =>
     api.post<CreateProgramResponse>('admin/program/create', payload),
+
+  /**
+   * List programs by cycle for manual selection (onboarding Step 3).
+   * GET /api/v1/athlete/program/list?cycleId=...&subCategory=...
+   * Red/Green: filter by subCategory (primary goal); Amber: no programs.
+   */
+  getProgramsByCycle: (
+    cycleId: number,
+    subCategory?: string
+  ): Promise<{ data: Program[] }> => {
+    const params: { cycleId: number; subCategory?: string } = { cycleId }
+    if (subCategory) params.subCategory = subCategory
+    return api
+      .get<ProgramListByCycleResponse>('athlete/program/list', { params })
+      .then(res => {
+        const apiRes = res.data
+        const list = Array.isArray(apiRes.data)
+          ? apiRes.data
+          : ((apiRes.data as { rows: Program[] }).rows ?? [])
+        return { data: list }
+      })
+  },
 
   /**
    * Upload video to S3
