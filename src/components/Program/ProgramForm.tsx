@@ -78,7 +78,7 @@ const programSchema = z.object({
           .min(1, 'At least one exercise is required'),
       })
     )
-    .min(1, 'At least one daily exercise is required'),
+    .min(1, 'Add at least one daily exercise to save.'),
 })
 
 export interface ProgramFormProps {
@@ -133,6 +133,9 @@ export function ProgramForm({
     'sequential'
   )
   const [uploadingVideo, setUploadingVideo] = useState<string | null>(null)
+  const [dailyExerciseCountError, setDailyExerciseCountError] = useState<
+    string | null
+  >(null)
   const { showError, showSuccess } = useSnackbar()
 
   // Video upload hook with presigned URL flow (same as profile picture)
@@ -152,7 +155,7 @@ export function ProgramForm({
     handleSubmit,
     watch,
     setValue,
-    formState: { errors },
+    formState: { errors, isSubmitted },
     reset,
   } = useForm<CreateProgramDTO>({
     resolver: zodResolver(programSchema) as Resolver<CreateProgramDTO>,
@@ -175,6 +178,17 @@ export function ProgramForm({
   const cycleId = watch('cycleId')
   const category = watch('category')
   const dailyExercises = watch('dailyExercises')
+
+  // Clear 12-week error when user adds enough daily exercises (Red/Green)
+  useEffect(() => {
+    if (
+      dailyExerciseCountError &&
+      (cycleId === 1 || cycleId === 3) &&
+      fields.length >= 12
+    ) {
+      setDailyExerciseCountError(null)
+    }
+  }, [cycleId, fields.length, dailyExerciseCountError])
 
   const fetchCycles = useCallback(async () => {
     try {
@@ -395,6 +409,7 @@ export function ProgramForm({
 
   // Form submission
   const onSubmit = async (data: CreateProgramDTO) => {
+    setDailyExerciseCountError(null)
     try {
       // Validate category/subCategory for Red/Green
       if (showCategoryFields && (!data.category || !data.subCategory)) {
@@ -404,7 +419,25 @@ export function ProgramForm({
 
       // Validate at least one daily exercise
       if (!data.dailyExercises || data.dailyExercises.length === 0) {
-        showError('At least one daily exercise is required')
+        const msg =
+          data.cycleId === 1 || data.cycleId === 3
+            ? 'Add all 12 daily exercises to proceed.'
+            : 'Add at least one daily exercise to save.'
+        showError(msg)
+        return
+      }
+
+      // Red (1) and Green (3) cycles require 12 weeks (12 daily exercises)
+      const RED_CYCLE_ID = 1
+      const GREEN_CYCLE_ID = 3
+      const RED_GREEN_MIN_DAILY_EXERCISES = 12
+      const minDailyError = 'Add all 12 daily exercises to proceed.'
+      if (
+        (data.cycleId === RED_CYCLE_ID || data.cycleId === GREEN_CYCLE_ID) &&
+        data.dailyExercises.length < RED_GREEN_MIN_DAILY_EXERCISES
+      ) {
+        setDailyExerciseCountError(minDailyError)
+        showError(minDailyError)
         return
       }
 
@@ -536,7 +569,7 @@ export function ProgramForm({
             </>
           )}
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 hidden">
             <Switch
               value={watch('isActive') ?? true}
               onValueChange={value => setValue('isActive', value)}
@@ -547,20 +580,57 @@ export function ProgramForm({
 
         {/* Daily Exercises */}
         <div className="space-y-4">
-          <div className="flex justify-between items-center">
+          <div>
             <Text as="h3" variant="primary" className="text-lg font-bold">
               Daily Exercises
             </Text>
-            <Button
-              type="button"
-              variant="outline"
-              size="small"
-              leftIcon={<Icon name="plus" family="solid" size={16} />}
-              onClick={addDailyExercise}
-            >
-              Add Daily Exercise
-            </Button>
+            {(watch('cycleId') === 1 || watch('cycleId') === 3) && (
+              <Text variant="secondary" className="text-sm mt-0.5">
+                Add all 12 daily exercises to proceed. Current: {fields.length}{' '}
+                / 12
+              </Text>
+            )}
           </div>
+
+          {(watch('cycleId') === 1 || watch('cycleId') === 3) &&
+          fields.length < 12 ? (
+            <div
+              className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-red-800 text-sm"
+              role="alert"
+            >
+              Add all 12 daily exercises to proceed. Current: {fields.length} /
+              12
+            </div>
+          ) : (
+            (dailyExerciseCountError ||
+              (
+                errors.dailyExercises as
+                  | { message?: string; root?: { message?: string } }
+                  | undefined
+              )?.message ||
+              (errors.dailyExercises as { root?: { message?: string } })?.root
+                ?.message ||
+              (isSubmitted && fields.length === 0
+                ? watch('cycleId') === 1 || watch('cycleId') === 3
+                  ? 'Add all 12 daily exercises to proceed.'
+                  : 'Add at least one daily exercise to save.'
+                : null)) && (
+              <div
+                className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-red-800 text-sm"
+                role="alert"
+              >
+                {dailyExerciseCountError ??
+                  (errors.dailyExercises as { message?: string })?.message ??
+                  (errors.dailyExercises as { root?: { message?: string } })
+                    ?.root?.message ??
+                  (isSubmitted && fields.length === 0
+                    ? watch('cycleId') === 1 || watch('cycleId') === 3
+                      ? 'Add all 12 daily exercises to proceed.'
+                      : 'Add at least one daily exercise to save.'
+                    : '')}
+              </div>
+            )
+          )}
 
           {fields.map((field, dailyExerciseIndex) => (
             <DailyExerciseCard
@@ -600,13 +670,25 @@ export function ProgramForm({
           ))}
 
           {fields.length === 0 && (
-            <div className="border-2 border-dashed border-mid-gray rounded-lg p-8 text-center">
+            <div className="border-2 border-dashed border-mid-gray rounded-lg p-8 flex flex-col items-center justify-center gap-4 text-center">
               <Text variant="muted" className="text-sm">
                 No daily exercises added yet. Click "Add Daily Exercise" to get
                 started.
               </Text>
             </div>
           )}
+        </div>
+        <div className="mt-4 w-full">
+          <Button
+            type="button"
+            variant="outline"
+            size="small"
+            className="w-full"
+            leftIcon={<Icon name="plus" family="solid" size={16} />}
+            onClick={addDailyExercise}
+          >
+            Add Daily Exercise
+          </Button>
         </div>
 
         {/* Form Actions */}

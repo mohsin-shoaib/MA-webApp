@@ -61,13 +61,16 @@ export default function OnboardingForm({
       ...(initialValues as Partial<CreateOnboardingDTO>),
       primaryGoal: initialValues?.primaryGoal || '',
       secondaryGoal: initialValues?.secondaryGoal || '',
+      eventDate:
+        (initialValues as Partial<CreateOnboardingDTO>)?.eventDate || '',
     },
   })
 
-  // Register primary and secondary goals for validation
+  // Register primary goal, optional secondary goal, and required event date for validation
   useEffect(() => {
     register('primaryGoal', { required: 'Primary goal is required' })
-    register('secondaryGoal', { required: 'Secondary goal is required' })
+    register('secondaryGoal')
+    register('eventDate', { required: 'Event date is required' })
   }, [register])
 
   // Fetch goal types on mount
@@ -97,7 +100,7 @@ export default function OnboardingForm({
     setError(null)
     setLoading(true)
 
-    // Validate goals are selected
+    // Validate goals and event date
     if (!primaryGoal) {
       setError('Please select a primary goal')
       setLoading(false)
@@ -105,10 +108,10 @@ export default function OnboardingForm({
       return
     }
 
-    if (!secondaryGoal) {
-      setError('Please select a secondary goal')
+    if (!eventDate) {
+      setError('Please select an event date')
       setLoading(false)
-      setValue('secondaryGoal', '', { shouldValidate: true })
+      setValue('eventDate', '', { shouldValidate: true })
       return
     }
 
@@ -121,7 +124,7 @@ export default function OnboardingForm({
           | 'INTERMEDIATE'
           | 'ADVANCED',
         primaryGoal: primaryGoal,
-        secondaryGoal: secondaryGoal,
+        secondaryGoal: secondaryGoal || '',
         equipment: equipment.length > 0 ? equipment : undefined,
         eventDate: eventDate || undefined,
       }
@@ -255,7 +258,6 @@ export default function OnboardingForm({
             value: gt.subCategory,
           }
         })}
-        required
         fullWidth
         disabled={loadingGoals}
         placeholder={
@@ -267,9 +269,13 @@ export default function OnboardingForm({
       <DatePicker
         label="Event Date"
         value={eventDate}
-        onChange={date => setEventDate(date || '')}
+        onChange={date => {
+          setEventDate(date ?? '')
+          setValue('eventDate', date ?? '', { shouldValidate: true })
+        }}
         helperText="Primary event date for training timeline and roadmap generation"
         error={errors.eventDate?.message}
+        required
       />
 
       <Input

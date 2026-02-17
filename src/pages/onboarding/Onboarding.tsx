@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Stepper, type StepperStep } from '@/components/Stepper'
+import { Button } from '@/components/Button'
+import { useAuth } from '@/contexts/useAuth'
 import OnboardingForm from './OnboardingForm'
 import RecommendationStep from './Readiness'
 import ConfirmationStep from './confirmation'
@@ -20,6 +22,7 @@ const STEPS: StepperStep[] = [
 
 export default function OnboardingFlow() {
   const navigate = useNavigate()
+  const { logout } = useAuth()
   const [currentStep, setCurrentStep] = useState<StepIndex>(1)
 
   const [onboardData, setOnboardData] = useState<CreateOnboardingDTO | null>(
@@ -70,9 +73,7 @@ export default function OnboardingFlow() {
   // Step 4 → Complete
   // ------------------------------
   const handleComplete = () => {
-    // Navigate to profile after onboarding completion
-    // Dashboard route can be added later if needed
-    navigate('/profile')
+    navigate('/dashboard')
   }
 
   // ------------------------------
@@ -88,6 +89,11 @@ export default function OnboardingFlow() {
 
   return (
     <div className="max-w-2xl mx-auto p-6">
+      <div className="flex justify-end mb-4">
+        <Button type="button" variant="secondary" onClick={() => logout()}>
+          Log out
+        </Button>
+      </div>
       <Stepper
         steps={STEPS}
         activeStep={currentStep - 1}
@@ -136,7 +142,7 @@ export default function OnboardingFlow() {
             onComplete={handleStep3Confirm}
             onAlreadyOnboarded={() => {
               setError('You have already completed onboarding.')
-              navigate('/profile')
+              navigate('/dashboard')
             }}
             loading={loading}
             setLoading={setLoading}

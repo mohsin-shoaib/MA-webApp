@@ -6,6 +6,7 @@ import { Button } from '@/components/Button'
 import { Icon } from '@/components/Icon'
 import { DataTable, type Column } from '@/components/DataTable'
 import { Modal } from '@/components/Modal'
+import { Tooltip } from '@/components/Tooltip'
 import { ProgramForm } from '@/components/Program/ProgramForm'
 import { adminService } from '@/api/admin.service'
 import { programService } from '@/api/program.service'
@@ -113,32 +114,38 @@ const CyclePrograms = () => {
     setEditingProgram(null)
   }
 
+  // Amber cycle (id 2) allows only one program
+  const isAmberCycle = cycleId === '2'
+  const isAmberLimitReached = isAmberCycle && programs.length >= 1
+
   // Define table columns
   const columns: Column<Program>[] = [
     {
       key: 'id',
-      label: 'ID',
-      sortable: true,
+      label: 'Sr No',
+      sortable: false,
       width: '80px',
+      render: (_value, _row, index) => (
+        <Text variant="default" className="font-medium">
+          {index + 1}
+        </Text>
+      ),
     },
     {
       key: 'name',
       label: 'Name',
       sortable: true,
-      render: value => (
-        <Text variant="default" className="font-medium">
-          {(value as string) || '-'}
-        </Text>
-      ),
-    },
-    {
-      key: 'description',
-      label: 'Description',
-      sortable: false,
-      render: value => (
-        <Text variant="secondary" className="text-sm">
-          {(value as string) || '-'}
-        </Text>
+      render: (value, row) => (
+        <div className="flex items-center gap-1.5">
+          <Text variant="default" className="font-medium">
+            {(value as string) || '-'}
+          </Text>
+          <Tooltip content={row.description ?? 'No description'}>
+            <span className="inline-flex text-gray-500 cursor-help">
+              <Icon name="circle-info" family="solid" size={16} />
+            </span>
+          </Tooltip>
+        </div>
       ),
     },
     {
@@ -152,16 +159,12 @@ const CyclePrograms = () => {
       ),
     },
     {
-      key: 'isActive',
-      label: 'Status',
+      key: 'subCategory',
+      label: 'Goal',
       sortable: true,
-      align: 'center',
       render: value => (
-        <Text
-          variant={value ? 'success' : 'muted'}
-          className="text-sm font-medium"
-        >
-          {value ? 'Active' : 'Inactive'}
+        <Text variant="default" className="text-sm">
+          {(value as string) || '-'}
         </Text>
       ),
     },
@@ -207,13 +210,27 @@ const CyclePrograms = () => {
               </Text>
             </div>
           </div>
-          <Button
-            variant="primary"
-            leftIcon={<Icon name="plus" family="solid" size={16} />}
-            onClick={handleCreateProgram}
-          >
-            Create Program
-          </Button>
+          {isAmberLimitReached ? (
+            <Tooltip content="Amber program only support default program">
+              <span className="inline-block cursor-not-allowed">
+                <Button
+                  variant="primary"
+                  leftIcon={<Icon name="plus" family="solid" size={16} />}
+                  disabled
+                >
+                  Create Program
+                </Button>
+              </span>
+            </Tooltip>
+          ) : (
+            <Button
+              variant="primary"
+              leftIcon={<Icon name="plus" family="solid" size={16} />}
+              onClick={handleCreateProgram}
+            >
+              Create Program
+            </Button>
+          )}
         </div>
 
         {/* Content Area */}
