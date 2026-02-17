@@ -4,6 +4,8 @@ import type {
   CreateOnboardingDTO,
   UpdateOnboardingDTO,
   OnboardingResponseV2,
+  ConfirmOnboardingPayload,
+  ConfirmOnboardingResponse,
 } from '@/types/onboarding'
 import api from './axios'
 
@@ -15,6 +17,13 @@ export const onboardingService = {
   // New methods for recommendation flow
   createOnboardingV2: (data: CreateOnboardingDTO) =>
     api.post<OnboardingResponseV2>('athlete/onboarding/create', data),
+
+  /**
+   * Defer-save: confirm onboarding with full payload. Backend creates onboarding,
+   * recommendation (with confirmed cycle), roadmap, and cycle transition. Call only on Step 3.
+   */
+  confirmOnboarding: (payload: ConfirmOnboardingPayload) =>
+    api.post<ConfirmOnboardingResponse>('athlete/onboarding/confirm', payload),
 
   updateOnboarding: (onboardingId: number, data: UpdateOnboardingDTO) =>
     api.put<OnboardingResponseV2>(

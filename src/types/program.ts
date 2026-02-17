@@ -93,9 +93,50 @@ export interface GetProgramsQueryDTO {
   q?: string
   cycleId?: number
   category?: string
+  subCategory?: string
   isActive?: boolean
   sortBy?: string
   sortOrder?: 'ASC' | 'DESC'
+}
+
+/** Response from athlete program list (by cycle / subCategory) */
+export interface ProgramListByCycleResponse {
+  statusCode: number
+  data: Program[] | { rows: Program[] }
+  message?: string
+}
+
+/** Program with cycle relation (athlete GET /athlete/program/:id) */
+export interface ProgramWithCycle extends Program {
+  cycle?: {
+    id: number
+    name: string
+    description?: string
+    duration?: number
+  }
+}
+
+/** Response from POST /athlete/program/enroll */
+export interface EnrollProgramResponse {
+  statusCode: number
+  data: {
+    enrollment: {
+      id: number
+      userId: number
+      programId: number
+      isActive: boolean
+      startDate: string
+      endDate?: string | null
+      program?: {
+        id: number
+        name: string
+        cycleId: number
+        cycle?: { id: number; name: string }
+      }
+    }
+    warning?: string
+  }
+  message?: string
 }
 
 export interface GetProgramsResponse {
@@ -111,6 +152,31 @@ export interface GetProgramsResponse {
     }
   }
   message: string
+}
+
+/** Current enrolled program (GET /athlete/program/current). dailyExercise may be array or object keyed by day. */
+export interface UserProgram {
+  id: number
+  userId: number
+  programId: number
+  isActive: boolean
+  startDate: string
+  endDate: string | null
+  program: Program & {
+    dailyExercise: DailyExerciseDTO[] | Record<string, DailyExerciseDTO>
+    cycle?: {
+      id: number
+      name: string
+      description?: string
+      duration?: number
+    }
+  }
+}
+
+export interface CurrentProgramResponse {
+  statusCode: number
+  data: UserProgram | null
+  message?: string
 }
 
 // Legacy types (kept for backward compatibility)

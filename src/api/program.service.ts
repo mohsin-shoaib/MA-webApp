@@ -7,6 +7,11 @@ import type {
   GetProgramResponse,
   GetProgramsResponse,
   GetProgramsQueryDTO,
+  ProgramListByCycleResponse,
+  Program,
+  ProgramWithCycle,
+  EnrollProgramResponse,
+  CurrentProgramResponse,
 } from '@/types/program'
 
 export const programService = {
@@ -53,6 +58,53 @@ export const programService = {
   // Legacy method (kept for backward compatibility)
   createProgram: (payload: CreateProgramDTO) =>
     api.post<CreateProgramResponse>('admin/program/create', payload),
+
+  /**
+   * List programs by cycle for manual selection (onboarding Step 3).
+   * GET /api/v1/athlete/program/list?cycleId=...&subCategory=...
+   * Red/Green: filter by subCategory (primary goal); Amber: no programs.
+   */
+  getProgramsByCycle: (
+    cycleId: number,
+    subCategory?: string
+  ): Promise<{ data: Program[] }> => {
+    const params: { cycleId: number; subCategory?: string } = { cycleId }
+    if (subCategory) params.subCategory = subCategory
+    return api
+      .get<ProgramListByCycleResponse>('athlete/program/list', { params })
+      .then(res => {
+        const apiRes = res.data
+        const list = Array.isArray(apiRes.data)
+          ? apiRes.data
+          : ((apiRes.data as { rows: Program[] }).rows ?? [])
+        return { data: list }
+      })
+  },
+
+  /**
+   * Get program by ID for athlete (detail / preview before enroll).
+   * GET /api/v1/athlete/program/:id
+   */
+  getByIdForAthlete: (programId: number) =>
+    api.get<{ statusCode: number; data: ProgramWithCycle; message?: string }>(
+      `athlete/program/${programId}`
+    ),
+
+  /**
+   * Enroll in a program (sets as athlete's active program).
+   * POST /api/v1/athlete/program/enroll
+   * Response may include data.warning for conflict – show confirmation modal.
+   */
+  enroll: (programId: number) =>
+    api.post<EnrollProgramResponse>('athlete/program/enroll', { programId }),
+
+  /**
+   * Get current enrolled program (all days + exercises). For Exercise Library.
+   * GET /api/v1/athlete/program/current
+   * If not enrolled, data is null.
+   */
+  getCurrentProgram: () =>
+    api.get<CurrentProgramResponse>('athlete/program/current'),
 
   /**
    * Upload video to S3

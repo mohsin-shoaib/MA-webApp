@@ -5,21 +5,18 @@ import { Input } from '@/components/Input'
 import { Dropdown } from '@/components/Dropdown'
 import { Button } from '@/components/Button'
 import { DatePicker } from '@/components/DatePicker'
-import type {
-  OnboardingProps,
-  OnboardingResponse,
-  CreateOnboardingDTO,
-  OnboardingResponseV2,
-} from '@/types/onboarding'
-import { onboardingService } from '@/api/onboarding.service'
+import type { OnboardingProps, CreateOnboardingDTO } from '@/types/onboarding'
+import type { ReadinessRecommendation } from '@/types/readiness'
+import { readinessService } from '@/api/readiness.service'
 import { goalTypeService } from '@/api/goal-type.service'
 import type { GoalType } from '@/types/goal-type'
 import type { AxiosError } from 'axios'
 
 interface OnboardingFormProps {
+  /** Defer-save: pass form data + recommendation from evaluate (no DB save on Step 1) */
   readonly onNext: (
-    formData: OnboardingProps,
-    response: OnboardingResponse
+    formData: CreateOnboardingDTO,
+    recommendation: ReadinessRecommendation
   ) => void
   readonly loading: boolean
   readonly setLoading: (value: boolean) => void
@@ -64,13 +61,16 @@ export default function OnboardingForm({
       ...(initialValues as Partial<CreateOnboardingDTO>),
       primaryGoal: initialValues?.primaryGoal || '',
       secondaryGoal: initialValues?.secondaryGoal || '',
+      eventDate:
+        (initialValues as Partial<CreateOnboardingDTO>)?.eventDate || '',
     },
   })
 
-  // Register primary and secondary goals for validation
+  // Register primary goal, optional secondary goal, and required event date for validation
   useEffect(() => {
     register('primaryGoal', { required: 'Primary goal is required' })
-    register('secondaryGoal', { required: 'Secondary goal is required' })
+    register('secondaryGoal')
+    register('eventDate', { required: 'Event date is required' })
   }, [register])
 
   // Fetch goal types on mount
@@ -100,7 +100,7 @@ export default function OnboardingForm({
     setError(null)
     setLoading(true)
 
-    // Validate goals are selected
+    // Validate goals and event date
     if (!primaryGoal) {
       setError('Please select a primary goal')
       setLoading(false)
@@ -108,10 +108,10 @@ export default function OnboardingForm({
       return
     }
 
-    if (!secondaryGoal) {
-      setError('Please select a secondary goal')
+    if (!eventDate) {
+      setError('Please select an event date')
       setLoading(false)
-      setValue('secondaryGoal', '', { shouldValidate: true })
+      setValue('eventDate', '', { shouldValidate: true })
       return
     }
 
@@ -124,51 +124,27 @@ export default function OnboardingForm({
           | 'INTERMEDIATE'
           | 'ADVANCED',
         primaryGoal: primaryGoal,
-        secondaryGoal: secondaryGoal,
+        secondaryGoal: secondaryGoal || '',
         equipment: equipment.length > 0 ? equipment : undefined,
         eventDate: eventDate || undefined,
       }
 
-      // Use new service method
-      const axiosResponse = await onboardingService.createOnboardingV2(payload)
-      const response: OnboardingResponseV2 = axiosResponse.data
-
-      // Convert to legacy format for backward compatibility
-      const legacyPayload: OnboardingProps & { eventDate?: string } = {
-        height: payload.height,
-        weight: payload.weight,
-        age: payload.age,
-        gender: payload.gender,
+      // Defer-save: evaluate only (no create). Store recommendation + form data for Step 3 confirm.
+      const axiosResponse = await readinessService.evaluateReadiness({
         trainingExperience: payload.trainingExperience,
         primaryGoal: payload.primaryGoal,
-        secondaryGoal: payload.secondaryGoal,
-        equipment: payload.equipment || [],
-        eventDate: payload.eventDate || '',
+        eventDate: payload.eventDate,
+      })
+      const apiResponse = axiosResponse.data
+      if (apiResponse.statusCode !== 200 || !apiResponse.data) {
+        throw new Error(apiResponse.message || 'Invalid response format')
       }
 
-      const legacyResponse: OnboardingResponse = {
-        data: {
-          onboarding: {
-            id: response.data.id,
-            height: response.data.height,
-            weight: response.data.weight,
-            age: response.data.age,
-            gender: response.data.gender,
-            trainingExperience: response.data.trainingExperience,
-            primaryGoal: response.data.primaryGoal,
-            secondaryGoal: response.data.secondaryGoal,
-            equipment: response.data.equipment || [],
-            testDate: response.data.testDate || response.data.eventDate || '',
-            userId: response.data.userId,
-          },
-        },
-      }
-
-      onNext(legacyPayload, legacyResponse)
+      onNext(payload, apiResponse.data)
     } catch (error) {
       const axiosError = error as AxiosError<{ message: string }>
       const errorMessage =
-        axiosError.response?.data?.message || 'Onboarding failed.'
+        axiosError.response?.data?.message || 'Failed to get recommendation.'
       setError(errorMessage)
       console.error(errorMessage)
     } finally {
@@ -282,7 +258,6 @@ export default function OnboardingForm({
             value: gt.subCategory,
           }
         })}
-        required
         fullWidth
         disabled={loadingGoals}
         placeholder={
@@ -294,9 +269,13 @@ export default function OnboardingForm({
       <DatePicker
         label="Event Date"
         value={eventDate}
-        onChange={date => setEventDate(date || '')}
+        onChange={date => {
+          setEventDate(date ?? '')
+          setValue('eventDate', date ?? '', { shouldValidate: true })
+        }}
         helperText="Primary event date for training timeline and roadmap generation"
         error={errors.eventDate?.message}
+        required
       />
 
       <Input

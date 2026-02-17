@@ -83,3 +83,17 @@ export interface OnboardingResponseV2 {
   }
   message: string
 }
+
+/** Payload for defer-save: confirm onboarding (create + recommendation + roadmap + transition) in one call */
+export interface ConfirmOnboardingPayload {
+  onboarding: CreateOnboardingDTO
+  cycleName: string
+  programId?: number
+}
+
+/** Response from POST /athlete/onboarding/confirm (optional; backend may return onboarding + message) */
+export interface ConfirmOnboardingResponse {
+  statusCode: number
+  data?: unknown
+  message: string
+}

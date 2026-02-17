@@ -4,6 +4,7 @@ import { Text } from '@/components/Text'
 import { useForm } from 'react-hook-form'
 import type { LoginProps } from '@/types/auth'
 import { authService } from '@/api/auth.service'
+import { dashboardService } from '@/api/dashboard.service'
 import { useNavigate, Link } from 'react-router-dom'
 import { Stack } from '@/components/Stack'
 import AuthLayout from '../authLayout'
@@ -26,7 +27,7 @@ const Login = () => {
       const response = await authService.login(data)
       const { token, user } = response.data.data
 
-      // Update auth context
+      // Update auth context (token is stored so next API call is authenticated)
       setAuth(token, {
         id: user.id,
         email: user.email,
@@ -38,7 +39,11 @@ const Login = () => {
 
       // Navigate based on user role
       if (user.role === 'ATHLETE') {
-        navigate('/onboarding')
+        // Check onboarding status: if already onboarded (or has program data) go to dashboard, else onboarding
+        const data = await dashboardService.getDashboard().catch(() => null)
+        const hasProgram = data ? !!(data.today ?? data.cycle) : false
+        const isOnboarded = data?.isOnboarded !== false || hasProgram
+        navigate(isOnboarded ? '/dashboard' : '/onboarding')
       } else if (user.role === 'COACH') {
         navigate('/create_program')
       } else if (user.role === 'ADMIN') {

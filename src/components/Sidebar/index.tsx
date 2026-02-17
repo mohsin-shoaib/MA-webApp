@@ -26,9 +26,21 @@ export function Sidebar() {
   // Define navigation items based on roles
   const navItems: NavItem[] = [
     {
+      path: '/dashboard',
+      label: 'Dashboard',
+      icon: 'home',
+      roles: ['ATHLETE'],
+    },
+    {
       path: '/profile',
       label: 'Profile',
       icon: 'user',
+    },
+    {
+      path: '/train',
+      label: 'Train',
+      icon: 'dumbbell',
+      roles: ['ATHLETE'],
     },
     {
       path: '/create_program',
