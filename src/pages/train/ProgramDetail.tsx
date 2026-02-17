@@ -376,27 +376,29 @@ export function ProgramDetail() {
       )}
 
       {/* Only show after user clicked Confirm and backend returned a non-empty warning string */}
-      <Modal
-        visible={enrollWarning != null && enrollWarning.length > 0}
-        onClose={closeWarning}
-        title="Enrollment note"
-        showCloseButton={true}
-        closeOnBackdropPress={true}
-        closeOnEscape={true}
-        primaryAction={{
-          label: 'I understand',
-          onPress: closeWarning,
-        }}
-        secondaryAction={{
-          label: 'Close',
-          onPress: closeWarning,
-        }}
-      >
-        <Text variant="default">{enrollWarning}</Text>
-        <Text variant="secondary" className="text-sm mt-2">
-          You have been enrolled in this program.
-        </Text>
-      </Modal>
+      {enrollWarning != null && enrollWarning.length > 0 && (
+        <Modal
+          visible={enrollWarning != null && enrollWarning.length > 0}
+          onClose={closeWarning}
+          title="Enrollment note"
+          showCloseButton={true}
+          closeOnBackdropPress={true}
+          closeOnEscape={true}
+          primaryAction={{
+            label: 'I understand',
+            onPress: closeWarning,
+          }}
+          secondaryAction={{
+            label: 'Close',
+            onPress: closeWarning,
+          }}
+        >
+          <Text variant="default">{enrollWarning}</Text>
+          <Text variant="secondary" className="text-sm mt-2">
+            You have been enrolled in this program.
+          </Text>
+        </Modal>
+      )}
     </div>
   )
 }

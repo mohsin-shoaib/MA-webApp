@@ -4,6 +4,8 @@ import { Text } from '@/components/Text'
 import { Card } from '@/components/Card'
 import { Button } from '@/components/Button'
 import { Spinner } from '@/components/Spinner'
+import { Icon } from '@/components/Icon'
+import { Tooltip } from '@/components/Tooltip'
 import { trainService } from '@/api/train.service'
 import type { AxiosError } from 'axios'
 
@@ -68,14 +70,23 @@ export default function TrainPage() {
     }
   }, [])
 
+  const cycleName = todayWorkout?.currentCycle ?? null
+
   return (
     <div className="space-y-6 max-w-4xl">
-      <Text variant="primary" className="text-2xl font-semibold">
-        Train
-      </Text>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <Text variant="primary" className="text-2xl font-semibold">
+          Train
+        </Text>
+        {cycleName && (
+          <span className="px-3 py-1.5 rounded-lg border text-sm font-medium bg-gray-100 text-gray-800 border-gray-200">
+            {cycleName}
+          </span>
+        )}
+      </div>
 
       {error && (
-        <div className="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded">
+        <div className="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-lg">
           <Text variant="default">{error}</Text>
           <Button
             type="button"
@@ -88,151 +99,194 @@ export default function TrainPage() {
         </div>
       )}
 
-      {/* Today's session – opens detail page like Exercise Library */}
-      <Card
-        className={`p-6 ${todayWorkout ? 'cursor-pointer hover:bg-gray-50 transition' : ''}`}
-        pressable={!!todayWorkout}
-        onPress={() => todayWorkout && navigate('/train/today')}
-      >
-        <Text variant="default" className="font-semibold mb-4">
-          Today’s session
-        </Text>
-        {loading && (
-          <div className="flex items-center gap-2 py-4">
-            <Spinner size="small" variant="primary" />
-            <Text variant="secondary">Loading...</Text>
-          </div>
-        )}
-        {!loading && todayWorkout && (
-          <div className="space-y-3">
-            <div className="flex flex-wrap gap-2">
-              {todayWorkout.currentCycle && (
-                <span className="px-2 py-1 bg-gray-100 rounded text-sm">
-                  {todayWorkout.currentCycle}
-                </span>
-              )}
-              <span className="px-2 py-1 bg-gray-100 rounded text-sm">
-                {todayWorkout.phase} • Week {todayWorkout.weekIndex} •{' '}
-                {todayWorkout.dayKey}
-              </span>
-              {todayWorkout.programName && (
-                <span className="px-2 py-1 bg-gray-100 rounded text-sm">
-                  {todayWorkout.programName}
-                </span>
-              )}
-            </div>
-            <Text variant="secondary">
-              {todayWorkout.dayExercise?.exercise_name || todayWorkout.dayKey}
+      {loading && (
+        <div className="flex items-center gap-2 py-8">
+          <Spinner size="small" variant="primary" />
+          <Text variant="secondary">Loading...</Text>
+        </div>
+      )}
+
+      {loading === false && (
+        <>
+          {/* Today's session */}
+          <Card className="p-0">
+            <Text variant="default" className="font-semibold mb-4">
+              Today's session
             </Text>
-            <div className="flex flex-wrap gap-2 mt-4">
-              {todayWorkout.status === 'completed' && (
-                <span className="px-3 py-2 bg-green-100 text-green-800 rounded font-medium">
-                  Completed
-                </span>
-              )}
+            {todayWorkout ? (
+              <div className="space-y-4">
+                <div className="flex items-start justify-between gap-3">
+                  <Text
+                    variant="muted"
+                    className="text-xs uppercase tracking-wide shrink-0"
+                  >
+                    Program
+                  </Text>
+                  <Text
+                    variant="default"
+                    className="font-medium wrap-break-word text-right"
+                  >
+                    {todayWorkout.programName ?? '—'}
+                  </Text>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {todayWorkout.currentCycle && (
+                    <span className="px-2 py-1 bg-gray-100 rounded text-sm">
+                      {todayWorkout.currentCycle}
+                    </span>
+                  )}
+                  <span className="px-2 py-1 bg-gray-100 rounded text-sm">
+                    {todayWorkout.phase}
+                  </span>
+                  <span className="px-2 py-1 bg-gray-100 rounded text-sm">
+                    Week {todayWorkout.weekIndex} • {todayWorkout.dayKey}
+                  </span>
+                </div>
+                <div className="space-x-2 ">
+                  <Text
+                    variant="muted"
+                    className="text-xs uppercase tracking-wide"
+                  >
+                    Session:
+                  </Text>
+                  <Text variant="secondary" className="wrap-break-word">
+                    {todayWorkout.dayExercise?.exercise_name ||
+                      todayWorkout.dayKey}
+                  </Text>
+                </div>
+                <div className="flex flex-wrap gap-2 pt-2">
+                  {todayWorkout.status === 'completed' && (
+                    <span className="px-3 py-2 bg-green-100 text-green-800 rounded font-medium">
+                      Completed
+                    </span>
+                  )}
+                  <Button
+                    type="button"
+                    variant="primary"
+                    onClick={() => navigate('/train/today')}
+                  >
+                    View session
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <Text variant="secondary">
+                No workout scheduled for today. Check your roadmap or program.
+              </Text>
+            )}
+          </Card>
+
+          {/* Program browser */}
+          <Card className="p-0">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <Text variant="default" className="font-semibold">
+                  Program browser
+                </Text>
+                <Tooltip
+                  content="Browse programs by Readiness Cycle (Red, Amber, Green) and enroll."
+                  position="top"
+                >
+                  <span
+                    className="inline-flex text-gray-500 cursor-help"
+                    aria-label="More info"
+                  >
+                    <Icon name="circle-info" family="solid" size={16} />
+                  </span>
+                </Tooltip>
+              </div>
               <Button
                 type="button"
                 variant="secondary"
-                onClick={e => {
-                  e.stopPropagation()
-                  navigate('/train/today')
-                }}
-                disabled={loading}
+                size="small"
+                onClick={() => navigate('/train/programs')}
               >
-                View session
+                Browse programs
               </Button>
             </div>
-          </div>
-        )}
-        {!loading && !todayWorkout && !error && (
-          <Text variant="secondary">
-            No workout scheduled for today. Check your roadmap or program.
-          </Text>
-        )}
-      </Card>
+          </Card>
 
-      {/* Program browser – opens on separate page */}
-      <Card
-        className="p-6 cursor-pointer hover:bg-gray-50 transition"
-        onClick={() => navigate('/train/programs')}
-      >
-        <Text variant="default" className="font-semibold mb-2">
-          Program browser
-        </Text>
-        <Text variant="secondary" className="text-sm">
-          Browse programs by Readiness Cycle (Red, Amber, Green) and enroll.
-        </Text>
-        <Button
-          type="button"
-          variant="secondary"
-          className="mt-3"
-          onClick={e => {
-            e.stopPropagation()
-            navigate('/train/programs')
-          }}
-        >
-          Browse programs
-        </Button>
-      </Card>
+          {/* Exercise library */}
+          <Card className="p-0">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <Text variant="default" className="font-semibold">
+                  Exercise library
+                </Text>
+                <Tooltip
+                  content="Browse all days and exercises of your current program; log sets and complete workouts."
+                  position="top"
+                >
+                  <span
+                    className="inline-flex text-gray-500 cursor-help"
+                    aria-label="More info"
+                  >
+                    <Icon name="circle-info" family="solid" size={16} />
+                  </span>
+                </Tooltip>
+              </div>
+              <Button
+                type="button"
+                variant="secondary"
+                size="small"
+                onClick={() => navigate('/train/library')}
+              >
+                Open library
+              </Button>
+            </div>
+          </Card>
 
-      {/* Exercise library */}
-      <Card
-        className="p-6 cursor-pointer hover:bg-gray-50 transition"
-        onClick={() => navigate('/train/library')}
-      >
-        <Text variant="default" className="font-semibold mb-2">
-          Exercise library
-        </Text>
-        <Text variant="secondary" className="text-sm">
-          Browse all days and exercises of your current program; log sets and
-          complete workouts.
-        </Text>
-        <Button
-          type="button"
-          variant="secondary"
-          className="mt-3"
-          onClick={e => {
-            e.stopPropagation()
-            navigate('/train/library')
-          }}
-        >
-          Open library
-        </Button>
-      </Card>
+          {/* Nutrition Hub */}
+          <Card className="p-0">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <Text variant="default" className="font-semibold">
+                  Nutrition Hub
+                </Text>
+                <Tooltip
+                  content="Macro calculator, meal logging, and hydration tracking."
+                  position="top"
+                >
+                  <span
+                    className="inline-flex text-gray-500 cursor-help"
+                    aria-label="More info"
+                  >
+                    <Icon name="circle-info" family="solid" size={16} />
+                  </span>
+                </Tooltip>
+              </div>
+              <Button
+                type="button"
+                variant="secondary"
+                size="small"
+                onClick={() => navigate('/train/nutrition')}
+              >
+                Open Nutrition Hub
+              </Button>
+            </div>
+          </Card>
 
-      {/* Nutrition Hub */}
-      <Card
-        className="p-6 cursor-pointer hover:bg-gray-50 transition"
-        onClick={() => navigate('/train/nutrition')}
-      >
-        <Text variant="default" className="font-semibold mb-2">
-          Nutrition Hub
-        </Text>
-        <Text variant="secondary" className="text-sm">
-          Macro calculator, meal logging, and hydration tracking.
-        </Text>
-        <Button
-          type="button"
-          variant="secondary"
-          className="mt-3"
-          onClick={e => {
-            e.stopPropagation()
-            navigate('/train/nutrition')
-          }}
-        >
-          Open Nutrition Hub
-        </Button>
-      </Card>
-
-      {/* Recovery – placeholder */}
-      <Card className="p-6">
-        <Text variant="default" className="font-semibold mb-2">
-          Recovery protocols
-        </Text>
-        <Text variant="secondary" className="text-sm">
-          Mobility, stretching, and soft tissue routines. Phase 2.
-        </Text>
-      </Card>
+          {/* Recovery – placeholder */}
+          <Card className="p-0">
+            <div className="flex items-center gap-2">
+              <Text variant="default" className="font-semibold">
+                Recovery protocols
+              </Text>
+              <Tooltip
+                content="Mobility, stretching, and soft tissue routines. Phase 2."
+                position="top"
+              >
+                <span
+                  className="inline-flex text-gray-500 cursor-help"
+                  aria-label="More info"
+                >
+                  <Icon name="circle-info" family="solid" size={16} />
+                </span>
+              </Tooltip>
+            </div>
+          </Card>
+        </>
+      )}
     </div>
   )
 }

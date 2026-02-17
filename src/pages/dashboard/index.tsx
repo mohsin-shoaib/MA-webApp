@@ -81,7 +81,10 @@ export default function DashboardPage() {
     dashboardService
       .getDashboard()
       .then(data => {
-        if (data.isOnboarded === false) {
+        // Only redirect when backend says not onboarded and we have no program data.
+        // If we have today or cycle, treat as onboarded (safeguard for backend returning false by mistake).
+        const hasProgram = !!(data.today ?? data.cycle)
+        if (data.isOnboarded === false && !hasProgram) {
           navigate('/onboarding', { replace: true })
           return
         }

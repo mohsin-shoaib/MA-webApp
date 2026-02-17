@@ -226,77 +226,80 @@ export default function ConfirmationStep({
         </div>
       </Card>
 
-      <Modal
-        visible={showModal && !loading}
-        onClose={() => {
-          if (!loading) {
-            setShowModal(false)
-            resetManualState()
-          }
-        }}
-        title="Choose manually"
-        primaryAction={{
-          label: loading ? 'Confirming...' : 'Confirm Selection',
-          onPress: () => {
-            void handleSelectAlternative()
-          },
-          loading: loading,
-          disabled: !canConfirmManual || loading || loadingPrograms,
-        }}
-        secondaryAction={{
-          label: 'Cancel',
-          onPress: () => {
+      {showModal && !loading && (
+        <Modal
+          visible={showModal && !loading}
+          onClose={() => {
             if (!loading) {
               setShowModal(false)
               resetManualState()
             }
-          },
-          disabled: loading,
-        }}
-        closeOnBackdropPress={!loading}
-        closeOnEscape={!loading}
-      >
-        <div className="space-y-4">
-          <Dropdown
-            label="Select Cycle"
-            value={cycleName}
-            onValueChange={v => setCycleName(v as string)}
-            options={cycleOptions}
-            required
-            fullWidth
-          />
-          {requiresProgram && (
-            <>
-              {loadingPrograms && (
-                <div className="flex items-center gap-2 py-2">
-                  <Spinner size="small" variant="primary" />
-                  <Text variant="secondary">Loading programs...</Text>
-                </div>
-              )}
-              {!loadingPrograms && programsForCycle.length === 0 && (
-                <Text variant="secondary" className="text-amber-600">
-                  No programs available for this cycle. Please contact support.
-                </Text>
-              )}
-              {!loadingPrograms && programsForCycle.length > 0 && (
-                <Dropdown
-                  label="Select Program"
-                  value={
-                    selectedProgramId == null ? '' : String(selectedProgramId)
-                  }
-                  onValueChange={v =>
-                    setSelectedProgramId(v ? Number(v) : null)
-                  }
-                  options={programOptions}
-                  required
-                  fullWidth
-                  placeholder="Select a program"
-                />
-              )}
-            </>
-          )}
-        </div>
-      </Modal>
+          }}
+          title="Choose manually"
+          primaryAction={{
+            label: loading ? 'Confirming...' : 'Confirm Selection',
+            onPress: () => {
+              void handleSelectAlternative()
+            },
+            loading: loading,
+            disabled: !canConfirmManual || loading || loadingPrograms,
+          }}
+          secondaryAction={{
+            label: 'Cancel',
+            onPress: () => {
+              if (!loading) {
+                setShowModal(false)
+                resetManualState()
+              }
+            },
+            disabled: loading,
+          }}
+          closeOnBackdropPress={!loading}
+          closeOnEscape={!loading}
+        >
+          <div className="space-y-4">
+            <Dropdown
+              label="Select Cycle"
+              value={cycleName}
+              onValueChange={v => setCycleName(v as string)}
+              options={cycleOptions}
+              required
+              fullWidth
+            />
+            {requiresProgram && (
+              <>
+                {loadingPrograms && (
+                  <div className="flex items-center gap-2 py-2">
+                    <Spinner size="small" variant="primary" />
+                    <Text variant="secondary">Loading programs...</Text>
+                  </div>
+                )}
+                {!loadingPrograms && programsForCycle.length === 0 && (
+                  <Text variant="secondary" className="text-amber-600">
+                    No programs available for this cycle. Please contact
+                    support.
+                  </Text>
+                )}
+                {!loadingPrograms && programsForCycle.length > 0 && (
+                  <Dropdown
+                    label="Select Program"
+                    value={
+                      selectedProgramId == null ? '' : String(selectedProgramId)
+                    }
+                    onValueChange={v =>
+                      setSelectedProgramId(v ? Number(v) : null)
+                    }
+                    options={programOptions}
+                    required
+                    fullWidth
+                    placeholder="Select a program"
+                  />
+                )}
+              </>
+            )}
+          </div>
+        </Modal>
+      )}
     </div>
   )
 }
