@@ -11,6 +11,13 @@ import CyclePrograms from '@/pages/admin/program-management/cycle-programs'
 import CoachHeadUserManagement from '@/pages/coach-head/user-management'
 import CoachUserManagement from '@/pages/coach/user-management'
 import Profile from '@/pages/profile'
+import Train from '@/pages/train'
+import WorkoutPlayer from '@/pages/train/WorkoutPlayer'
+import TodaySession from '@/pages/train/TodaySession'
+import ExerciseLibrary from '@/pages/train/ExerciseLibrary'
+import { ProgramBrowser } from '@/pages/train/ProgramBrowser'
+import { ProgramDetail } from '@/pages/train/ProgramDetail'
+import NutritionHub from '@/pages/train/NutritionHub'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 import { AuthRedirect } from '@/components/AuthRedirect'
 import { NotFound } from '@/components/NotFound'
@@ -138,6 +145,76 @@ export const routes = [
       <ProtectedRoute>
         <AppLayout>
           <Profile />
+        </AppLayout>
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/train',
+    element: (
+      <ProtectedRoute allowedRoles={['ATHLETE']}>
+        <AppLayout>
+          <Train />
+        </AppLayout>
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/train/programs',
+    element: (
+      <ProtectedRoute allowedRoles={['ATHLETE']}>
+        <AppLayout>
+          <ProgramBrowser />
+        </AppLayout>
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/train/programs/:id',
+    element: (
+      <ProtectedRoute allowedRoles={['ATHLETE']}>
+        <AppLayout>
+          <ProgramDetail />
+        </AppLayout>
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/train/today',
+    element: (
+      <ProtectedRoute allowedRoles={['ATHLETE']}>
+        <AppLayout>
+          <TodaySession />
+        </AppLayout>
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/train/player',
+    element: (
+      <ProtectedRoute allowedRoles={['ATHLETE']}>
+        <AppLayout>
+          <WorkoutPlayer />
+        </AppLayout>
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/train/library',
+    element: (
+      <ProtectedRoute allowedRoles={['ATHLETE']}>
+        <AppLayout>
+          <ExerciseLibrary />
+        </AppLayout>
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/train/nutrition',
+    element: (
+      <ProtectedRoute allowedRoles={['ATHLETE']}>
+        <AppLayout>
+          <NutritionHub />
         </AppLayout>
       </ProtectedRoute>
     ),

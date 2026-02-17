@@ -31,6 +31,12 @@ export function Sidebar() {
       icon: 'user',
     },
     {
+      path: '/train',
+      label: 'Train',
+      icon: 'dumbbell',
+      roles: ['ATHLETE'],
+    },
+    {
       path: '/create_program',
       label: 'Create Program',
       icon: 'plus-circle',

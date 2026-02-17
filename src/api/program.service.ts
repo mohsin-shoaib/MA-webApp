@@ -9,6 +9,9 @@ import type {
   GetProgramsQueryDTO,
   ProgramListByCycleResponse,
   Program,
+  ProgramWithCycle,
+  EnrollProgramResponse,
+  CurrentProgramResponse,
 } from '@/types/program'
 
 export const programService = {
@@ -77,6 +80,31 @@ export const programService = {
         return { data: list }
       })
   },
+
+  /**
+   * Get program by ID for athlete (detail / preview before enroll).
+   * GET /api/v1/athlete/program/:id
+   */
+  getByIdForAthlete: (programId: number) =>
+    api.get<{ statusCode: number; data: ProgramWithCycle; message?: string }>(
+      `athlete/program/${programId}`
+    ),
+
+  /**
+   * Enroll in a program (sets as athlete's active program).
+   * POST /api/v1/athlete/program/enroll
+   * Response may include data.warning for conflict – show confirmation modal.
+   */
+  enroll: (programId: number) =>
+    api.post<EnrollProgramResponse>('athlete/program/enroll', { programId }),
+
+  /**
+   * Get current enrolled program (all days + exercises). For Exercise Library.
+   * GET /api/v1/athlete/program/current
+   * If not enrolled, data is null.
+   */
+  getCurrentProgram: () =>
+    api.get<CurrentProgramResponse>('athlete/program/current'),
 
   /**
    * Upload video to S3
