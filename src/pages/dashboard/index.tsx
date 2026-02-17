@@ -175,7 +175,8 @@ export default function DashboardPage() {
     today?.dayExercise?.exercises != null &&
     Array.isArray(today.dayExercise.exercises) &&
     today.dayExercise.exercises.length > 0
-  const isCompleted = today?.status === 'completed' || today?.completed === true
+  const isCompleted =
+    today?.status?.toLowerCase() === 'completed' || today?.completed === true
 
   return (
     <div className="space-y-6 max-w-4xl">
