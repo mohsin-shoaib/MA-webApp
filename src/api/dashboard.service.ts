@@ -12,19 +12,21 @@ import type { AxiosError } from 'axios'
 function toTodaySummary(
   data: TodayWorkoutResponse['data']
 ): TodayWorkoutSummary {
+  const rawStatus = data.sessionStatus ?? data.status
+  const status = normalizeSessionStatus(rawStatus)
   return {
     date: data.date,
     phase: data.phase,
     weekIndex: data.weekIndex,
     dayIndex: data.dayIndex,
-    dayKey: data.dayKey,
+    dayKey: data.dayKey ?? data.dayExercise?.day ?? data.date,
     dayExercise: data.dayExercise,
-    currentCycle: data.currentCycle,
+    currentCycle: data.currentCycle ?? data.currentCycleName,
     programId: data.programId,
     programName: data.programName,
     sessionId: data.sessionId,
-    status: data.status,
-    completedAt: undefined,
+    status,
+    completedAt: data.completedAt,
   }
 }
 
@@ -89,6 +91,7 @@ export const dashboardService = {
     }
 
     return {
+      isOnboarded: true,
       today,
       cycle: cycleName ? { name: cycleName } : null,
       streak: 0,
@@ -126,6 +129,9 @@ export const dashboardService = {
           const hasWorkout =
             d.dayExercise?.exercises != null &&
             d.dayExercise.exercises.length > 0
+          const rawStatus = d.sessionStatus ?? d.status
+          const sessionStatus = normalizeSessionStatus(rawStatus)
+          const dayKey = d.dayKey ?? d.dayExercise?.day
           return {
             date,
             hasWorkout,
@@ -133,10 +139,10 @@ export const dashboardService = {
             phase: d.phase,
             weekIndex: d.weekIndex,
             dayIndex: d.dayIndex,
-            dayKey: d.dayKey,
+            dayKey,
             sessionId: d.sessionId,
-            sessionStatus: d.status,
-            daySummary: d.dayExercise?.exercise_name ?? d.dayKey,
+            sessionStatus,
+            daySummary: d.dayExercise?.exercise_name ?? dayKey,
           }
         } catch {
           return { date, hasWorkout: false }
@@ -184,16 +190,19 @@ export const dashboardService = {
           const hasWorkout =
             d.dayExercise?.exercises != null &&
             d.dayExercise.exercises.length > 0
+          const rawStatus = d.sessionStatus ?? d.status
+          const sessionStatus = normalizeSessionStatus(rawStatus)
+          const dayKey = d.dayKey ?? d.dayExercise?.day
           return {
             date,
             hasWorkout,
             programName: d.programName,
             phase: d.phase,
             weekIndex: d.weekIndex,
-            dayKey: d.dayKey,
+            dayKey,
             sessionId: d.sessionId,
-            sessionStatus: d.status,
-            daySummary: d.dayExercise?.exercise_name ?? d.dayKey,
+            sessionStatus,
+            daySummary: d.dayExercise?.exercise_name ?? dayKey,
           }
         } catch {
           return { date, hasWorkout: false }
@@ -202,4 +211,20 @@ export const dashboardService = {
     )
     return events
   },
+}
+
+function normalizeSessionStatus(
+  raw: string | undefined
+): CalendarDayEvent['sessionStatus'] {
+  if (raw == null) return undefined
+  const s = raw.toLowerCase()
+  if (
+    s === 'scheduled' ||
+    s === 'in_progress' ||
+    s === 'completed' ||
+    s === 'skipped'
+  ) {
+    return s
+  }
+  return undefined
 }

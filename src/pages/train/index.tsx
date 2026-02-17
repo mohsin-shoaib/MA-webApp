@@ -36,7 +36,11 @@ export default function TrainPage() {
           if (cancelled.current) return
           const apiRes = res.data
           if (apiRes.statusCode === 200 && apiRes.data) {
-            setTodayWorkout(apiRes.data)
+            const d = apiRes.data
+            setTodayWorkout({
+              ...d,
+              dayKey: d.dayKey ?? d.dayExercise?.day ?? d.date,
+            })
           } else {
             setTodayWorkout(null)
             setError(apiRes.message || 'No workout scheduled for today.')

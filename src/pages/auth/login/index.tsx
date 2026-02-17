@@ -36,9 +36,9 @@ const Login = () => {
         role: user.role,
       })
 
-      // Navigate based on user role
+      // Navigate based on user role (athletes go to dashboard; dashboard will redirect to onboarding if needed)
       if (user.role === 'ATHLETE') {
-        navigate('/onboarding')
+        navigate('/dashboard')
       } else if (user.role === 'COACH') {
         navigate('/create_program')
       } else if (user.role === 'ADMIN') {

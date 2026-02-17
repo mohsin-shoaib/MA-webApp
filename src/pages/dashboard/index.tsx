@@ -80,7 +80,13 @@ export default function DashboardPage() {
   const loadDashboard = useCallback(() => {
     dashboardService
       .getDashboard()
-      .then(setSummary)
+      .then(data => {
+        if (data.isOnboarded === false) {
+          navigate('/onboarding', { replace: true })
+          return
+        }
+        setSummary(data)
+      })
       .catch((err: AxiosError<{ message?: string }>) => {
         setSummary(null)
         setError(
@@ -90,7 +96,7 @@ export default function DashboardPage() {
         )
       })
       .finally(() => setLoading(false))
-  }, [])
+  }, [navigate])
 
   useEffect(() => {
     const cancelled = { current: false }
@@ -169,7 +175,7 @@ export default function DashboardPage() {
     today?.dayExercise?.exercises != null &&
     Array.isArray(today.dayExercise.exercises) &&
     today.dayExercise.exercises.length > 0
-  const isCompleted = today?.status === 'completed'
+  const isCompleted = today?.status === 'completed' || today?.completed === true
 
   return (
     <div className="space-y-6 max-w-4xl">
@@ -204,7 +210,7 @@ export default function DashboardPage() {
 
       {loading === false && summary && (
         <>
-          <Card className="p-6">
+          <Card className="p-0">
             <Text variant="default" className="font-semibold mb-4">
               Today's Training
             </Text>
@@ -225,17 +231,26 @@ export default function DashboardPage() {
           </Card>
 
           {(summary.streak > 0 || summary.compliance) && (
-            <Card className="p-6">
-              <Text variant="default" className="font-semibold mb-3">
-                Progress
-              </Text>
-              <div className="flex flex-wrap gap-6">
+            <Card className="p-0">
+              <div className="flex items-center justify-between pb-3 border-b border-gray-200">
+                <Text variant="default" className="font-semibold">
+                  Progress
+                </Text>
+                {summary.compliance && (
+                  <Text variant="primary" className="text-xl font-semibold">
+                    {summary.compliance.compliancePercent == null
+                      ? '—'
+                      : `${Math.round(summary.compliance.compliancePercent)}%`}
+                  </Text>
+                )}
+              </div>
+              <div className="pt-3 space-y-3">
                 {summary.streak > 0 && (
-                  <div>
+                  <div className="flex items-center justify-between">
                     <Text variant="secondary" className="text-sm">
                       Streak
                     </Text>
-                    <Text variant="primary" className="text-xl font-semibold">
+                    <Text variant="primary" className="font-semibold">
                       {summary.streak} day{summary.streak === 1 ? '' : 's'}
                     </Text>
                   </div>
@@ -248,7 +263,7 @@ export default function DashboardPage() {
           )}
 
           {summary.alerts.length > 0 && (
-            <Card className="p-6">
+            <Card className="p-0">
               <Text variant="default" className="font-semibold mb-3">
                 Alerts
               </Text>
@@ -269,7 +284,7 @@ export default function DashboardPage() {
             </Card>
           )}
 
-          <Card className="p-6">
+          <Card className="p-0">
             <div className="flex items-center justify-between mb-4">
               <Text variant="default" className="font-semibold">
                 This week
@@ -324,49 +339,80 @@ export default function DashboardPage() {
           </Card>
         </>
       )}
-
-      <Modal
-        visible={selectedEvent !== null}
-        onClose={() => setSelectedEvent(null)}
-        title={selectedEvent ? formatDayLabel(selectedEvent.date) : ''}
-        primaryAction={
-          selectedEvent?.hasWorkout
-            ? { label: 'View exercises', onPress: handleViewExercises }
-            : undefined
-        }
-        secondaryAction={{
-          label: 'Close',
-          onPress: () => setSelectedEvent(null),
-        }}
-      >
-        {selectedEvent && (
-          <div className="space-y-2">
-            {selectedEvent.hasWorkout ? (
-              <>
-                <Text variant="default" className="font-medium">
-                  {selectedEvent.daySummary ?? selectedEvent.dayKey}
+      {selectedEvent && (
+        <Modal
+          visible={selectedEvent !== null}
+          onClose={() => setSelectedEvent(null)}
+          title={selectedEvent ? formatDayLabel(selectedEvent.date) : ''}
+          primaryAction={
+            selectedEvent?.hasWorkout
+              ? { label: 'View exercises', onPress: handleViewExercises }
+              : undefined
+          }
+          secondaryAction={{
+            label: 'Close',
+            onPress: () => setSelectedEvent(null),
+          }}
+        >
+          {selectedEvent && (
+            <div className="space-y-4">
+              {selectedEvent.hasWorkout ? (
+                <>
+                  <div>
+                    <Text
+                      variant="default"
+                      className="font-medium wrap-break-word"
+                    >
+                      {selectedEvent.daySummary ?? selectedEvent.dayKey}
+                    </Text>
+                  </div>
+                  {(selectedEvent.programName ||
+                    selectedEvent.phase ||
+                    selectedEvent.weekIndex != null) && (
+                    <div className="space-y-1.5 border-t border-gray-100 pt-3">
+                      {selectedEvent.programName && (
+                        <div>
+                          <Text
+                            variant="secondary"
+                            className="text-sm wrap-break-word"
+                          >
+                            {selectedEvent.programName}
+                          </Text>
+                        </div>
+                      )}
+                      {(selectedEvent.phase ||
+                        selectedEvent.weekIndex != null) && (
+                        <div className="flex flex-wrap gap-2">
+                          {selectedEvent.phase && (
+                            <span className="px-2 py-1 bg-gray-100 rounded text-sm">
+                              {selectedEvent.phase}
+                            </span>
+                          )}
+                          {selectedEvent.weekIndex != null && (
+                            <span className="px-2 py-1 bg-gray-100 rounded text-sm">
+                              Week {selectedEvent.weekIndex}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {selectedEvent.sessionStatus?.toLowerCase() ===
+                    'completed' && (
+                    <span className="inline-block px-2 py-1 bg-green-100 text-green-800 rounded text-sm font-medium">
+                      Completed
+                    </span>
+                  )}
+                </>
+              ) : (
+                <Text variant="secondary">
+                  Rest day – no workout scheduled.
                 </Text>
-                {(selectedEvent.programName || selectedEvent.phase) && (
-                  <Text variant="secondary" className="text-sm">
-                    {[selectedEvent.programName, selectedEvent.phase]
-                      .filter(Boolean)
-                      .join(' • ')}
-                    {selectedEvent.weekIndex != null &&
-                      ` • Week ${selectedEvent.weekIndex}`}
-                  </Text>
-                )}
-                {selectedEvent.sessionStatus === 'completed' && (
-                  <span className="inline-block mt-2 px-2 py-1 bg-green-100 text-green-800 rounded text-sm">
-                    Completed
-                  </span>
-                )}
-              </>
-            ) : (
-              <Text variant="secondary">Rest day – no workout scheduled.</Text>
-            )}
-          </div>
-        )}
-      </Modal>
+              )}
+            </div>
+          )}
+        </Modal>
+      )}
     </div>
   )
 }
@@ -396,25 +442,46 @@ function TodayCard({
   }
 
   return (
-    <div className="space-y-3">
-      <div className="flex flex-wrap gap-2">
-        {today.currentCycle && (
-          <span className="px-2 py-1 bg-gray-100 rounded text-sm">
-            {today.currentCycle}
-          </span>
-        )}
-        <span className="px-2 py-1 bg-gray-100 rounded text-sm">
-          {today.phase} • Week {today.weekIndex} • {today.dayKey}
-        </span>
+    <div className="space-y-4">
+      <div className="space-y-2">
         {today.programName && (
-          <span className="px-2 py-1 bg-gray-100 rounded text-sm">
-            {today.programName}
-          </span>
+          <div className="flex items-start justify-between gap-3">
+            <Text
+              variant="muted"
+              className="text-xs uppercase tracking-wide shrink-0"
+            >
+              Program
+            </Text>
+            <Text
+              variant="default"
+              className="font-medium wrap-break-word text-right"
+            >
+              {today.programName}
+            </Text>
+          </div>
         )}
+        <div className="flex flex-wrap gap-2">
+          {today.currentCycle && (
+            <span className="px-2 py-1 bg-gray-100 rounded text-sm">
+              {today.currentCycle}
+            </span>
+          )}
+          <span className="px-2 py-1 bg-gray-100 rounded text-sm">
+            {today.phase}
+          </span>
+          <span className="px-2 py-1 bg-gray-100 rounded text-sm">
+            Week {today.weekIndex} • {today.dayKey}
+          </span>
+        </div>
+        <div className="space-x-2">
+          <Text variant="muted" className="text-xs uppercase tracking-wide">
+            Session:
+          </Text>
+          <Text variant="secondary" className="wrap-break-word">
+            {today.dayExercise?.exercise_name || today.dayKey}
+          </Text>
+        </div>
       </div>
-      <Text variant="secondary">
-        {today.dayExercise?.exercise_name || today.dayKey}
-      </Text>
       <div className="flex flex-wrap gap-2 mt-4">
         {isCompleted && (
           <span className="px-3 py-2 bg-green-100 text-green-800 rounded font-medium">
@@ -449,23 +516,14 @@ interface ComplianceBlockProps {
 }
 
 function ComplianceBlock({ compliance }: ComplianceBlockProps) {
-  const pct =
-    compliance.compliancePercent == null
-      ? null
-      : Math.round(compliance.compliancePercent)
   return (
-    <div>
+    <div className="flex items-center justify-between">
       <Text variant="secondary" className="text-sm">
         Compliance ({compliance.rollingDays} days)
       </Text>
-      <Text variant="primary" className="text-xl font-semibold">
-        {pct === null ? '—' : `${pct}%`}
+      <Text variant="muted" className="text-sm">
+        {compliance.completedCount} / {compliance.scheduledCount} completed
       </Text>
-      {compliance.scheduledCount >= 1 && (
-        <Text variant="muted" className="text-xs">
-          {compliance.completedCount} / {compliance.scheduledCount} completed
-        </Text>
-      )}
     </div>
   )
 }

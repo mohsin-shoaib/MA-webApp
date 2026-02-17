@@ -261,7 +261,7 @@ export default function ExerciseLibrary() {
         phase: scheduled.phase,
         weekIndex: scheduled.weekIndex,
         dayIndex: dayIndexFromApi,
-        dayKey: scheduled.dayKey,
+        dayKey: scheduled.dayKey ?? scheduled.dayExercise?.day,
         programId,
       })
       const session = createRes.data?.data

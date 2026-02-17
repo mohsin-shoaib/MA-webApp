@@ -1,5 +1,11 @@
 /** Dashboard summary – from GET /athlete/dashboard or composed from train + roadmap */
 export interface DashboardSummary {
+  /** When false, backend indicates user has no roadmap; redirect to onboarding */
+  isOnboarded?: boolean
+  /** When true with isOnboarded false, show onboarding flow */
+  requiresOnboarding?: boolean
+  /** e.g. 'onboarding_required' when not onboarded */
+  message?: string
   today: TodayWorkoutSummary | null
   cycle: { id?: number; name: string } | null
   streak: number
@@ -19,6 +25,7 @@ export interface TodayWorkoutSummary {
   programName?: string
   sessionId?: number
   status?: 'scheduled' | 'in_progress' | 'completed' | 'skipped'
+  completed?: boolean
   completedAt?: string
 }
 

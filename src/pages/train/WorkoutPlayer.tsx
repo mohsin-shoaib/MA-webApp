@@ -40,7 +40,7 @@ export default function WorkoutPlayer() {
             setDayExercise(d.dayExercise)
             setPhase(d.phase)
             setWeekIndex(d.weekIndex)
-            setDayKey(d.dayKey)
+            setDayKey(d.dayKey ?? d.dayExercise?.day ?? d.date ?? '')
             if (d.sessionId) setSessionId(d.sessionId)
             setStatus(d.status ?? null)
           } else {

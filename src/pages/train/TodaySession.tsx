@@ -37,6 +37,30 @@ type TodayWorkoutData = {
   status?: string
 }
 
+/** Normalize scheduled-workout API response (sessionStatus, optional dayKey) to TodayWorkoutData */
+function normalizeScheduledWorkout(
+  raw: Record<string, unknown>
+): TodayWorkoutData {
+  const dayExercise = raw.dayExercise as TodayWorkoutData['dayExercise']
+  const dayKey =
+    (raw.dayKey as string) ?? dayExercise?.day ?? (raw.date as string)
+  const sessionStatus = (raw.sessionStatus as string) ?? (raw.status as string)
+  const status =
+    typeof sessionStatus === 'string' ? sessionStatus.toLowerCase() : undefined
+  return {
+    date: raw.date as string,
+    phase: raw.phase as string,
+    weekIndex: raw.weekIndex as number,
+    dayIndex: raw.dayIndex as number | undefined,
+    dayKey,
+    dayExercise,
+    programId: raw.programId as number | undefined,
+    programName: raw.programName as string | undefined,
+    sessionId: raw.sessionId as number | undefined,
+    status,
+  }
+}
+
 function toDateOnly(dateStr: string): string {
   if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr
   return dateStr.slice(0, 10)
@@ -69,9 +93,10 @@ export default function TodaySession() {
     load
       .then(res => {
         if (res.data.statusCode === 200 && res.data.data) {
-          setWorkout(res.data.data as TodayWorkoutData)
-          if (res.data.data.sessionId) {
-            setSessionId(res.data.data.sessionId)
+          const data = res.data.data as Record<string, unknown>
+          setWorkout(normalizeScheduledWorkout(data))
+          if (data.sessionId) {
+            setSessionId(data.sessionId as number)
           }
         } else {
           setWorkout(null)
