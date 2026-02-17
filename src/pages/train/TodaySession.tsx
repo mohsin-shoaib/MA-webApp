@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Text } from '@/components/Text'
 import { Card } from '@/components/Card'
 import { Button } from '@/components/Button'
@@ -44,6 +44,8 @@ function toDateOnly(dateStr: string): string {
 
 export default function TodaySession() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const dateParam = searchParams.get('date')
   const { showSuccess, showError } = useSnackbar()
   const [loading, setLoading] = useState(true)
   const [workout, setWorkout] = useState<TodayWorkoutData | null>(null)
@@ -61,8 +63,10 @@ export default function TodaySession() {
   >({})
 
   useEffect(() => {
-    trainService
-      .getTodayWorkout()
+    const load = dateParam
+      ? trainService.getScheduledWorkout(dateParam)
+      : trainService.getTodayWorkout()
+    load
       .then(res => {
         if (res.data.statusCode === 200 && res.data.data) {
           setWorkout(res.data.data as TodayWorkoutData)
@@ -75,7 +79,7 @@ export default function TodaySession() {
       })
       .catch(() => setWorkout(null))
       .finally(() => setLoading(false))
-  }, [])
+  }, [dateParam])
 
   const handleExerciseClick = (ex: ExerciseDTO) => {
     setSelectedExercise(ex)
@@ -174,7 +178,7 @@ export default function TodaySession() {
         complianceType: 'full_log',
       })
       showSuccess('Workout marked complete.')
-      navigate('/train')
+      navigate(backTo)
     } catch (err) {
       const ax = err as AxiosError<{ message?: string }>
       showError(
@@ -194,15 +198,17 @@ export default function TodaySession() {
     )
   }
 
+  const backTo = dateParam ? '/dashboard' : '/train'
+
   if (!workout) {
     return (
       <div className="space-y-4 max-w-2xl">
         <Button
           type="button"
           variant="secondary"
-          onClick={() => navigate('/train')}
+          onClick={() => navigate(backTo)}
         >
-          ← Back to Train
+          ← Back to {dateParam ? 'Dashboard' : 'Train'}
         </Button>
         <Card className="p-6">
           <Text variant="default" className="font-medium mb-2">
@@ -216,9 +222,9 @@ export default function TodaySession() {
             type="button"
             variant="secondary"
             className="mt-3"
-            onClick={() => navigate('/train')}
+            onClick={() => navigate(backTo)}
           >
-            Back to Train
+            Back to {dateParam ? 'Dashboard' : 'Train'}
           </Button>
         </Card>
       </div>
@@ -227,6 +233,9 @@ export default function TodaySession() {
 
   const dayExercise = workout.dayExercise
   const exercises = dayExercise?.exercises ?? []
+  const sessionTitle = dateParam
+    ? `Session for ${workout.date}`
+    : "Today's session"
 
   if (view === 'exercises') {
     return (
@@ -235,12 +244,12 @@ export default function TodaySession() {
           <Button
             type="button"
             variant="secondary"
-            onClick={() => navigate('/train')}
+            onClick={() => navigate(backTo)}
           >
-            ← Back to Train
+            ← Back to {dateParam ? 'Dashboard' : 'Train'}
           </Button>
           <Text variant="primary" className="text-2xl font-semibold">
-            Today’s session
+            {sessionTitle}
           </Text>
         </div>
         <div className="flex flex-wrap gap-2">

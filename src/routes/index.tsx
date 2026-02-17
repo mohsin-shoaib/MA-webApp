@@ -18,6 +18,7 @@ import ExerciseLibrary from '@/pages/train/ExerciseLibrary'
 import { ProgramBrowser } from '@/pages/train/ProgramBrowser'
 import { ProgramDetail } from '@/pages/train/ProgramDetail'
 import NutritionHub from '@/pages/train/NutritionHub'
+import Dashboard from '@/pages/dashboard'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 import { AuthRedirect } from '@/components/AuthRedirect'
 import { NotFound } from '@/components/NotFound'
@@ -145,6 +146,16 @@ export const routes = [
       <ProtectedRoute>
         <AppLayout>
           <Profile />
+        </AppLayout>
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/dashboard',
+    element: (
+      <ProtectedRoute allowedRoles={['ATHLETE']}>
+        <AppLayout>
+          <Dashboard />
         </AppLayout>
       </ProtectedRoute>
     ),
