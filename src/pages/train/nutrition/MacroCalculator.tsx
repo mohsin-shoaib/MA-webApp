@@ -86,119 +86,146 @@ export function MacroCalculator({
       .finally(() => setSaving(false))
   }
 
+  const inputClass =
+    'border border-gray-200 rounded-lg px-3 py-2 w-full text-sm focus:ring-2 focus:ring-[#3AB8ED]/30 focus:border-[#3AB8ED] outline-none'
+
   return (
     <div className="space-y-6">
-      <Card className="p-6">
-        <Text variant="default" className="font-semibold mb-4">
-          Calculator inputs
-        </Text>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Input
-            label="Weight (kg)"
-            type="number"
-            value={weightKg}
-            onChange={e => setWeightKg(e.target.value)}
-          />
-          <Input
-            label="Height (cm)"
-            type="number"
-            value={heightCm}
-            onChange={e => setHeightCm(e.target.value)}
-          />
-          <Input
-            label="Age"
-            type="number"
-            value={age}
-            onChange={e => setAge(e.target.value)}
-          />
-          <div>
-            <label
-              htmlFor="calc-gender"
-              className="block text-sm font-medium mb-1"
-            >
-              Gender
-            </label>
-            <select
-              id="calc-gender"
-              value={gender}
-              onChange={e => setGender(e.target.value as 'male' | 'female')}
-              className="border rounded px-2 py-1 w-full"
-            >
-              <option value="male">Male</option>
-              <option value="female">Female</option>
-            </select>
-          </div>
-          <div>
-            <label
-              htmlFor="calc-activity"
-              className="block text-sm font-medium mb-1"
-            >
-              Activity level
-            </label>
-            <select
-              id="calc-activity"
-              value={activityMultiplier}
-              onChange={e => setActivityMultiplier(Number(e.target.value))}
-              className="border rounded px-2 py-1 w-full"
-            >
-              {ACTIVITY_LEVELS.map(l => (
-                <option key={l.value} value={l.value}>
-                  {l.label}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label
-              htmlFor="calc-goal"
-              className="block text-sm font-medium mb-1"
-            >
-              Goal
-            </label>
-            <select
-              id="calc-goal"
-              value={goal}
-              onChange={e => setGoal(e.target.value as NutritionGoal)}
-              className="border rounded px-2 py-1 w-full"
-            >
-              {NUTRITION_GOALS.map(g => (
-                <option key={g.value} value={g.value}>
-                  {g.label}
-                </option>
-              ))}
-            </select>
-          </div>
+      <Card className="p-0">
+        <div className="flex items-center justify-between pb-3 border-b border-gray-200 px-5 pt-5">
+          <Text variant="default" className="font-semibold text-gray-900">
+            Calculator inputs
+          </Text>
         </div>
-        <Button
-          type="button"
-          className="mt-4"
-          onClick={handleCalculate}
-          disabled={loading}
-        >
-          {loading ? 'Calculating...' : 'Calculate'}
-        </Button>
+        <div className="p-5 space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Input
+              label="Weight (kg)"
+              type="number"
+              value={weightKg}
+              onChange={e => setWeightKg(e.target.value)}
+            />
+            <Input
+              label="Height (cm)"
+              type="number"
+              value={heightCm}
+              onChange={e => setHeightCm(e.target.value)}
+            />
+            <Input
+              label="Age"
+              type="number"
+              value={age}
+              onChange={e => setAge(e.target.value)}
+            />
+            <div>
+              <label
+                htmlFor="calc-gender"
+                className="block text-sm font-medium text-gray-700 mb-1"
+              >
+                Gender
+              </label>
+              <select
+                id="calc-gender"
+                value={gender}
+                onChange={e => setGender(e.target.value as 'male' | 'female')}
+                className={inputClass}
+              >
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+              </select>
+            </div>
+            <div>
+              <label
+                htmlFor="calc-activity"
+                className="block text-sm font-medium text-gray-700 mb-1"
+              >
+                Activity level
+              </label>
+              <select
+                id="calc-activity"
+                value={activityMultiplier}
+                onChange={e => setActivityMultiplier(Number(e.target.value))}
+                className={inputClass}
+              >
+                {ACTIVITY_LEVELS.map(l => (
+                  <option key={l.value} value={l.value}>
+                    {l.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label
+                htmlFor="calc-goal"
+                className="block text-sm font-medium text-gray-700 mb-1"
+              >
+                Goal
+              </label>
+              <select
+                id="calc-goal"
+                value={goal}
+                onChange={e => setGoal(e.target.value as NutritionGoal)}
+                className={inputClass}
+              >
+                {NUTRITION_GOALS.map(g => (
+                  <option key={g.value} value={g.value}>
+                    {g.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <Button type="button" onClick={handleCalculate} disabled={loading}>
+            {loading ? 'Calculating...' : 'Calculate'}
+          </Button>
+        </div>
       </Card>
       {result && (
-        <Card className="p-6">
-          <Text variant="default" className="font-semibold mb-2">
-            Results
-          </Text>
-          <div className="grid gap-2 text-sm">
-            <div>BMR: {Math.round(result.bmr)} cal</div>
-            <div>TDEE: {Math.round(result.tdee)} cal</div>
-            <div>Target calories: {Math.round(result.targetCalories)}</div>
-            <div>Protein: {result.proteinG.toFixed(1)} g</div>
-            <div>Carbs: {result.carbG.toFixed(1)} g</div>
-            <div>Fat: {result.fatG.toFixed(1)} g</div>
+        <Card className="p-0">
+          <div className="flex items-center justify-between pb-3 border-b border-gray-200 px-5 pt-5">
+            <Text variant="default" className="font-semibold text-gray-900">
+              Results
+            </Text>
           </div>
-          <Button
-            type="button"
-            className="mt-4"
-            onClick={handleSaveTargets}
-            disabled={saving}
-          >
-            {saving ? 'Saving...' : 'Save as my targets'}
-          </Button>
+          <div className="p-5 space-y-4">
+            <div className="grid gap-2 text-sm text-gray-700">
+              <div className="flex justify-between py-1 border-b border-gray-100">
+                <span>BMR</span>
+                <span className="font-medium">
+                  {Math.round(result.bmr)} cal
+                </span>
+              </div>
+              <div className="flex justify-between py-1 border-b border-gray-100">
+                <span>TDEE</span>
+                <span className="font-medium">
+                  {Math.round(result.tdee)} cal
+                </span>
+              </div>
+              <div className="flex justify-between py-1 border-b border-gray-100">
+                <span>Target calories</span>
+                <span className="font-medium">
+                  {Math.round(result.targetCalories)}
+                </span>
+              </div>
+              <div className="flex justify-between py-1 border-b border-gray-100">
+                <span>Protein</span>
+                <span className="font-medium">
+                  {result.proteinG.toFixed(1)} g
+                </span>
+              </div>
+              <div className="flex justify-between py-1 border-b border-gray-100">
+                <span>Carbs</span>
+                <span className="font-medium">{result.carbG.toFixed(1)} g</span>
+              </div>
+              <div className="flex justify-between py-1 border-b border-gray-100">
+                <span>Fat</span>
+                <span className="font-medium">{result.fatG.toFixed(1)} g</span>
+              </div>
+            </div>
+            <Button type="button" onClick={handleSaveTargets} disabled={saving}>
+              {saving ? 'Saving...' : 'Save as my targets'}
+            </Button>
+          </div>
         </Card>
       )}
     </div>

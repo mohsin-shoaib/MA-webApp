@@ -98,34 +98,42 @@ export function MealLogging({
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-2">
-        <label htmlFor="meals-date" className="text-sm font-medium">
-          Date
-        </label>
-        <input
-          id="meals-date"
-          type="date"
-          value={date}
-          onChange={e => onDateChange(e.target.value)}
-          className="border rounded px-2 py-1"
-        />
-      </div>
+    <div className="space-y-6">
+      <Card className="p-0">
+        <div className="p-5 bg-gray-50/50 flex flex-wrap items-center gap-3">
+          <label
+            htmlFor="meals-date"
+            className="text-sm font-medium text-gray-700"
+          >
+            Date
+          </label>
+          <input
+            id="meals-date"
+            type="date"
+            value={date}
+            onChange={e => onDateChange(e.target.value)}
+            className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#3AB8ED]/30 focus:border-[#3AB8ED] outline-none"
+          />
+        </div>
+      </Card>
       {loading && (
-        <div className="flex items-center gap-2 py-4">
+        <div className="flex items-center gap-2 py-8">
           <Spinner size="small" variant="primary" />
           <Text variant="secondary">Loading...</Text>
         </div>
       )}
       {!loading && (
-        <div className="space-y-3">
+        <div className="space-y-4">
           {MEAL_TYPES.map(({ value: mealType, label }) => {
             const m = getMealForType(mealType)
             const isEditing = editingMeal === mealType
             return (
-              <Card key={mealType} className="p-4">
-                <div className="flex justify-between items-center mb-2">
-                  <Text variant="default" className="font-medium">
+              <Card key={mealType} className="p-0 border border-gray-200/80">
+                <div className="flex justify-between items-center p-5 border-b border-gray-100">
+                  <Text
+                    variant="default"
+                    className="font-semibold text-gray-900"
+                  >
                     {label}
                   </Text>
                   {!isEditing && (
@@ -139,77 +147,83 @@ export function MealLogging({
                     </Button>
                   )}
                 </div>
-                {isEditing ? (
-                  <>
-                    <div className="grid gap-2 sm:grid-cols-4">
-                      <Input
-                        label="Cal"
-                        type="number"
-                        value={form.calories}
-                        onChange={e =>
-                          setForm(f => ({ ...f, calories: e.target.value }))
-                        }
-                      />
-                      <Input
-                        label="Protein (g)"
-                        type="number"
-                        value={form.proteinG}
-                        onChange={e =>
-                          setForm(f => ({ ...f, proteinG: e.target.value }))
-                        }
-                      />
-                      <Input
-                        label="Carbs (g)"
-                        type="number"
-                        value={form.carbG}
-                        onChange={e =>
-                          setForm(f => ({ ...f, carbG: e.target.value }))
-                        }
-                      />
-                      <Input
-                        label="Fat (g)"
-                        type="number"
-                        value={form.fatG}
-                        onChange={e =>
-                          setForm(f => ({ ...f, fatG: e.target.value }))
-                        }
-                      />
-                    </div>
-                    <div className="flex gap-2 mt-2">
-                      <Button
-                        type="button"
-                        onClick={() => handleSave(mealType)}
-                      >
-                        Save
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        onClick={() => setEditingMeal(null)}
-                      >
-                        Cancel
-                      </Button>
-                    </div>
-                  </>
-                ) : (
-                  <MealEntryDisplay meal={m} />
-                )}
+                <div className="p-5">
+                  {isEditing ? (
+                    <>
+                      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                        <Input
+                          label="Cal"
+                          type="number"
+                          value={form.calories}
+                          onChange={e =>
+                            setForm(f => ({ ...f, calories: e.target.value }))
+                          }
+                        />
+                        <Input
+                          label="Protein (g)"
+                          type="number"
+                          value={form.proteinG}
+                          onChange={e =>
+                            setForm(f => ({ ...f, proteinG: e.target.value }))
+                          }
+                        />
+                        <Input
+                          label="Carbs (g)"
+                          type="number"
+                          value={form.carbG}
+                          onChange={e =>
+                            setForm(f => ({ ...f, carbG: e.target.value }))
+                          }
+                        />
+                        <Input
+                          label="Fat (g)"
+                          type="number"
+                          value={form.fatG}
+                          onChange={e =>
+                            setForm(f => ({ ...f, fatG: e.target.value }))
+                          }
+                        />
+                      </div>
+                      <div className="flex gap-2 mt-4">
+                        <Button
+                          type="button"
+                          onClick={() => handleSave(mealType)}
+                        >
+                          Save
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          onClick={() => setEditingMeal(null)}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    </>
+                  ) : (
+                    <MealEntryDisplay meal={m} />
+                  )}
+                </div>
               </Card>
             )
           })}
         </div>
       )}
       {targets && !loading && (
-        <Card className="p-4">
-          <Text variant="default" className="font-semibold mb-2">
-            Day total
-          </Text>
-          <Text variant="secondary" className="text-sm">
-            {meals.reduce((s, m) => s + (m.calories ?? 0), 0)} /{' '}
-            {targets.dailyCalories} cal · Protein{' '}
-            {meals.reduce((s, m) => s + (m.proteinG ?? 0), 0)} /{' '}
-            {targets.proteinG}g
-          </Text>
+        <Card className="p-0">
+          <div className="flex items-center justify-between pb-3 border-b border-gray-200 px-5 pt-5">
+            <Text variant="default" className="font-semibold text-gray-900">
+              Day total
+            </Text>
+          </div>
+          <div className="p-5">
+            <Text variant="secondary" className="text-sm">
+              {meals.reduce((s, m) => s + (m.calories ?? 0), 0)} /{' '}
+              {targets.dailyCalories} cal · Protein{' '}
+              {meals.reduce((s, m) => s + (m.proteinG ?? 0), 0)} /{' '}
+              {targets.proteinG}g
+            </Text>
+          </div>
         </Card>
       )}
     </div>

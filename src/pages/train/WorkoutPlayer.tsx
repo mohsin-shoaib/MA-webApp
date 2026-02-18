@@ -90,9 +90,11 @@ export default function WorkoutPlayer() {
 
   if (loading) {
     return (
-      <div className="flex items-center gap-2 py-8">
-        <Spinner size="medium" variant="primary" />
-        <Text variant="secondary">Loading workout...</Text>
+      <div className="space-y-6 max-w-4xl">
+        <div className="flex items-center gap-2 py-8">
+          <Spinner size="medium" variant="primary" />
+          <Text variant="secondary">Loading workout...</Text>
+        </div>
       </div>
     )
   }
@@ -104,15 +106,17 @@ export default function WorkoutPlayer() {
 
   if (error && !dayExercise) {
     return (
-      <div className="space-y-4">
-        <Button
-          type="button"
-          variant="secondary"
-          onClick={() => navigate('/train')}
-        >
-          Back to Train
-        </Button>
-        <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded">
+      <div className="space-y-6 max-w-4xl">
+        <div className="flex flex-wrap items-center gap-3">
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => navigate('/train')}
+          >
+            ← Back to Train
+          </Button>
+        </div>
+        <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg">
           <Text variant="default">{error}</Text>
         </div>
       </div>

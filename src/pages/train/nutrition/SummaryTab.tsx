@@ -26,47 +26,73 @@ export function SummaryTab({
   onOpenCalculator: () => void
 }>) {
   return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-2">
-        <label htmlFor="summary-date" className="text-sm font-medium">
-          Date
-        </label>
-        <input
-          id="summary-date"
-          type="date"
-          value={selectedDate}
-          onChange={e => onDateChange(e.target.value)}
-          className="border rounded px-2 py-1"
-        />
-      </div>
+    <div className="space-y-6">
+      <Card className="p-0">
+        <div className="p-5 bg-gray-50/50 flex flex-wrap items-center gap-3">
+          <label
+            htmlFor="summary-date"
+            className="text-sm font-medium text-gray-700"
+          >
+            Date
+          </label>
+          <input
+            id="summary-date"
+            type="date"
+            value={selectedDate}
+            onChange={e => onDateChange(e.target.value)}
+            className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#3AB8ED]/30 focus:border-[#3AB8ED] outline-none"
+          />
+        </div>
+      </Card>
       {loading && (
-        <div className="flex items-center gap-2 py-4">
+        <div className="flex items-center gap-2 py-8">
           <Spinner size="small" variant="primary" />
           <Text variant="secondary">Loading...</Text>
         </div>
       )}
       {!loading && !targets && (
-        <Card className="p-6">
-          <Text variant="default" className="font-medium mb-2">
-            No targets set
-          </Text>
-          <Text variant="secondary" className="mb-4">
-            Use the Macro calculator to set your daily targets, then track meals
-            and hydration here.
-          </Text>
-          <Button type="button" onClick={onOpenCalculator}>
-            Open calculator
-          </Button>
+        <Card className="p-0">
+          <div className="p-6">
+            <Text
+              variant="default"
+              className="font-semibold text-gray-900 mb-2 block"
+            >
+              No targets set
+            </Text>
+            <Text
+              variant="secondary"
+              className="mb-4 block text-sm leading-relaxed"
+            >
+              Use the Macro calculator to set your daily targets, then track
+              meals and hydration here.
+            </Text>
+            <Button type="button" onClick={onOpenCalculator}>
+              Open calculator
+            </Button>
+          </div>
         </Card>
       )}
       {!loading && targets && (
         <div className="space-y-4">
-          <Card className="p-4">
-            <Text variant="default" className="font-semibold mb-3">
-              Calories
-            </Text>
-            <div className="flex items-center gap-2">
-              <div className="flex-1">
+          <Card className="p-0">
+            <div className="flex items-center justify-between pb-3 border-b border-gray-200 px-5 pt-5">
+              <Text variant="default" className="font-semibold text-gray-900">
+                Daily summary
+              </Text>
+            </div>
+            <div className="p-5 space-y-4">
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <Text
+                    variant="default"
+                    className="font-medium text-gray-900 text-sm"
+                  >
+                    Calories
+                  </Text>
+                  <Text variant="secondary" className="text-sm">
+                    {totals.calories} / {targets.dailyCalories}
+                  </Text>
+                </div>
                 <ProgressBar
                   progress={Math.min(
                     (totals.calories / targets.dailyCalories) * 100,
@@ -76,17 +102,18 @@ export function SummaryTab({
                   showPercentage={true}
                 />
               </div>
-              <Text variant="secondary" className="shrink-0">
-                {totals.calories} / {targets.dailyCalories}
-              </Text>
-            </div>
-          </Card>
-          <Card className="p-4">
-            <Text variant="default" className="font-semibold mb-3">
-              Protein (g)
-            </Text>
-            <div className="flex items-center gap-2">
-              <div className="flex-1">
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <Text
+                    variant="default"
+                    className="font-medium text-gray-900 text-sm"
+                  >
+                    Protein (g)
+                  </Text>
+                  <Text variant="secondary" className="text-sm">
+                    {totals.proteinG} / {targets.proteinG}
+                  </Text>
+                </div>
                 <ProgressBar
                   progress={Math.min(
                     (totals.proteinG / targets.proteinG) * 100,
@@ -96,51 +123,54 @@ export function SummaryTab({
                   showPercentage={true}
                 />
               </div>
-              <Text variant="secondary" className="shrink-0">
-                {totals.proteinG} / {targets.proteinG}
-              </Text>
-            </div>
-          </Card>
-          <Card className="p-4">
-            <Text variant="default" className="font-semibold mb-3">
-              Carbs (g)
-            </Text>
-            <div className="flex items-center gap-2">
-              <div className="flex-1">
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <Text
+                    variant="default"
+                    className="font-medium text-gray-900 text-sm"
+                  >
+                    Carbs (g)
+                  </Text>
+                  <Text variant="secondary" className="text-sm">
+                    {totals.carbG} / {targets.carbG}
+                  </Text>
+                </div>
                 <ProgressBar
                   progress={Math.min((totals.carbG / targets.carbG) * 100, 100)}
                   variant={macroVariant(totals.carbG, targets.carbG)}
                   showPercentage={true}
                 />
               </div>
-              <Text variant="secondary" className="shrink-0">
-                {totals.carbG} / {targets.carbG}
-              </Text>
-            </div>
-          </Card>
-          <Card className="p-4">
-            <Text variant="default" className="font-semibold mb-3">
-              Fat (g)
-            </Text>
-            <div className="flex items-center gap-2">
-              <div className="flex-1">
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <Text
+                    variant="default"
+                    className="font-medium text-gray-900 text-sm"
+                  >
+                    Fat (g)
+                  </Text>
+                  <Text variant="secondary" className="text-sm">
+                    {totals.fatG} / {targets.fatG}
+                  </Text>
+                </div>
                 <ProgressBar
                   progress={Math.min((totals.fatG / targets.fatG) * 100, 100)}
                   variant={macroVariant(totals.fatG, targets.fatG)}
                   showPercentage={true}
                 />
               </div>
-              <Text variant="secondary" className="shrink-0">
-                {totals.fatG} / {targets.fatG}
-              </Text>
-            </div>
-          </Card>
-          <Card className="p-4">
-            <Text variant="default" className="font-semibold mb-3">
-              Hydration
-            </Text>
-            <div className="flex items-center gap-2">
-              <div className="flex-1">
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <Text
+                    variant="default"
+                    className="font-medium text-gray-900 text-sm"
+                  >
+                    Hydration
+                  </Text>
+                  <Text variant="secondary" className="text-sm">
+                    {hydrationAmount} / {hydrationTarget} oz
+                  </Text>
+                </div>
                 <ProgressBar
                   progress={
                     hydrationTarget > 0
@@ -155,9 +185,6 @@ export function SummaryTab({
                   showPercentage={true}
                 />
               </div>
-              <Text variant="secondary" className="shrink-0">
-                {hydrationAmount} / {hydrationTarget} oz
-              </Text>
             </div>
           </Card>
         </div>

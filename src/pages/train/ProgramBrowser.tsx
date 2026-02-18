@@ -71,7 +71,7 @@ export function ProgramBrowser() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6">
+    <div className="space-y-6 max-w-4xl">
       <div className="flex flex-wrap items-center gap-3">
         <Button
           type="button"
