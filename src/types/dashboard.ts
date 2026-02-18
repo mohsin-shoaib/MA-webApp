@@ -1,3 +1,13 @@
+import type { CreateOnboardingDTO } from '@/types/onboarding'
+import type { ReadinessRecommendation } from '@/types/readiness'
+
+/** State returned by backend to resume onboarding at a specific step */
+export interface OnboardingResumeState {
+  recommendedCycle?: string
+  recommendation?: ReadinessRecommendation
+  onboardData?: CreateOnboardingDTO
+}
+
 /** Dashboard summary – from GET /athlete/dashboard or composed from train + roadmap */
 export interface DashboardSummary {
   /** When false, backend indicates user has no roadmap; redirect to onboarding */
@@ -21,6 +31,10 @@ export interface DashboardSummary {
   programWeeksUsed?: number
   /** Total program weeks (e.g. 12) when trimmed */
   programTotalWeeks?: number
+  /** When onboarding is in progress: step to resume (2, 3, or 4). Frontend shows this step. */
+  onboardingResumeStep?: 2 | 3 | 4
+  /** When onboarding is in progress: saved state to restore for steps 2/3/4 */
+  onboardingState?: OnboardingResumeState
 }
 
 export interface TodayWorkoutSummary {

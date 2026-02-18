@@ -23,7 +23,6 @@ interface ConfirmationStepProps {
   /** Full onboarding data from Step 1 (defer-save: sent to confirm endpoint) */
   readonly onboardData: CreateOnboardingDTO
   readonly onComplete: () => void
-  readonly onAlreadyOnboarded?: () => void
   readonly loading: boolean
   readonly setLoading: (value: boolean) => void
   readonly setError: (value: string | null) => void
@@ -34,7 +33,6 @@ export default function ConfirmationStep({
   recommendation,
   onboardData,
   onComplete,
-  onAlreadyOnboarded,
   loading,
   setLoading,
   setError,
@@ -136,7 +134,8 @@ export default function ConfirmationStep({
         'Confirmation failed.'
 
       if (status === 409) {
-        onAlreadyOnboarded?.()
+        setShowModal(false)
+        onComplete()
         return
       }
       setError(message)

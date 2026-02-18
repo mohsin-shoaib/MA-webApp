@@ -93,7 +93,16 @@ export default function DashboardPage() {
         // If we have today or cycle, treat as onboarded (safeguard for backend returning false by mistake).
         const hasProgram = !!(data.today ?? data.cycle)
         if (data.isOnboarded === false && !hasProgram) {
-          navigate('/onboarding', { replace: true })
+          const hasResume = data.onboardingResumeStep != null
+          navigate('/onboarding', {
+            replace: true,
+            state: hasResume
+              ? {
+                  resumeStep: data.onboardingResumeStep,
+                  onboardingState: data.onboardingState,
+                }
+              : undefined,
+          })
           return
         }
         setSummary(data)
