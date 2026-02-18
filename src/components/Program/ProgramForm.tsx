@@ -186,13 +186,29 @@ export function ProgramForm({
       subCategory: program?.subCategory || null,
       cycleId: program?.cycleId || initialCycleId || 0,
       isActive: program?.isActive ?? true,
-      dailyExercises: (program?.dailyExercise || []).map(
-        (d: DailyExerciseDTO & { isRestDay?: boolean }) => ({
-          ...d,
-          isRestDay: d.isRestDay ?? d.exercises?.length === 0,
-          exercises: d.exercises ?? [],
-        })
-      ),
+      dailyExercises: (() => {
+        const raw = program?.dailyExercise
+        if (!raw) return []
+        if (Array.isArray(raw)) {
+          return raw.map((d: DailyExerciseDTO & { isRestDay?: boolean }) => ({
+            ...d,
+            isRestDay: d.isRestDay ?? d.exercises?.length === 0,
+            exercises: d.exercises ?? [],
+          }))
+        }
+        const obj = raw as Record<
+          string,
+          DailyExerciseDTO & { isRestDay?: boolean }
+        >
+        return Object.entries(obj)
+          .map(([day, d]) => ({
+            ...d,
+            day,
+            isRestDay: d.isRestDay ?? d.exercises?.length === 0,
+            exercises: d.exercises ?? [],
+          }))
+          .sort((a, b) => String(a.day).localeCompare(String(b.day)))
+      })(),
     },
   })
 

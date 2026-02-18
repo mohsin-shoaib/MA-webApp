@@ -22,17 +22,47 @@ const CYCLE_COLORS: Record<string, string> = {
   Green: 'border-l-4 border-l-green-600 bg-green-50/50',
 }
 
+function safeStr(value: unknown): string {
+  if (value == null) return ''
+  if (typeof value === 'string') return value
+  if (typeof value === 'number') return String(value)
+  return String(value)
+}
+
+/** Normalize timeline value: array of days, or Amber single day object -> [day], or null for legacy string[]. */
+function getDaysFromTimelineValue(value: unknown): RoadmapDayExercise[] | null {
+  if (isRealTimelineWeek(value)) return value
+  if (
+    value != null &&
+    typeof value === 'object' &&
+    !Array.isArray(value) &&
+    'exercise_name' in (value as RoadmapDayExercise)
+  ) {
+    return [value as RoadmapDayExercise]
+  }
+  return null
+}
+
 /** Roadmap summary: name, short description, duration only (no sets/reps/video) */
 function renderExerciseItem(exercise: RoadmapExerciseItem, idx: number) {
-  const desc = exercise.description?.trim()
+  const rawDesc = (exercise as { description?: unknown }).description
+  const desc = typeof rawDesc === 'string' ? rawDesc.trim() : ''
   const descShort = desc && desc.length > 80 ? `${desc.slice(0, 80)}…` : desc
+  const name = safeStr((exercise as { name?: unknown }).name)
 
+  const keyVal = (exercise as { exercise_id?: unknown }).exercise_id
   return (
     <li
-      key={exercise.exercise_id ?? idx}
+      key={
+        keyVal != null && typeof keyVal === 'string'
+          ? keyVal
+          : typeof keyVal === 'number'
+            ? keyVal
+            : idx
+      }
       className="py-2 border-b border-gray-100 last:border-0 text-sm"
     >
-      <span className="font-medium text-gray-900 block">{exercise.name}</span>
+      <span className="font-medium text-gray-900 block">{name}</span>
       {descShort && (
         <span className="text-gray-600 text-xs block mt-0.5">{descShort}</span>
       )}
@@ -41,10 +71,18 @@ function renderExerciseItem(exercise: RoadmapExerciseItem, idx: number) {
 }
 
 function renderDayContent(day: RoadmapDayExercise) {
-  const exercises = day.exercises ?? []
-  const dayLabel = day.exercise_name || day.day
-  const duration = [day.workout_timer, day.exercise_time, day.rest_timer]
+  const exercises = Array.isArray(day.exercises) ? day.exercises : []
+  const dayLabel = safeStr(
+    (day as { exercise_name?: unknown; day?: unknown }).exercise_name ||
+      (day as { day?: unknown }).day
+  )
+  const duration = [
+    (day as { workout_timer?: unknown }).workout_timer,
+    (day as { exercise_time?: unknown }).exercise_time,
+    (day as { rest_timer?: unknown }).rest_timer,
+  ]
     .filter(Boolean)
+    .map(v => safeStr(v))
     .join(' • ')
 
   return (
@@ -216,6 +254,12 @@ export default function RoadmapStep({
               </div>
             )}
           </dl>
+          {roadmap.cycles?.some(c => c.cycleName === 'Amber') && (
+            <p className="text-xs text-gray-500 mt-4 pt-4 border-t border-gray-100">
+              Amber workouts are set by your coach by date; you’ll see each
+              day’s workout on the day.
+            </p>
+          )}
         </Card>
 
         {roadmap.cycles && roadmap.cycles.length > 0 && (
@@ -226,32 +270,65 @@ export default function RoadmapStep({
               )[cycle.cycleType]
               const accordionItems =
                 timelineData && typeof timelineData === 'object'
-                  ? Object.entries(timelineData).map(([week, exercises]) => ({
-                      id: `${cycle.cycleType}-${week}`,
-                      title: week,
-                      content: (
-                        <div className="rounded-lg bg-white border border-gray-100 p-4 space-y-4">
-                          {isRealTimelineWeek(exercises)
-                            ? exercises.map((day, dayIdx) => (
-                                <div key={dayIdx}>{renderDayContent(day)}</div>
-                              ))
-                            : Array.isArray(exercises) && (
-                                <ul className="list-none space-y-2">
-                                  {exercises.map(
-                                    (exercise: string, idx: number) => (
-                                      <li
-                                        key={idx}
-                                        className="text-sm text-gray-700 py-2 px-3 rounded-md bg-gray-50 border border-gray-100"
-                                      >
-                                        {exercise}
-                                      </li>
-                                    )
-                                  )}
-                                </ul>
-                              )}
-                        </div>
-                      ),
-                    }))
+                  ? Object.entries(timelineData).map(([week, exercises]) => {
+                      const days = getDaysFromTimelineValue(exercises)
+                      const legacyList =
+                        days === null && Array.isArray(exercises)
+                          ? (exercises as unknown[])
+                          : null
+                      return {
+                        id: `${cycle.cycleType}-${safeStr(week)}`,
+                        title:
+                          safeStr(week) === '[object Object]' &&
+                          cycle.cycleName === 'Amber'
+                            ? 'Amber program will be added later'
+                            : safeStr(week),
+                        content: (
+                          <div className="rounded-lg bg-white border border-gray-100 p-4 space-y-4">
+                            {days !== null
+                              ? days.map((day, dayIdx) => (
+                                  <div key={dayIdx}>
+                                    {renderDayContent(day)}
+                                  </div>
+                                ))
+                              : legacyList !== null &&
+                                (cycle.cycleName === 'Amber' &&
+                                legacyList.some(
+                                  x => typeof x === 'object' && x !== null
+                                ) ? (
+                                  <Text
+                                    variant="secondary"
+                                    className="text-sm py-2"
+                                  >
+                                    Amber program will be added later
+                                  </Text>
+                                ) : (
+                                  <ul className="list-none space-y-2">
+                                    {legacyList.map(
+                                      (exercise: unknown, idx: number) => {
+                                        const label = safeStr(exercise)
+                                        const display =
+                                          label === '[object Object]'
+                                            ? cycle.cycleName === 'Amber'
+                                              ? 'Amber program will be added later'
+                                              : '—'
+                                            : label
+                                        return (
+                                          <li
+                                            key={idx}
+                                            className="text-sm text-gray-700 py-2 px-3 rounded-md bg-gray-50 border border-gray-100"
+                                          >
+                                            {display}
+                                          </li>
+                                        )
+                                      }
+                                    )}
+                                  </ul>
+                                ))}
+                          </div>
+                        ),
+                      }
+                    })
                   : []
 
               const cycleStyle =
@@ -266,10 +343,10 @@ export default function RoadmapStep({
                   <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
                     <div>
                       <h3 className="text-lg font-semibold text-gray-900">
-                        {cycle.cycleName} Cycle
+                        {safeStr(cycle.cycleName)} Cycle
                       </h3>
                       <Text variant="secondary" className="text-sm mt-0.5">
-                        {cycle.startDate} – {cycle.endDate}
+                        {safeStr(cycle.startDate)} – {safeStr(cycle.endDate)}
                       </Text>
                     </div>
                     <div className="flex gap-2">
@@ -286,13 +363,23 @@ export default function RoadmapStep({
                     </div>
                   </div>
 
-                  {(cycle.programName || cycle.durationWeeks != null) && (
+                  {((cycle.programName != null &&
+                    typeof cycle.programName === 'string' &&
+                    cycle.programName.trim() !== '') ||
+                    cycle.cycleName === 'Amber' ||
+                    cycle.durationWeeks != null) && (
                     <div className="flex flex-wrap gap-4 mb-4 text-sm">
-                      {cycle.programName && (
+                      {(cycle.cycleName === 'Amber'
+                        ? true
+                        : cycle.programName != null &&
+                          typeof cycle.programName === 'string' &&
+                          cycle.programName.trim() !== '') && (
                         <div>
                           <span className="text-gray-500">Program: </span>
                           <span className="font-medium text-gray-800">
-                            {cycle.programName}
+                            {cycle.cycleName === 'Amber'
+                              ? 'Amber program will be added later'
+                              : safeStr(cycle.programName)}
                           </span>
                         </div>
                       )}
@@ -368,34 +455,69 @@ export default function RoadmapStep({
                       ) : (
                         <Accordion
                           items={Object.entries(weeks).map(
-                            ([week, exercises]) => ({
-                              id: `${cycleType}-${week}`,
-                              title: week,
-                              content: (
-                                <div className="rounded-lg bg-white border border-gray-100 p-4 space-y-4">
-                                  {isRealTimelineWeek(exercises)
-                                    ? exercises.map((day, dayIdx) => (
-                                        <div key={dayIdx}>
-                                          {renderDayContent(day)}
-                                        </div>
-                                      ))
-                                    : Array.isArray(exercises) && (
-                                        <ul className="list-none space-y-2">
-                                          {exercises.map(
-                                            (exercise: string, idx: number) => (
-                                              <li
-                                                key={idx}
-                                                className="text-sm text-gray-700 py-2 px-3 rounded-md bg-gray-50 border border-gray-100"
-                                              >
-                                                {exercise}
-                                              </li>
-                                            )
-                                          )}
-                                        </ul>
-                                      )}
-                                </div>
-                              ),
-                            })
+                            ([week, exercises]) => {
+                              const days = getDaysFromTimelineValue(exercises)
+                              const legacyList =
+                                days === null && Array.isArray(exercises)
+                                  ? (exercises as unknown[])
+                                  : null
+                              return {
+                                id: `${cycleType}-${safeStr(week)}`,
+                                title:
+                                  safeStr(week) === '[object Object]' &&
+                                  cycleType === 'Amber'
+                                    ? 'Amber program will be added later'
+                                    : safeStr(week),
+                                content: (
+                                  <div className="rounded-lg bg-white border border-gray-100 p-4 space-y-4">
+                                    {days !== null
+                                      ? days.map((day, dayIdx) => (
+                                          <div key={dayIdx}>
+                                            {renderDayContent(day)}
+                                          </div>
+                                        ))
+                                      : legacyList !== null &&
+                                        (cycleType === 'Amber' &&
+                                        legacyList.some(
+                                          x =>
+                                            typeof x === 'object' && x !== null
+                                        ) ? (
+                                          <Text
+                                            variant="secondary"
+                                            className="text-sm py-2"
+                                          >
+                                            Amber program will be added later
+                                          </Text>
+                                        ) : (
+                                          <ul className="list-none space-y-2">
+                                            {legacyList.map(
+                                              (
+                                                exercise: unknown,
+                                                idx: number
+                                              ) => {
+                                                const label = safeStr(exercise)
+                                                const display =
+                                                  label === '[object Object]'
+                                                    ? cycleType === 'Amber'
+                                                      ? 'Amber program will be added later'
+                                                      : '—'
+                                                    : label
+                                                return (
+                                                  <li
+                                                    key={idx}
+                                                    className="text-sm text-gray-700 py-2 px-3 rounded-md bg-gray-50 border border-gray-100"
+                                                  >
+                                                    {display}
+                                                  </li>
+                                                )
+                                              }
+                                            )}
+                                          </ul>
+                                        ))}
+                                  </div>
+                                ),
+                              }
+                            }
                           )}
                           allowMultiple
                           variant="outlined"
@@ -462,7 +584,7 @@ export default function RoadmapStep({
                     <ul className="list-none space-y-1">
                       {exercises.map((exercise, i) => (
                         <li key={i} className="text-sm text-gray-700">
-                          {exercise}
+                          {safeStr(exercise)}
                         </li>
                       ))}
                     </ul>

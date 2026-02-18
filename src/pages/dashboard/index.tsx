@@ -467,7 +467,11 @@ export default function DashboardPage() {
                       variant="default"
                       className="font-medium wrap-break-word"
                     >
-                      {selectedEvent.daySummary ?? selectedEvent.dayKey}
+                      {(() => {
+                        const v =
+                          selectedEvent.daySummary ?? selectedEvent.dayKey
+                        return typeof v === 'string' ? v : String(v ?? '')
+                      })()}
                     </Text>
                   </div>
                   {(selectedEvent.programName ||
@@ -480,7 +484,9 @@ export default function DashboardPage() {
                             variant="secondary"
                             className="text-sm wrap-break-word"
                           >
-                            {selectedEvent.programName}
+                            {typeof selectedEvent.programName === 'string'
+                              ? selectedEvent.programName
+                              : String(selectedEvent.programName)}
                           </Text>
                         </div>
                       )}
@@ -489,12 +495,14 @@ export default function DashboardPage() {
                         <div className="flex flex-wrap gap-2">
                           {selectedEvent.phase && (
                             <span className="px-2 py-1 bg-gray-100 rounded text-sm">
-                              {selectedEvent.phase}
+                              {typeof selectedEvent.phase === 'string'
+                                ? selectedEvent.phase
+                                : String(selectedEvent.phase)}
                             </span>
                           )}
                           {selectedEvent.weekIndex != null && (
                             <span className="px-2 py-1 bg-gray-100 rounded text-sm">
-                              Week {selectedEvent.weekIndex}
+                              Week {Number(selectedEvent.weekIndex)}
                             </span>
                           )}
                         </div>
@@ -563,21 +571,30 @@ function TodayCard({
               variant="default"
               className="font-medium wrap-break-word text-right"
             >
-              {today.programName}
+              {typeof today.programName === 'string'
+                ? today.programName
+                : String(today.programName ?? '')}
             </Text>
           </div>
         )}
         <div className="flex flex-wrap gap-2">
           {today.currentCycle && (
             <span className="px-2 py-1 bg-gray-100 rounded text-sm">
-              {today.currentCycle}
+              {typeof today.currentCycle === 'string'
+                ? today.currentCycle
+                : String(today.currentCycle)}
             </span>
           )}
           <span className="px-2 py-1 bg-gray-100 rounded text-sm">
-            {today.phase}
+            {typeof today.phase === 'string'
+              ? today.phase
+              : String(today.phase ?? '')}
           </span>
           <span className="px-2 py-1 bg-gray-100 rounded text-sm">
-            Week {today.weekIndex} • {today.dayKey}
+            Week {today.weekIndex} •{' '}
+            {typeof today.dayKey === 'string'
+              ? today.dayKey
+              : String(today.dayKey ?? '')}
           </span>
         </div>
         <div className="space-x-2">
@@ -585,7 +602,24 @@ function TodayCard({
             Session:
           </Text>
           <Text variant="secondary" className="wrap-break-word">
-            {today.dayExercise?.exercise_name || today.dayKey}
+            {(() => {
+              const de = today.dayExercise as
+                | {
+                    exercise_name?: string
+                    exercises?: unknown[]
+                    notSet?: boolean
+                  }
+                | undefined
+              const noWorkoutSet =
+                !de ||
+                de.notSet === true ||
+                (!de.exercises?.length && !de.exercise_name)
+              const label = noWorkoutSet
+                ? 'No workout set'
+                : ((today.dayExercise as { exercise_name?: string } | undefined)
+                    ?.exercise_name ?? today.dayKey)
+              return typeof label === 'string' ? label : String(label ?? '')
+            })()}
           </Text>
         </div>
       </div>

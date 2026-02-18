@@ -97,6 +97,11 @@ export default function WorkoutPlayer() {
     )
   }
 
+  const noWorkoutSet =
+    !dayExercise ||
+    (dayExercise as { notSet?: boolean }).notSet === true ||
+    (!dayExercise.exercises?.length && !dayExercise.exercise_name)
+
   if (error && !dayExercise) {
     return (
       <div className="space-y-4">
@@ -130,19 +135,34 @@ export default function WorkoutPlayer() {
 
       <Card className="p-6">
         <Text variant="primary" className="text-xl font-semibold mb-1">
-          {dayExercise?.exercise_name || dayKey}
+          {noWorkoutSet
+            ? 'No workout set'
+            : typeof (dayExercise as { exercise_name?: string })
+                  ?.exercise_name === 'string'
+              ? (dayExercise as { exercise_name: string }).exercise_name
+              : String(dayKey ?? '')}
         </Text>
         <Text variant="secondary" className="text-sm">
-          {phase} • Week {weekIndex} • {dayKey}
+          {String(phase ?? '')} • Week {weekIndex} •{' '}
+          {typeof dayKey === 'string' ? dayKey : String(dayKey ?? '')}
         </Text>
+        {noWorkoutSet && (
+          <Text variant="secondary" className="text-sm mt-2 block">
+            No workout set for today. Check back later.
+          </Text>
+        )}
       </Card>
 
       <div className="space-y-4">
         <Text variant="default" className="font-semibold">
           Exercises
         </Text>
-        {exercises.length === 0 ? (
-          <Text variant="secondary">No exercises for this day.</Text>
+        {noWorkoutSet || exercises.length === 0 ? (
+          <Text variant="secondary">
+            {noWorkoutSet
+              ? 'No workout set for this day.'
+              : 'No exercises for this day.'}
+          </Text>
         ) : (
           exercises.map((ex, idx) => (
             <Card key={ex.exercise_id ?? idx} className="p-4">

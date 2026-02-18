@@ -126,7 +126,9 @@ export function ProgramBrowser() {
               )}
               {!loading && programs.length === 0 && (
                 <Text variant="secondary" className="text-sm py-2">
-                  No programs in this cycle.
+                  {cycleName === 'Amber'
+                    ? 'Amber program will be added later.'
+                    : 'No programs in this cycle.'}
                 </Text>
               )}
               {!loading && programs.length > 0 && (

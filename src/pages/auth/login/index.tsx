@@ -12,7 +12,7 @@ import { useSnackbar } from '@/components/Snackbar/useSnackbar'
 import { useAuth } from '@/contexts/useAuth'
 import type { AxiosError } from 'axios'
 
-const Login = () => {
+export default function Login() {
   const navigate = useNavigate()
   const { showError } = useSnackbar()
   const { login: setAuth } = useAuth()
@@ -128,5 +128,3 @@ const Login = () => {
     </AuthLayout>
   )
 }
-
-export default Login

@@ -126,20 +126,29 @@ export default function TrainPage() {
                     variant="default"
                     className="font-medium wrap-break-word text-right"
                   >
-                    {todayWorkout.programName ?? '—'}
+                    {typeof todayWorkout.programName === 'string'
+                      ? todayWorkout.programName
+                      : String(todayWorkout.programName ?? '') || '—'}
                   </Text>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {todayWorkout.currentCycle && (
                     <span className="px-2 py-1 bg-gray-100 rounded text-sm">
-                      {todayWorkout.currentCycle}
+                      {typeof todayWorkout.currentCycle === 'string'
+                        ? todayWorkout.currentCycle
+                        : String(todayWorkout.currentCycle)}
                     </span>
                   )}
                   <span className="px-2 py-1 bg-gray-100 rounded text-sm">
-                    {todayWorkout.phase}
+                    {typeof todayWorkout.phase === 'string'
+                      ? todayWorkout.phase
+                      : String(todayWorkout.phase ?? '')}
                   </span>
                   <span className="px-2 py-1 bg-gray-100 rounded text-sm">
-                    Week {todayWorkout.weekIndex} • {todayWorkout.dayKey}
+                    Week {todayWorkout.weekIndex} •{' '}
+                    {typeof todayWorkout.dayKey === 'string'
+                      ? todayWorkout.dayKey
+                      : String(todayWorkout.dayKey ?? '')}
                   </span>
                 </div>
                 <div className="space-x-2 ">
@@ -150,8 +159,27 @@ export default function TrainPage() {
                     Session:
                   </Text>
                   <Text variant="secondary" className="wrap-break-word">
-                    {todayWorkout.dayExercise?.exercise_name ||
-                      todayWorkout.dayKey}
+                    {(() => {
+                      const de = todayWorkout.dayExercise as
+                        | {
+                            exercise_name?: string
+                            exercises?: unknown[]
+                            notSet?: boolean
+                          }
+                        | undefined
+                      const noWorkoutSet =
+                        !de ||
+                        de.notSet === true ||
+                        (!de.exercises?.length && !de.exercise_name)
+                      const label = noWorkoutSet
+                        ? 'No workout set'
+                        : ((typeof de?.exercise_name === 'string'
+                            ? de.exercise_name
+                            : null) ?? todayWorkout.dayKey)
+                      return typeof label === 'string'
+                        ? label
+                        : String(label ?? '')
+                    })()}
                   </Text>
                 </div>
                 <div className="flex flex-wrap gap-2 pt-2">

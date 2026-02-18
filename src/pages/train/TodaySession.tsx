@@ -38,6 +38,19 @@ type TodayWorkoutData = {
   status?: string
 }
 
+/** True when backend returned no workout for this date (Amber date not set or empty) */
+function isNoWorkoutSet(
+  dayExercise: TodayWorkoutData['dayExercise'] | null | undefined
+): boolean {
+  if (!dayExercise || typeof dayExercise !== 'object') return true
+  const ext = dayExercise as { notSet?: boolean }
+  if (ext.notSet === true) return true
+  const exercises = (dayExercise as { exercises?: unknown[] }).exercises
+  const hasExercises = Array.isArray(exercises) && exercises.length > 0
+  const hasName = !!(dayExercise as { exercise_name?: string }).exercise_name
+  return !hasExercises && !hasName
+}
+
 /** Normalize scheduled-workout API response (sessionStatus, optional dayKey) to TodayWorkoutData */
 function normalizeScheduledWorkout(
   raw: Record<string, unknown>
@@ -54,7 +67,7 @@ function normalizeScheduledWorkout(
     weekIndex: raw.weekIndex as number,
     dayIndex: raw.dayIndex as number | undefined,
     dayKey,
-    dayExercise,
+    dayExercise: dayExercise ?? {},
     programId: raw.programId as number | undefined,
     programName: raw.programName as string | undefined,
     sessionId: raw.sessionId as number | undefined,
@@ -259,6 +272,8 @@ export default function TodaySession() {
 
   const dayExercise = workout.dayExercise
   const exercises = dayExercise?.exercises ?? []
+  const isRestDay = (dayExercise as { isRestDay?: boolean })?.isRestDay === true
+  const noWorkoutSet = isNoWorkoutSet(dayExercise)
   const sessionTitle = dateParam
     ? `Session for ${workout.date}`
     : "Today's session"
@@ -281,12 +296,20 @@ export default function TodaySession() {
         <div className="flex flex-wrap gap-2">
           {workout.phase && (
             <span className="px-2 py-1 bg-gray-100 rounded text-sm">
-              {workout.phase} • Week {workout.weekIndex} • {workout.dayKey}
+              {typeof workout.phase === 'string'
+                ? workout.phase
+                : String(workout.phase)}{' '}
+              • Week {workout.weekIndex} •{' '}
+              {typeof workout.dayKey === 'string'
+                ? workout.dayKey
+                : String(workout.dayKey ?? '')}
             </span>
           )}
           {workout.programName && (
             <span className="px-2 py-1 bg-gray-100 rounded text-sm">
-              {workout.programName}
+              {typeof workout.programName === 'string'
+                ? workout.programName
+                : String(workout.programName)}
             </span>
           )}
           {workout.status === 'completed' && (
@@ -297,16 +320,28 @@ export default function TodaySession() {
         </div>
         <Card className="p-6">
           <Text variant="default" className="font-semibold mb-4">
-            {(dayExercise as { isRestDay?: boolean }).isRestDay
+            {isRestDay
               ? 'Rest day'
-              : dayExercise.exercise_name || workout.dayKey}
+              : noWorkoutSet
+                ? 'No workout set'
+                : typeof (dayExercise as { exercise_name?: string })
+                      ?.exercise_name === 'string'
+                  ? (dayExercise as { exercise_name: string }).exercise_name
+                  : typeof workout.dayKey === 'string'
+                    ? workout.dayKey
+                    : String(workout.dayKey ?? '')}
           </Text>
-          {(dayExercise as { isRestDay?: boolean }).isRestDay ||
-          exercises.length === 0 ? (
+          {isRestDay ? (
             <Text variant="secondary" className="text-sm">
-              {(dayExercise as { isRestDay?: boolean }).isRestDay
-                ? 'Rest day – no workout scheduled.'
-                : 'No exercises for this session.'}
+              Rest day – no workout scheduled.
+            </Text>
+          ) : noWorkoutSet ? (
+            <Text variant="secondary" className="text-sm">
+              No workout set for this date. Check back later.
+            </Text>
+          ) : exercises.length === 0 ? (
+            <Text variant="secondary" className="text-sm">
+              No exercises for this session.
             </Text>
           ) : (
             <div className="space-y-2">

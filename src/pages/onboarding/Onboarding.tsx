@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { Stepper, type StepperStep } from '@/components/Stepper'
 import { Button } from '@/components/Button'
+import { Card } from '@/components/Card'
+import { Text } from '@/components/Text'
 import { useAuth } from '@/contexts/useAuth'
 import OnboardingForm from './OnboardingForm'
 import RecommendationStep from './Readiness'
@@ -222,6 +224,20 @@ export default function OnboardingFlow() {
           )}
 
           {/* Step 2: use recommendation from state (from Step 1 evaluate); no GET */}
+          {currentStep === 2 && !onboardData && (
+            <Card className="p-6">
+              <Text variant="secondary" className="mb-4">
+                Resume data for this step is missing. Please start from step 1.
+              </Text>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => setCurrentStep(1)}
+              >
+                Go to step 1
+              </Button>
+            </Card>
+          )}
           {currentStep === 2 && onboardData && (
             <RecommendationStep
               onboardingData={{
