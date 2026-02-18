@@ -7,6 +7,7 @@ import { Spinner } from '@/components/Spinner'
 import { Modal } from '@/components/Modal'
 import { dashboardService } from '@/api/dashboard.service'
 import { trainService } from '@/api/train.service'
+import { roadmapService } from '@/api/roadmap.service'
 import type {
   DashboardSummary,
   TodayWorkoutSummary,
@@ -76,6 +77,13 @@ export default function DashboardPage() {
     null
   )
   const [markCompleteLoading, setMarkCompleteLoading] = useState(false)
+  const [eventDate, setEventDate] = useState<string | null>(null)
+  const [weeksToEvent, setWeeksToEvent] = useState<number | null>(null)
+  const [trimmedToEvent, setTrimmedToEvent] = useState(false)
+  const [programWeeksUsed, setProgramWeeksUsed] = useState<number | null>(null)
+  const [programTotalWeeks, setProgramTotalWeeks] = useState<number | null>(
+    null
+  )
 
   const loadDashboard = useCallback(() => {
     dashboardService
@@ -89,6 +97,32 @@ export default function DashboardPage() {
           return
         }
         setSummary(data)
+        if (data.eventDate) {
+          setEventDate(data.eventDate)
+          setWeeksToEvent(
+            data.weeksToEvent ??
+              (() => {
+                const event = new Date((data.eventDate ?? '') + 'T12:00:00Z')
+                const today = new Date()
+                return Math.max(
+                  0,
+                  Math.ceil(
+                    (event.getTime() - today.getTime()) /
+                      (7 * 24 * 60 * 60 * 1000)
+                  )
+                )
+              })()
+          )
+          setTrimmedToEvent(!!data.trimmedToEvent)
+          setProgramWeeksUsed(data.programWeeksUsed ?? null)
+          setProgramTotalWeeks(data.programTotalWeeks ?? null)
+        } else {
+          setEventDate(null)
+          setWeeksToEvent(null)
+          setTrimmedToEvent(false)
+          setProgramWeeksUsed(null)
+          setProgramTotalWeeks(null)
+        }
       })
       .catch((err: AxiosError<{ message?: string }>) => {
         setSummary(null)
@@ -123,6 +157,34 @@ export default function DashboardPage() {
       cancelled = true
     }
   }, [weekStart])
+
+  // When summary has no eventDate from API, fetch roadmap for event date / trimmed state (Green plan skip starting weeks)
+  useEffect(() => {
+    if (!summary || summary.eventDate) return
+    let cancelled = false
+    roadmapService
+      .getRoadmap()
+      .then(res => {
+        if (cancelled) return
+        const roadmap = res.data?.statusCode === 200 ? res.data.data : null
+        if (!roadmap?.eventDate) return
+        setEventDate(roadmap.eventDate)
+        const event = new Date(roadmap.eventDate + 'T12:00:00Z')
+        const today = new Date()
+        const diffMs = event.getTime() - today.getTime()
+        const weeks = Math.max(0, Math.ceil(diffMs / (7 * 24 * 60 * 60 * 1000)))
+        setWeeksToEvent(weeks)
+        if (roadmap.trimmedToEvent) setTrimmedToEvent(true)
+        if (roadmap.programWeeksUsed != null)
+          setProgramWeeksUsed(roadmap.programWeeksUsed)
+        if (roadmap.programTotalWeeks != null)
+          setProgramTotalWeeks(roadmap.programTotalWeeks)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [summary])
 
   const handleMarkComplete = async () => {
     const today = summary?.today
@@ -203,6 +265,28 @@ export default function DashboardPage() {
           </span>
         )}
       </div>
+
+      {eventDate && (
+        <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm">
+          {weeksToEvent != null && (
+            <Text variant="default" className="font-medium">
+              {weeksToEvent === 0 && 'Your event is today.'}
+              {weeksToEvent === 1 && '1 week until your event.'}
+              {weeksToEvent > 1 && `${weeksToEvent} weeks until your event.`}
+            </Text>
+          )}
+          {trimmedToEvent &&
+            programWeeksUsed != null &&
+            programTotalWeeks != null &&
+            programWeeksUsed < programTotalWeeks && (
+              <Text variant="secondary" className="mt-1 block">
+                Your plan has been aligned to your event date: you'll do the
+                last {programWeeksUsed} weeks of the {programTotalWeeks}-week
+                program.
+              </Text>
+            )}
+        </div>
+      )}
 
       {error && (
         <div className="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-lg">

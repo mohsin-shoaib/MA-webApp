@@ -136,6 +136,12 @@ export interface Roadmap {
   onboardingId?: number
   createdAt?: string
   updatedAt?: string
+  /** True when plan was trimmed to last N weeks to fit event (skip starting weeks) */
+  trimmedToEvent?: boolean
+  /** Program weeks used when trimmed (e.g. 8) */
+  programWeeksUsed?: number
+  /** Total program weeks (e.g. 12) when trimmed */
+  programTotalWeeks?: number
 }
 
 export interface RoadmapResponseV2 {

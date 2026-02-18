@@ -11,6 +11,16 @@ export interface DashboardSummary {
   streak: number
   compliance: ComplianceSummary | null
   alerts: DashboardAlert[]
+  /** Event (goal/race) date – plan is aligned to this; optional from API */
+  eventDate?: string
+  /** Weeks from now until event; optional from API */
+  weeksToEvent?: number
+  /** True when plan was trimmed to last N weeks to fit event (Green/Red skip starting weeks) */
+  trimmedToEvent?: boolean
+  /** Program weeks used in roadmap when trimmed (e.g. 8) */
+  programWeeksUsed?: number
+  /** Total program weeks (e.g. 12) when trimmed */
+  programTotalWeeks?: number
 }
 
 export interface TodayWorkoutSummary {
