@@ -78,6 +78,10 @@ export interface AccordionProps {
    * Additional style for container
    */
   style?: React.CSSProperties
+  /**
+   * Additional className for the expanded content area
+   */
+  contentClassName?: string
 }
 
 /**
@@ -110,6 +114,7 @@ export function Accordion({
   variant = 'default',
   className,
   style,
+  contentClassName,
 }: Readonly<AccordionProps>) {
   const [internalExpandedItems, setInternalExpandedItems] = useState<string[]>(
     items.filter(item => item.defaultExpanded).map(item => item.id)
@@ -149,6 +154,7 @@ export function Accordion({
           onToggle={() => handleToggle(item.id)}
           variant={variant}
           isLast={index === items.length - 1}
+          contentClassName={contentClassName}
         />
       ))}
     </div>
@@ -164,6 +170,7 @@ interface AccordionItemComponentProps {
   onToggle: () => void
   variant: NonNullable<AccordionProps['variant']>
   isLast: boolean
+  contentClassName?: string
 }
 
 function AccordionItemComponent({
@@ -172,9 +179,10 @@ function AccordionItemComponent({
   onToggle,
   variant,
   isLast,
+  contentClassName,
 }: Readonly<AccordionItemComponentProps>) {
   const headerClasses = getHeaderClasses(variant, isLast)
-  const contentClasses = getContentClasses(isLast)
+  const contentClasses = getContentClasses(isLast, contentClassName)
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
     if (e.key === 'Enter' || e.key === ' ') {
@@ -296,9 +304,9 @@ function getHeaderBorderClasses(
 /**
  * Get content classes
  */
-function getContentClasses(isLast: boolean): string {
+function getContentClasses(isLast: boolean, contentClassName?: string): string {
   const baseClasses = 'px-4 py-3 bg-light-gray'
   const borderClasses = isLast ? '' : 'border-b border-light-gray'
 
-  return cn(baseClasses, borderClasses)
+  return cn(baseClasses, borderClasses, contentClassName)
 }

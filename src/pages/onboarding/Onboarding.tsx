@@ -7,6 +7,7 @@ import OnboardingForm from './OnboardingForm'
 import RecommendationStep from './Readiness'
 import ConfirmationStep from './confirmation'
 import RoadmapStep from './Roadmap'
+import logoImage from '@/assets/images/logo/logo.svg'
 
 import type { CreateOnboardingDTO } from '@/types/onboarding'
 import type { ConfirmProps, ReadinessRecommendation } from '@/types/readiness'
@@ -88,79 +89,99 @@ export default function OnboardingFlow() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto p-6">
-      <div className="flex justify-end mb-4">
-        <Button type="button" variant="secondary" onClick={() => logout()}>
-          Log out
-        </Button>
-      </div>
-      <Stepper
-        steps={STEPS}
-        activeStep={currentStep - 1}
-        onStepClick={goToStep}
-        clickable
-      />
-
-      <div className="mt-6">
-        {error && (
-          <div className="bg-red-100 text-red-600 p-3 rounded mb-4">
-            {error}
-          </div>
-        )}
-
-        {/* Step 1 */}
-        {currentStep === 1 && (
-          <OnboardingForm
-            onNext={handleStep1Next}
-            loading={loading}
-            setLoading={setLoading}
-            setError={setError}
+    <div className="min-h-screen bg-gray-50">
+      {/* Header: logo left, logout right */}
+      <header className="sticky top-0 z-10 border-b border-gray-200 bg-white shadow-sm">
+        <div className="max-w-2xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
+          <img
+            src={logoImage}
+            alt="MA App Logo"
+            className="h-9 w-auto object-contain"
           />
-        )}
+          <Button
+            type="button"
+            variant="secondary"
+            size="small"
+            onClick={() => logout()}
+          >
+            Log out
+          </Button>
+        </div>
+      </header>
 
-        {/* Step 2: use recommendation from state (from Step 1 evaluate); no GET */}
-        {currentStep === 2 && onboardData && (
-          <RecommendationStep
-            onboardingData={{
-              ...onboardData,
-              equipment: onboardData.equipment ?? [],
-            }}
-            recommendationFromParent={recommendation}
-            onConfirm={handleStep2Next}
-            loading={loading}
-            setLoading={setLoading}
-            setError={setError}
-          />
-        )}
+      <div className="max-w-2xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+        <Stepper
+          steps={STEPS}
+          activeStep={currentStep - 1}
+          onStepClick={goToStep}
+          clickable
+        />
 
-        {/* Step 3: confirm onboarding with full payload (defer-save) */}
-        {currentStep === 3 && recommendedCycle && onboardData && (
-          <ConfirmationStep
-            recommendedCycle={recommendedCycle}
-            recommendation={recommendation ?? undefined}
-            onboardData={onboardData}
-            onComplete={handleStep3Confirm}
-            onAlreadyOnboarded={() => {
-              setError('You have already completed onboarding.')
-              navigate('/dashboard')
-            }}
-            loading={loading}
-            setLoading={setLoading}
-            setError={setError}
-          />
-        )}
+        <div className="mt-6 sm:mt-8">
+          {error && (
+            <div
+              className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-red-800 text-sm mb-6"
+              role="alert"
+            >
+              {error}
+            </div>
+          )}
 
-        {/* Step 4 */}
-        {currentStep === 4 && (
-          <RoadmapStep
-            payload={undefined}
-            confirmed={confirmed}
-            loading={loading}
-            setLoading={setLoading}
-            setError={setError}
-            onComplete={handleComplete}
-          />
-        )}
+          {/* Step 1: pass saved onboardData when user navigates back so form stays filled */}
+          {currentStep === 1 && (
+            <OnboardingForm
+              initialValues={onboardData ?? undefined}
+              onNext={handleStep1Next}
+              loading={loading}
+              setLoading={setLoading}
+              setError={setError}
+            />
+          )}
+
+          {/* Step 2: use recommendation from state (from Step 1 evaluate); no GET */}
+          {currentStep === 2 && onboardData && (
+            <RecommendationStep
+              onboardingData={{
+                ...onboardData,
+                equipment: onboardData.equipment ?? [],
+              }}
+              recommendationFromParent={recommendation}
+              onConfirm={handleStep2Next}
+              loading={loading}
+              setLoading={setLoading}
+              setError={setError}
+            />
+          )}
+
+          {/* Step 3: confirm onboarding with full payload (defer-save) */}
+          {currentStep === 3 && recommendedCycle && onboardData && (
+            <ConfirmationStep
+              recommendedCycle={recommendedCycle}
+              recommendation={recommendation ?? undefined}
+              onboardData={onboardData}
+              onComplete={handleStep3Confirm}
+              onAlreadyOnboarded={() => {
+                setError('You have already completed onboarding.')
+                navigate('/dashboard')
+              }}
+              loading={loading}
+              setLoading={setLoading}
+              setError={setError}
+            />
+          )}
+
+          {/* Step 4 */}
+          {currentStep === 4 && (
+            <RoadmapStep
+              payload={undefined}
+              confirmed={confirmed}
+              loading={loading}
+              setLoading={setLoading}
+              setError={setError}
+              onComplete={handleComplete}
+            />
+          )}
+        </div>
       </div>
     </div>
   )
