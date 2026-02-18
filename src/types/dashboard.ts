@@ -19,12 +19,16 @@ export interface TodayWorkoutSummary {
   weekIndex: number
   dayIndex?: number
   dayKey: string
-  dayExercise: { exercise_name: string; exercises: unknown[] }
+  dayExercise: {
+    exercise_name?: string
+    exercises?: unknown[]
+    isRestDay?: boolean
+  }
   currentCycle?: string
   programId?: number
   programName?: string
   sessionId?: number
-  status?: 'scheduled' | 'in_progress' | 'completed' | 'skipped'
+  status?: 'scheduled' | 'in_progress' | 'completed' | 'skipped' | 'rest'
   completed?: boolean
   completedAt?: string
 }
@@ -47,6 +51,8 @@ export interface DashboardAlert {
 export interface CalendarDayEvent {
   date: string
   hasWorkout: boolean
+  /** True when backend marks this day as a scheduled rest day */
+  isRestDay?: boolean
   programName?: string
   phase?: string
   weekIndex?: number

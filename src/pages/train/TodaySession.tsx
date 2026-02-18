@@ -28,8 +28,9 @@ type TodayWorkoutData = {
   dayKey: string
   dayExercise: {
     day?: string
-    exercise_name: string
+    exercise_name?: string
     exercises: ExerciseDTO[]
+    isRestDay?: boolean
   }
   programId?: number
   programName?: string
@@ -296,11 +297,16 @@ export default function TodaySession() {
         </div>
         <Card className="p-6">
           <Text variant="default" className="font-semibold mb-4">
-            {dayExercise.exercise_name || workout.dayKey}
+            {(dayExercise as { isRestDay?: boolean }).isRestDay
+              ? 'Rest day'
+              : dayExercise.exercise_name || workout.dayKey}
           </Text>
-          {exercises.length === 0 ? (
+          {(dayExercise as { isRestDay?: boolean }).isRestDay ||
+          exercises.length === 0 ? (
             <Text variant="secondary" className="text-sm">
-              No exercises for this session.
+              {(dayExercise as { isRestDay?: boolean }).isRestDay
+                ? 'Rest day – no workout scheduled.'
+                : 'No exercises for this session.'}
             </Text>
           ) : (
             <div className="space-y-2">

@@ -174,7 +174,12 @@ export default function DashboardPage() {
 
   const today = summary?.today
   const cycleName = summary?.cycle?.name ?? null
+  const isRestDayToday =
+    today?.status === 'rest' ||
+    (today?.dayExercise as { isRestDay?: boolean } | undefined)?.isRestDay ===
+      true
   const hasWorkoutToday =
+    !isRestDayToday &&
     today?.dayExercise?.exercises != null &&
     Array.isArray(today.dayExercise.exercises) &&
     today.dayExercise.exercises.length > 0
@@ -220,7 +225,9 @@ export default function DashboardPage() {
             </Text>
             {!hasWorkoutToday && (
               <Text variant="secondary" className="mb-4">
-                Rest day – no workout scheduled.
+                {isRestDayToday
+                  ? 'Rest day – no workout scheduled.'
+                  : 'No workout scheduled for today.'}
               </Text>
             )}
             {hasWorkoutToday && today && (
@@ -410,7 +417,10 @@ export default function DashboardPage() {
                 </>
               ) : (
                 <Text variant="secondary">
-                  Rest day – no workout scheduled.
+                  {selectedEvent.isRestDay ||
+                  selectedEvent.daySummary === 'Rest day'
+                    ? 'Rest day – no workout scheduled.'
+                    : 'No workout scheduled for this day.'}
                 </Text>
               )}
             </div>
