@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Text } from '@/components/Text'
 import { Card } from '@/components/Card'
@@ -49,15 +49,26 @@ function formatExercisePreset(ex: ExerciseDTO): string {
 
 function NoProgramView({ onBrowse }: Readonly<{ onBrowse: () => void }>) {
   return (
-    <div className="space-y-4 max-w-2xl">
-      <Text variant="primary" className="text-xl font-semibold">
-        Exercise library
-      </Text>
-      <Card className="p-6">
-        <Text variant="default" className="font-medium mb-2">
+    <div className="space-y-6 max-w-4xl">
+      <div className="flex flex-wrap items-center gap-3">
+        <Button type="button" variant="secondary" onClick={onBrowse}>
+          ← Back to Train
+        </Button>
+        <Text variant="primary" className="text-2xl font-semibold">
+          Exercise library
+        </Text>
+      </div>
+      <Card className="p-6 border border-gray-200/80">
+        <Text
+          variant="default"
+          className="font-semibold text-gray-900 mb-2 block"
+        >
           No program enrolled
         </Text>
-        <Text variant="secondary" className="mb-4">
+        <Text
+          variant="secondary"
+          className="mb-4 block text-sm leading-relaxed"
+        >
           Enroll in a program first to browse days and exercises and log your
           sets.
         </Text>
@@ -69,81 +80,374 @@ function NoProgramView({ onBrowse }: Readonly<{ onBrowse: () => void }>) {
   )
 }
 
+/** Format day key (e.g. "day1", "1day1dsa") to a readable "Day N" or keep readable. */
+function formatDayLabel(dayKey: string): string {
+  const num = dayKey.replaceAll(/\D/g, '')
+  if (num) return `Day ${num}`
+  return dayKey.replace(/([a-z]+)/i, (_, d) => d + ' ')
+}
+
+type DayFilterType = 'all' | 'workout' | 'rest'
+
 function DaysView({
   programName,
   days,
   onDayClick,
+  onBack,
 }: Readonly<{
   programName: string
   days: DailyExerciseDTO[]
   onDayClick: (day: DailyExerciseDTO) => void
+  onBack: () => void
 }>) {
+  const [daySearch, setDaySearch] = useState('')
+  const [dayFilter, setDayFilter] = useState<DayFilterType>('all')
+
+  const filteredDays = useMemo(() => {
+    const q = daySearch.trim().toLowerCase()
+    return days.filter(day => {
+      const label = formatDayLabel(day.day).toLowerCase()
+      const name = (day.exercise_name ?? '').toLowerCase()
+      const matchSearch = !q || label.includes(q) || name.includes(q)
+      const isRest = day.isRestDay === true
+      const matchFilter =
+        dayFilter === 'all' ||
+        (dayFilter === 'workout' && !isRest) ||
+        (dayFilter === 'rest' && isRest)
+      return matchSearch && matchFilter
+    })
+  }, [days, daySearch, dayFilter])
+
   return (
-    <div className="space-y-4 max-w-4xl">
-      <Text variant="primary" className="text-xl font-semibold">
-        Exercise library
-      </Text>
-      <Text variant="secondary">{programName} – select a day</Text>
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {days.map(day => (
-          <Card
-            key={day.day}
-            pressable
-            onPress={() => onDayClick(day)}
-            className="p-4 cursor-pointer hover:bg-gray-50 transition"
+    <div className="space-y-6 max-w-4xl">
+      <div className="flex flex-wrap items-center gap-3">
+        <Button type="button" variant="secondary" onClick={onBack}>
+          ← Back to Train
+        </Button>
+        <Text variant="primary" className="text-2xl font-semibold">
+          Exercise library
+        </Text>
+      </div>
+
+      <Card className="p-0">
+        <div className="p-5 bg-gray-50/50">
+          <Text variant="secondary" className="text-sm block mb-1">
+            {programName}
+          </Text>
+          <Text variant="default" className="font-semibold text-gray-900">
+            Select a day
+          </Text>
+        </div>
+      </Card>
+
+      <div className="w-full space-y-4">
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="relative flex-1 min-w-0">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                aria-hidden
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                />
+              </svg>
+            </span>
+            <input
+              type="search"
+              placeholder="Search days…"
+              value={daySearch}
+              onChange={e => setDaySearch(e.target.value)}
+              className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm placeholder:text-gray-400 focus:ring-2 focus:ring-[#3AB8ED]/30 focus:border-[#3AB8ED] outline-none"
+              aria-label="Search days"
+            />
+          </div>
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
+            <span className="text-sm text-gray-500">Filter:</span>
+            {(
+              [
+                { value: 'all' as const, label: 'All' },
+                { value: 'workout' as const, label: 'Workout days' },
+                { value: 'rest' as const, label: 'Rest days' },
+              ] as const
+            ).map(({ value, label }) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setDayFilter(value)}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
+                  dayFilter === value
+                    ? 'bg-[#3AB8ED] text-white border-[#3AB8ED]'
+                    : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="flex items-center justify-between gap-2">
+          <Text
+            variant="default"
+            className="font-medium text-sm text-gray-500 uppercase tracking-wide"
           >
-            <Text variant="default" className="font-medium">
-              {day.day.replace(/([a-z]+)/i, (_, d) => d + ' ')}
+            Workout days
+          </Text>
+          {days.length > 0 && (
+            <Text variant="secondary" className="text-sm">
+              {filteredDays.length < days.length
+                ? `${filteredDays.length} of ${days.length}`
+                : `${filteredDays.length} ${filteredDays.length === 1 ? 'day' : 'days'}`}
             </Text>
-            <Text variant="secondary" className="text-sm mt-1">
-              {day.exercise_name}
-            </Text>
+          )}
+        </div>
+        {filteredDays.length === 0 ? (
+          <Card className="p-0">
+            <div className="p-6 text-center">
+              <Text variant="secondary" className="text-sm">
+                No days match your search or filter. Try different terms or
+                clear the filter.
+              </Text>
+              <Button
+                type="button"
+                variant="secondary"
+                size="small"
+                className="mt-3"
+                onClick={() => {
+                  setDaySearch('')
+                  setDayFilter('all')
+                }}
+              >
+                Clear search & filter
+              </Button>
+            </div>
           </Card>
-        ))}
+        ) : (
+          <div className="flex flex-row gap-3 overflow-x-auto pb-2 w-full">
+            {filteredDays.map(day => {
+              const originalIndex = days.findIndex(d => d.day === day.day) + 1
+              return (
+                <Card
+                  key={day.day}
+                  pressable
+                  onPress={() => onDayClick(day)}
+                  className="p-0 cursor-pointer group overflow-hidden border border-gray-200/80 hover:border-[#3AB8ED]/30 hover:bg-[#3AB8ED]/5 transition-colors shrink-0 min-w-[280px] flex-1"
+                >
+                  <div className="flex items-center gap-4 p-4 w-full">
+                    <span className="shrink-0 w-8 h-8 rounded-lg bg-[#3AB8ED]/10 text-[#2ea8db] font-semibold text-sm inline-flex items-center justify-center">
+                      {originalIndex}
+                    </span>
+                    <div className="min-w-0 flex-1 py-1">
+                      <p className="font-medium text-gray-900 truncate">
+                        {formatDayLabel(day.day)}
+                      </p>
+                      <p className="text-sm text-gray-500 mt-0.5 line-clamp-2">
+                        {day.isRestDay
+                          ? 'Rest day'
+                          : day.exercise_name || 'Exercises'}
+                      </p>
+                    </div>
+                    <span className="shrink-0 w-8 h-8 rounded-full bg-gray-100 group-hover:bg-[#3AB8ED]/10 inline-flex items-center justify-center text-gray-400 group-hover:text-[#2ea8db] transition-colors">
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                        aria-hidden
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M9 5l7 7-7 7"
+                        />
+                      </svg>
+                    </span>
+                  </div>
+                </Card>
+              )
+            })}
+          </div>
+        )}
       </div>
     </div>
   )
 }
 
+type ExerciseFilterType = 'all' | 'video' | 'weight'
+
 function DayExercisesView({
   day,
   onBack,
   onExerciseClick,
+  exerciseSearch,
+  setExerciseSearch,
+  exerciseFilter,
+  setExerciseFilter,
 }: Readonly<{
   day: DailyExerciseDTO
   onBack: () => void
   onExerciseClick: (ex: ExerciseDTO) => void
+  exerciseSearch: string
+  setExerciseSearch: (v: string) => void
+  exerciseFilter: ExerciseFilterType
+  setExerciseFilter: (v: ExerciseFilterType) => void
 }>) {
   const dayLabel = day.day.replace(/([a-z]+)/i, (_, d) => d + ' ')
+  const exercises = day.exercises ?? []
+  const q = exerciseSearch.trim().toLowerCase()
+  const filtered = exercises.filter(ex => {
+    const matchSearch =
+      !q ||
+      (ex.name?.toLowerCase().includes(q) ?? false) ||
+      (typeof ex.description === 'string' &&
+        ex.description.toLowerCase().includes(q)) ||
+      (ex.alternate_exercise?.name?.toLowerCase().includes(q) ?? false)
+    const matchFilter =
+      exerciseFilter === 'all' ||
+      (exerciseFilter === 'video' && ex.video) ||
+      (exerciseFilter === 'weight' && ex.lb != null)
+    return matchSearch && matchFilter
+  })
+
   return (
-    <div className="space-y-4 max-w-4xl">
-      <Button
-        type="button"
-        variant="secondary"
-        className="mb-2"
-        onClick={onBack}
-      >
-        ← Back to days
-      </Button>
-      <Text variant="primary" className="text-xl font-semibold">
-        {dayLabel} – {day.exercise_name}
-      </Text>
-      <div className="space-y-2">
-        {day.exercises.map(ex => (
-          <Card
-            key={ex.exercise_id}
-            pressable
-            onPress={() => onExerciseClick(ex)}
-            className="p-4 cursor-pointer hover:bg-gray-50 transition"
-          >
-            <Text variant="default" className="font-medium">
-              {ex.name}
-            </Text>
-            <Text variant="secondary" className="text-sm">
-              {formatExercisePreset(ex)}
-            </Text>
+    <div className="space-y-6 max-w-4xl">
+      <div className="flex flex-wrap items-center gap-3">
+        <Button type="button" variant="secondary" onClick={onBack}>
+          ← Back to days
+        </Button>
+        <Text variant="primary" className="text-2xl font-semibold">
+          {dayLabel} – {day.exercise_name}
+        </Text>
+      </div>
+
+      <Card className="p-0">
+        <div className="p-5 bg-gray-50/50">
+          <Text variant="default" className="font-semibold text-gray-900">
+            {dayLabel} – {day.exercise_name}
+          </Text>
+        </div>
+      </Card>
+
+      <div className="w-full space-y-4">
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="relative flex-1 min-w-0">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                aria-hidden
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                />
+              </svg>
+            </span>
+            <input
+              type="search"
+              placeholder="Search exercises…"
+              value={exerciseSearch}
+              onChange={e => setExerciseSearch(e.target.value)}
+              className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm placeholder:text-gray-400 focus:ring-2 focus:ring-[#3AB8ED]/30 focus:border-[#3AB8ED] outline-none"
+              aria-label="Search exercises"
+            />
+          </div>
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
+            <span className="text-sm text-gray-500">Filter:</span>
+            {(
+              [
+                { value: 'all' as const, label: 'All' },
+                { value: 'video' as const, label: 'With video' },
+                { value: 'weight' as const, label: 'With weight' },
+              ] as const
+            ).map(({ value, label }) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setExerciseFilter(value)}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
+                  exerciseFilter === value
+                    ? 'bg-[#3AB8ED] text-white border-[#3AB8ED]'
+                    : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <Text
+          variant="default"
+          className="font-medium text-sm text-gray-500 uppercase tracking-wide block"
+        >
+          Exercises{' '}
+          {filtered.length < exercises.length &&
+            `(${filtered.length} of ${exercises.length})`}
+        </Text>
+        {filtered.length === 0 ? (
+          <Card className="p-0">
+            <div className="p-6 text-center">
+              <Text variant="secondary" className="text-sm">
+                No exercises match your search or filter. Try different terms or
+                clear the filter.
+              </Text>
+              <Button
+                type="button"
+                variant="secondary"
+                size="small"
+                className="mt-3"
+                onClick={() => {
+                  setExerciseSearch('')
+                  setExerciseFilter('all')
+                }}
+              >
+                Clear search & filter
+              </Button>
+            </div>
           </Card>
-        ))}
+        ) : (
+          <div className="space-y-1">
+            {filtered.map((ex, idx) => (
+              <Card
+                key={ex.exercise_id}
+                pressable
+                onPress={() => onExerciseClick(ex)}
+                className="p-0 w-full cursor-pointer hover:bg-[#3AB8ED]/5 hover:border-[#3AB8ED]/30 transition-colors border border-gray-200/80"
+              >
+                <div className="flex items-center gap-4 w-full">
+                  <span className="shrink-0 w-8 h-8 rounded-lg bg-[#3AB8ED]/10 text-[#2ea8db] font-semibold text-sm flex items-center justify-center">
+                    {idx + 1}
+                  </span>
+                  <div className="min-w-0 flex-1 py-4">
+                    <Text
+                      variant="default"
+                      className="font-medium text-gray-900"
+                    >
+                      {ex.name}
+                    </Text>
+                    {formatExercisePreset(ex) && (
+                      <Text variant="secondary" className="text-sm mt-0.5">
+                        {formatExercisePreset(ex)}
+                      </Text>
+                    )}
+                  </div>
+                  <span className="text-gray-400 text-sm shrink-0 pr-4">→</span>
+                </div>
+              </Card>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   )
@@ -170,6 +474,10 @@ export default function ExerciseLibrary() {
   const [setInputs, setSetInputs] = useState<
     Record<number, { reps?: number; weightLb?: number }>
   >({})
+  const [exerciseSearch, setExerciseSearch] = useState('')
+  const [exerciseFilter, setExerciseFilter] = useState<
+    'all' | 'video' | 'weight'
+  >('all')
 
   const onProgramLoaded = useCallback((data: UserProgram) => {
     setUserProgram(data)
@@ -217,6 +525,8 @@ export default function ExerciseLibrary() {
     setView('days')
     setSelectedDay(null)
     setSelectedExercise(null)
+    setExerciseSearch('')
+    setExerciseFilter('all')
   }
 
   const handleBackToDayExercises = () => {
@@ -334,9 +644,11 @@ export default function ExerciseLibrary() {
 
   if (loading) {
     return (
-      <div className="flex items-center gap-2 py-8">
-        <Spinner size="small" variant="primary" />
-        <Text variant="secondary">Loading...</Text>
+      <div className="space-y-6 max-w-4xl">
+        <div className="flex items-center gap-2 py-8">
+          <Spinner size="small" variant="primary" />
+          <Text variant="secondary">Loading...</Text>
+        </div>
       </div>
     )
   }
@@ -353,6 +665,7 @@ export default function ExerciseLibrary() {
         programName={programName}
         days={days}
         onDayClick={handleDayClick}
+        onBack={() => navigate('/train')}
       />
     )
   }
@@ -363,6 +676,10 @@ export default function ExerciseLibrary() {
         day={selectedDay}
         onBack={handleBackToDays}
         onExerciseClick={handleExerciseClick}
+        exerciseSearch={exerciseSearch}
+        setExerciseSearch={setExerciseSearch}
+        exerciseFilter={exerciseFilter}
+        setExerciseFilter={setExerciseFilter}
       />
     )
   }
@@ -375,29 +692,43 @@ export default function ExerciseLibrary() {
     const hasAlternate = !!selectedExercise.alternate_exercise
 
     return (
-      <div className="space-y-4 max-w-2xl">
+      <div className="space-y-6 max-w-4xl">
         <Button
           type="button"
           variant="secondary"
-          className="mb-2"
           onClick={handleBackToDayExercises}
+          className="shrink-0"
         >
           ← Back to exercises
         </Button>
-        <Text variant="primary" className="text-xl font-semibold">
-          {display?.name ?? selectedExercise.name}
-        </Text>
-        {display?.description && (
-          <Text variant="secondary" className="text-sm">
-            {display.description}
-          </Text>
-        )}
+        <Card className="p-0">
+          <div className="p-5">
+            <h1 className="text-xl font-semibold text-gray-900 mb-1">
+              {display?.name ?? selectedExercise.name}
+            </h1>
+            {display?.description && (
+              <Text variant="secondary" className="text-sm mt-2 block">
+                {display.description}
+              </Text>
+            )}
+            {(presetReps != null || presetLb != null) && (
+              <Text
+                variant="secondary"
+                className="text-xs mt-2 text-gray-500 block"
+              >
+                Target: {setsCount} sets
+                {presetReps != null && ` × ${presetReps} reps`}
+                {presetLb != null && ` @ ${presetLb} lb`}
+              </Text>
+            )}
+          </div>
+        </Card>
         {display?.video && (
-          <div className="rounded overflow-hidden bg-black">
+          <div className="rounded-lg overflow-hidden bg-black">
             <video
               src={display.video}
               controls
-              className="w-full max-h-64"
+              className="w-full max-h-72"
               preload="metadata"
               aria-label={`Video for ${display?.name ?? selectedExercise.name}`}
             >
@@ -413,29 +744,32 @@ export default function ExerciseLibrary() {
             <button
               type="button"
               onClick={() => setUseAlternate(false)}
-              className={`px-3 py-1 rounded text-sm ${useAlternate ? 'bg-gray-100' : 'bg-gray-800 text-white'}`}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
+                !useAlternate
+                  ? 'bg-[#3AB8ED] text-white border-[#3AB8ED]'
+                  : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+              }`}
             >
               Main
             </button>
             <button
               type="button"
               onClick={() => setUseAlternate(true)}
-              className={`px-3 py-1 rounded text-sm ${useAlternate ? 'bg-gray-800 text-white' : 'bg-gray-100'}`}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
+                useAlternate
+                  ? 'bg-[#3AB8ED] text-white border-[#3AB8ED]'
+                  : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+              }`}
             >
               Alternate
             </button>
           </div>
         )}
-        <Text variant="default" className="font-medium">
-          Preset: {setsCount} sets
-          {presetReps != null && ` × ${presetReps} reps`}
-          {presetLb != null && ` @ ${presetLb} lb`}
-        </Text>
         <div className="space-y-3">
           {Array.from({ length: setsCount }, (_, i) => i + 1).map(setIdx => (
             <Card
               key={setIdx}
-              className="p-4 flex flex-wrap items-center gap-3"
+              className="p-4 flex flex-wrap items-center gap-3 border border-gray-200/80"
             >
               <Text variant="default" className="font-medium shrink-0">
                 Set {setIdx}
@@ -443,7 +777,7 @@ export default function ExerciseLibrary() {
               <input
                 type="number"
                 placeholder="Reps"
-                className="border rounded px-2 py-1 w-20"
+                className="border border-gray-200 rounded-lg px-3 py-2 w-20 text-sm focus:ring-2 focus:ring-[#3AB8ED]/30 focus:border-[#3AB8ED] outline-none"
                 value={setInputs[setIdx]?.reps ?? ''}
                 onChange={e =>
                   setSetInputs(prev => ({
@@ -458,7 +792,7 @@ export default function ExerciseLibrary() {
               <input
                 type="number"
                 placeholder="Weight (lb)"
-                className="border rounded px-2 py-1 w-24"
+                className="border border-gray-200 rounded-lg px-3 py-2 w-24 text-sm focus:ring-2 focus:ring-[#3AB8ED]/30 focus:border-[#3AB8ED] outline-none"
                 value={setInputs[setIdx]?.weightLb ?? ''}
                 onChange={e =>
                   setSetInputs(prev => ({

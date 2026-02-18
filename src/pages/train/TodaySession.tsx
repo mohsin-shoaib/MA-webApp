@@ -9,17 +9,6 @@ import type { ExerciseDTO, AlternateExerciseDTO } from '@/types/program'
 import type { AxiosError } from 'axios'
 import { useSnackbar } from '@/components/Snackbar/useSnackbar'
 
-function formatExercisePreset(ex: ExerciseDTO): string {
-  const parts: string[] = []
-  if (ex.sets != null && ex.total_reps != null) {
-    parts.push(`${ex.sets} × ${ex.total_reps} reps`)
-  } else if (ex.sets != null) {
-    parts.push(`${ex.sets} sets`)
-  }
-  if (ex.lb != null) parts.push(`${ex.lb} lb`)
-  return parts.join(' • ')
-}
-
 type TodayWorkoutData = {
   date: string
   phase: string
@@ -28,13 +17,27 @@ type TodayWorkoutData = {
   dayKey: string
   dayExercise: {
     day?: string
-    exercise_name: string
+    exercise_name?: string
     exercises: ExerciseDTO[]
+    isRestDay?: boolean
   }
   programId?: number
   programName?: string
   sessionId?: number
   status?: string
+}
+
+/** True when backend returned no workout for this date (Amber date not set or empty) */
+function isNoWorkoutSet(
+  dayExercise: TodayWorkoutData['dayExercise'] | null | undefined
+): boolean {
+  if (!dayExercise || typeof dayExercise !== 'object') return true
+  const ext = dayExercise as { notSet?: boolean }
+  if (ext.notSet === true) return true
+  const exercises = (dayExercise as { exercises?: unknown[] }).exercises
+  const hasExercises = Array.isArray(exercises) && exercises.length > 0
+  const hasName = !!(dayExercise as { exercise_name?: string }).exercise_name
+  return !hasExercises && !hasName
 }
 
 /** Normalize scheduled-workout API response (sessionStatus, optional dayKey) to TodayWorkoutData */
@@ -53,7 +56,7 @@ function normalizeScheduledWorkout(
     weekIndex: raw.weekIndex as number,
     dayIndex: raw.dayIndex as number | undefined,
     dayKey,
-    dayExercise,
+    dayExercise: dayExercise ?? {},
     programId: raw.programId as number | undefined,
     programName: raw.programName as string | undefined,
     sessionId: raw.sessionId as number | undefined,
@@ -85,6 +88,10 @@ export default function TodaySession() {
   const [setInputs, setSetInputs] = useState<
     Record<number, { reps?: number; weightLb?: number }>
   >({})
+  const [exerciseSearch, setExerciseSearch] = useState('')
+  const [exerciseFilter, setExerciseFilter] = useState<
+    'all' | 'video' | 'weight'
+  >('all')
 
   useEffect(() => {
     const load = dateParam
@@ -216,9 +223,11 @@ export default function TodaySession() {
 
   if (loading) {
     return (
-      <div className="flex items-center gap-2 py-8">
-        <Spinner size="small" variant="primary" />
-        <Text variant="secondary">Loading...</Text>
+      <div className="space-y-6 max-w-4xl">
+        <div className="flex items-center gap-2 py-8">
+          <Spinner size="small" variant="primary" />
+          <Text variant="secondary">Loading your session…</Text>
+        </div>
       </div>
     )
   }
@@ -227,30 +236,37 @@ export default function TodaySession() {
 
   if (!workout) {
     return (
-      <div className="space-y-4 max-w-2xl">
+      <div className="space-y-6 max-w-4xl">
         <Button
           type="button"
           variant="secondary"
           onClick={() => navigate(backTo)}
+          className="shrink-0"
         >
           ← Back to {dateParam ? 'Dashboard' : 'Train'}
         </Button>
-        <Card className="p-6">
-          <Text variant="default" className="font-medium mb-2">
-            No workout for today
-          </Text>
-          <Text variant="secondary" className="text-sm">
-            Check your roadmap or program. You can browse the Exercise library
-            from the Train page.
-          </Text>
-          <Button
-            type="button"
-            variant="secondary"
-            className="mt-3"
-            onClick={() => navigate(backTo)}
-          >
-            Back to {dateParam ? 'Dashboard' : 'Train'}
-          </Button>
+        <Card className="p-0">
+          <div className="p-8 text-center">
+            <div className="mx-auto w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mb-4">
+              <span className="text-xl text-gray-500" aria-hidden>
+                📅
+              </span>
+            </div>
+            <Text variant="default" className="font-semibold text-lg mb-2">
+              No workout for this date
+            </Text>
+            <Text variant="secondary" className="text-sm max-w-sm mx-auto mb-6">
+              Check your roadmap or program. You can browse the Exercise library
+              from the Train page.
+            </Text>
+            <Button
+              type="button"
+              variant="primary"
+              onClick={() => navigate(backTo)}
+            >
+              Back to {dateParam ? 'Dashboard' : 'Train'}
+            </Button>
+          </div>
         </Card>
       </div>
     )
@@ -258,18 +274,32 @@ export default function TodaySession() {
 
   const dayExercise = workout.dayExercise
   const exercises = dayExercise?.exercises ?? []
+  const isRestDay = (dayExercise as { isRestDay?: boolean })?.isRestDay === true
+  const noWorkoutSet = isNoWorkoutSet(dayExercise)
   const sessionTitle = dateParam
     ? `Session for ${workout.date}`
     : "Today's session"
 
+  const sessionLabel = isRestDay
+    ? 'Rest day'
+    : noWorkoutSet
+      ? 'No workout set'
+      : typeof (dayExercise as { exercise_name?: string })?.exercise_name ===
+          'string'
+        ? (dayExercise as { exercise_name: string }).exercise_name
+        : typeof workout.dayKey === 'string'
+          ? workout.dayKey
+          : String(workout.dayKey ?? '')
+
   if (view === 'exercises') {
     return (
       <div className="space-y-6 max-w-4xl">
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <Button
             type="button"
             variant="secondary"
             onClick={() => navigate(backTo)}
+            className="shrink-0"
           >
             ← Back to {dateParam ? 'Dashboard' : 'Train'}
           </Button>
@@ -277,51 +307,196 @@ export default function TodaySession() {
             {sessionTitle}
           </Text>
         </div>
-        <div className="flex flex-wrap gap-2">
-          {workout.phase && (
-            <span className="px-2 py-1 bg-gray-100 rounded text-sm">
-              {workout.phase} • Week {workout.weekIndex} • {workout.dayKey}
-            </span>
-          )}
-          {workout.programName && (
-            <span className="px-2 py-1 bg-gray-100 rounded text-sm">
-              {workout.programName}
-            </span>
-          )}
-          {workout.status === 'completed' && (
-            <span className="px-2 py-1 bg-green-100 text-green-800 rounded text-sm">
-              Completed
-            </span>
-          )}
-        </div>
-        <Card className="p-6">
-          <Text variant="default" className="font-semibold mb-4">
-            {dayExercise.exercise_name || workout.dayKey}
-          </Text>
-          {exercises.length === 0 ? (
-            <Text variant="secondary" className="text-sm">
-              No exercises for this session.
-            </Text>
-          ) : (
-            <div className="space-y-2">
-              {exercises.map(ex => (
-                <Card
-                  key={ex.exercise_id}
-                  pressable
-                  onPress={() => handleExerciseClick(ex)}
-                  className="p-4 cursor-pointer hover:bg-gray-50 transition"
-                >
-                  <Text variant="default" className="font-medium">
-                    {ex.name}
-                  </Text>
-                  <Text variant="secondary" className="text-sm">
-                    {formatExercisePreset(ex)}
-                  </Text>
-                </Card>
-              ))}
+
+        <Card className="p-0">
+          <div className="p-5 bg-gray-50/50">
+            <div className="flex flex-wrap items-center gap-2 mb-3">
+              {workout.phase && (
+                <span className="px-2.5 py-1 bg-white rounded-lg text-sm font-medium text-gray-700 border border-gray-200/80">
+                  {typeof workout.phase === 'string'
+                    ? workout.phase
+                    : String(workout.phase)}{' '}
+                  · Week {workout.weekIndex} ·{' '}
+                  {typeof workout.dayKey === 'string'
+                    ? workout.dayKey
+                    : String(workout.dayKey ?? '')}
+                </span>
+              )}
+              {workout.programName && (
+                <span className="px-2.5 py-1 bg-white rounded-lg text-sm text-gray-600 border border-gray-200/80">
+                  {typeof workout.programName === 'string'
+                    ? workout.programName
+                    : String(workout.programName)}
+                </span>
+              )}
+              {workout.status === 'completed' && (
+                <span className="px-2.5 py-1 bg-green-100 text-green-800 rounded-lg text-sm font-medium">
+                  Completed
+                </span>
+              )}
             </div>
-          )}
+            <Text variant="default" className="font-semibold text-gray-900">
+              {sessionLabel}
+            </Text>
+          </div>
         </Card>
+
+        {isRestDay ? (
+          <Card className="p-0">
+            <div className="p-8 text-center">
+              <Text variant="secondary" className="text-sm">
+                Rest day – no workout scheduled. Enjoy the recovery.
+              </Text>
+            </div>
+          </Card>
+        ) : noWorkoutSet ? (
+          <Card className="p-0">
+            <div className="p-8 text-center">
+              <Text variant="secondary" className="text-sm">
+                No workout set for this date. Check back later.
+              </Text>
+            </div>
+          </Card>
+        ) : exercises.length === 0 ? (
+          <Card className="p-0">
+            <div className="p-8 text-center">
+              <Text variant="secondary" className="text-sm">
+                No exercises for this session.
+              </Text>
+            </div>
+          </Card>
+        ) : (
+          <div className="w-full space-y-4">
+            {(() => {
+              const q = exerciseSearch.trim().toLowerCase()
+              const filtered = exercises.filter(ex => {
+                const matchSearch =
+                  !q ||
+                  (ex.name?.toLowerCase().includes(q) ?? false) ||
+                  (typeof ex.description === 'string' &&
+                    ex.description.toLowerCase().includes(q))
+                const matchFilter =
+                  exerciseFilter === 'all' ||
+                  (exerciseFilter === 'video' && ex.video) ||
+                  (exerciseFilter === 'weight' && ex.lb != null)
+                return matchSearch && matchFilter
+              })
+              return (
+                <>
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <div className="relative flex-1 min-w-0">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                          aria-hidden
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                          />
+                        </svg>
+                      </span>
+                      <input
+                        type="search"
+                        placeholder="Search exercises…"
+                        value={exerciseSearch}
+                        onChange={e => setExerciseSearch(e.target.value)}
+                        className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm placeholder:text-gray-400 focus:ring-2 focus:ring-[#3AB8ED]/30 focus:border-[#3AB8ED] outline-none"
+                        aria-label="Search exercises"
+                      />
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2 shrink-0">
+                      <span className="text-sm text-gray-500">Filter:</span>
+                      {(
+                        [
+                          { value: 'all' as const, label: 'All' },
+                          { value: 'video' as const, label: 'With video' },
+                          { value: 'weight' as const, label: 'With weight' },
+                        ] as const
+                      ).map(({ value, label }) => (
+                        <button
+                          key={value}
+                          type="button"
+                          onClick={() => setExerciseFilter(value)}
+                          className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
+                            exerciseFilter === value
+                              ? 'bg-[#3AB8ED] text-white border-[#3AB8ED]'
+                              : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <Text
+                    variant="default"
+                    className="font-medium text-sm text-gray-500 uppercase tracking-wide block"
+                  >
+                    Exercises{' '}
+                    {filtered.length < exercises.length &&
+                      `(${filtered.length} of ${exercises.length})`}
+                  </Text>
+                  {filtered.length === 0 ? (
+                    <Card className="p-0">
+                      <div className="p-6 text-center">
+                        <Text variant="secondary" className="text-sm">
+                          No exercises match your search or filter. Try
+                          different terms or clear the filter.
+                        </Text>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="small"
+                          className="mt-3"
+                          onClick={() => {
+                            setExerciseSearch('')
+                            setExerciseFilter('all')
+                          }}
+                        >
+                          Clear search & filter
+                        </Button>
+                      </div>
+                    </Card>
+                  ) : (
+                    <div className="space-y-1">
+                      {filtered.map((ex, idx) => (
+                        <Card
+                          key={ex.exercise_id}
+                          pressable
+                          onPress={() => handleExerciseClick(ex)}
+                          className="p-0 w-full cursor-pointer hover:bg-[#3AB8ED]/5 hover:border-[#3AB8ED]/30 transition-colors"
+                        >
+                          <div className="flex items-center gap-4 w-full">
+                            <span className="flex-shrink-0 w-8 h-8 rounded-lg bg-[#3AB8ED]/10 text-[#2ea8db] font-semibold text-sm flex items-center justify-center">
+                              {idx + 1}
+                            </span>
+                            <div className="min-w-0 flex-1 py-4">
+                              <Text
+                                variant="default"
+                                className="font-medium text-gray-900"
+                              >
+                                {ex.name}
+                              </Text>
+                            </div>
+                            <span className="text-gray-400 text-sm shrink-0 pr-4">
+                              →
+                            </span>
+                          </div>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )
+            })()}
+          </div>
+        )}
       </div>
     )
   }
@@ -334,29 +509,42 @@ export default function TodaySession() {
     const hasAlternate = !!selectedExercise.alternate_exercise
 
     return (
-      <div className="space-y-4 max-w-2xl">
+      <div className="space-y-6 max-w-4xl">
         <Button
           type="button"
           variant="secondary"
-          className="mb-2"
           onClick={handleBackToExercises}
+          className="shrink-0"
         >
           ← Back to exercises
         </Button>
-        <Text variant="primary" className="text-xl font-semibold">
-          {display?.name ?? selectedExercise.name}
-        </Text>
-        {display?.description && (
-          <Text variant="secondary" className="text-sm">
-            {display.description}
-          </Text>
-        )}
+
+        <Card className="p-0">
+          <div className="p-5">
+            <h1 className="text-xl font-semibold text-gray-900 mb-1">
+              {display?.name ?? selectedExercise.name}
+            </h1>
+            {display?.description && (
+              <Text variant="secondary" className="text-sm mt-2 block">
+                {display.description}
+              </Text>
+            )}
+            {(presetReps != null || presetLb != null) && (
+              <Text variant="secondary" className="text-xs mt-2 text-gray-500">
+                Target: {setsCount} sets
+                {presetReps != null && ` × ${presetReps} reps`}
+                {presetLb != null && ` @ ${presetLb} lb`}
+              </Text>
+            )}
+          </div>
+        </Card>
+
         {display?.video && (
-          <div className="rounded overflow-hidden bg-black">
+          <div className="rounded-lg overflow-hidden bg-black">
             <video
               src={display.video}
               controls
-              className="w-full max-h-64"
+              className="w-full max-h-72"
               preload="metadata"
               aria-label={`Video for ${display?.name ?? selectedExercise.name}`}
             >
@@ -364,94 +552,116 @@ export default function TodaySession() {
             </video>
           </div>
         )}
+
         {hasAlternate && (
-          <div className="flex gap-2 items-center">
-            <Text variant="default" className="text-sm font-medium">
-              Exercise:
+          <div className="flex flex-wrap items-center gap-2">
+            <Text variant="secondary" className="text-sm">
+              Version:
             </Text>
-            <button
-              type="button"
-              onClick={() => setUseAlternate(false)}
-              className={`px-3 py-1 rounded text-sm ${useAlternate ? 'bg-gray-100' : 'bg-gray-800 text-white'}`}
-            >
-              Main
-            </button>
-            <button
-              type="button"
-              onClick={() => setUseAlternate(true)}
-              className={`px-3 py-1 rounded text-sm ${useAlternate ? 'bg-gray-800 text-white' : 'bg-gray-100'}`}
-            >
-              Alternate
-            </button>
+            <div className="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-0.5">
+              <button
+                type="button"
+                onClick={() => setUseAlternate(false)}
+                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${useAlternate ? 'text-gray-600 hover:text-gray-900' : 'bg-white text-gray-900 shadow-sm'}`}
+              >
+                Main
+              </button>
+              <button
+                type="button"
+                onClick={() => setUseAlternate(true)}
+                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${useAlternate ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}
+              >
+                Alternate
+              </button>
+            </div>
           </div>
         )}
-        <Text variant="default" className="font-medium">
-          Preset: {setsCount} sets
-          {presetReps != null && ` × ${presetReps} reps`}
-          {presetLb != null && ` @ ${presetLb} lb`}
-        </Text>
+
         <div className="space-y-3">
+          <Text
+            variant="default"
+            className="font-medium text-sm text-gray-500 uppercase tracking-wide block"
+          >
+            Log sets
+          </Text>
           {Array.from({ length: setsCount }, (_, i) => i + 1).map(setIdx => (
-            <Card
-              key={setIdx}
-              className="p-4 flex flex-wrap items-center gap-3"
-            >
-              <Text variant="default" className="font-medium shrink-0">
-                Set {setIdx}
-              </Text>
-              <input
-                type="number"
-                placeholder="Reps"
-                className="border rounded px-2 py-1 w-20"
-                value={setInputs[setIdx]?.reps ?? ''}
-                onChange={e =>
-                  setSetInputs(prev => ({
-                    ...prev,
-                    [setIdx]: {
-                      ...prev[setIdx],
-                      reps: e.target.value ? Number(e.target.value) : undefined,
-                    },
-                  }))
-                }
-              />
-              <input
-                type="number"
-                placeholder="Weight (lb)"
-                className="border rounded px-2 py-1 w-24"
-                value={setInputs[setIdx]?.weightLb ?? ''}
-                onChange={e =>
-                  setSetInputs(prev => ({
-                    ...prev,
-                    [setIdx]: {
-                      ...prev[setIdx],
-                      weightLb: e.target.value
-                        ? Number(e.target.value)
-                        : undefined,
-                    },
-                  }))
-                }
-              />
-              <Button
-                type="button"
-                variant="secondary"
-                size="small"
-                disabled={logLoading || sessionLoading}
-                onClick={() => handleLogSet(setIdx)}
-              >
-                {sessionLoading || logLoading ? 'Logging...' : 'Log set'}
-              </Button>
+            <Card key={setIdx} className="p-0 w-full">
+              <div className="flex flex-wrap items-center gap-4 p-4">
+                <span className="flex-shrink-0 w-9 h-9 rounded-lg bg-gray-100 text-gray-700 font-semibold text-sm flex items-center justify-center">
+                  {setIdx}
+                </span>
+                <div className="flex flex-wrap items-center gap-3 flex-1 min-w-0">
+                  <label className="flex items-center gap-2">
+                    <span className="text-sm text-gray-600 w-10">Reps</span>
+                    <input
+                      type="number"
+                      placeholder="—"
+                      min={0}
+                      className="border border-gray-200 rounded-lg px-3 py-2 w-20 text-sm focus:ring-2 focus:ring-[#3AB8ED]/30 focus:border-[#3AB8ED] outline-none"
+                      value={setInputs[setIdx]?.reps ?? ''}
+                      onChange={e =>
+                        setSetInputs(prev => ({
+                          ...prev,
+                          [setIdx]: {
+                            ...prev[setIdx],
+                            reps: e.target.value
+                              ? Number(e.target.value)
+                              : undefined,
+                          },
+                        }))
+                      }
+                    />
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <span className="text-sm text-gray-600 w-14">
+                      Weight (lb)
+                    </span>
+                    <input
+                      type="number"
+                      placeholder="—"
+                      min={0}
+                      className="border border-gray-200 rounded-lg px-3 py-2 w-24 text-sm focus:ring-2 focus:ring-[#3AB8ED]/30 focus:border-[#3AB8ED] outline-none"
+                      value={setInputs[setIdx]?.weightLb ?? ''}
+                      onChange={e =>
+                        setSetInputs(prev => ({
+                          ...prev,
+                          [setIdx]: {
+                            ...prev[setIdx],
+                            weightLb: e.target.value
+                              ? Number(e.target.value)
+                              : undefined,
+                          },
+                        }))
+                      }
+                    />
+                  </label>
+                </div>
+                <Button
+                  type="button"
+                  variant="primary"
+                  size="small"
+                  disabled={logLoading || sessionLoading}
+                  onClick={() => handleLogSet(setIdx)}
+                  className="shrink-0"
+                >
+                  {sessionLoading || logLoading ? 'Logging…' : 'Log set'}
+                </Button>
+              </div>
             </Card>
           ))}
         </div>
+
         {calendarDate && (
-          <div className="flex gap-2 pt-2">
+          <div className="pt-2 border-t border-gray-100">
             <Button
               type="button"
+              variant="primary"
               disabled={completeLoading || sessionLoading}
               onClick={handleCompleteWorkout}
+              className="w-full py-3 font-semibold"
             >
               {completeLoading || sessionLoading
-                ? 'Please wait...'
+                ? 'Please wait…'
                 : 'Complete workout for this day'}
             </Button>
           </div>

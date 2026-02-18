@@ -94,6 +94,7 @@ export interface ConfirmOnboardingPayload {
 /** Response from POST /athlete/onboarding/confirm (optional; backend may return onboarding + message) */
 export interface ConfirmOnboardingResponse {
   statusCode: number
-  data?: unknown
+  /** When backend returns 200 for duplicate confirm, data.alreadyConfirmed is true */
+  data?: { alreadyConfirmed?: boolean }
   message: string
 }

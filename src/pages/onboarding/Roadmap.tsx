@@ -13,73 +13,85 @@ import type {
   RoadmapDayExercise,
   RoadmapExerciseItem,
 } from '@/types/roadmap'
-import { isRealTimelineWeek, isRealDailyExerciseByPhase } from '@/types/roadmap'
+import { isRealTimelineWeek } from '@/types/roadmap'
 import type { AxiosError } from 'axios'
 
-const PHASES = ['Red', 'Amber', 'Green'] as const
+const CYCLE_COLORS: Record<string, string> = {
+  Red: 'border-l-4 border-l-red-500 bg-red-50/50',
+  Amber: 'border-l-4 border-l-amber-500 bg-amber-50/50',
+  Green: 'border-l-4 border-l-green-600 bg-green-50/50',
+}
 
+function safeStr(value: unknown): string {
+  if (value == null) return ''
+  if (typeof value === 'string') return value
+  if (typeof value === 'number') return String(value)
+  return String(value)
+}
+
+/** Normalize timeline value: array of days, or Amber single day object -> [day], or null for legacy string[]. */
+function getDaysFromTimelineValue(value: unknown): RoadmapDayExercise[] | null {
+  if (isRealTimelineWeek(value)) return value
+  if (
+    value != null &&
+    typeof value === 'object' &&
+    !Array.isArray(value) &&
+    'exercise_name' in (value as RoadmapDayExercise)
+  ) {
+    return [value as RoadmapDayExercise]
+  }
+  return null
+}
+
+/** Roadmap summary: name, short description, duration only (no sets/reps/video) */
 function renderExerciseItem(exercise: RoadmapExerciseItem, idx: number) {
-  const hasVideo = exercise.video && exercise.video.trim().length > 0
+  const rawDesc = (exercise as { description?: unknown }).description
+  const desc = typeof rawDesc === 'string' ? rawDesc.trim() : ''
+  const descShort = desc && desc.length > 80 ? `${desc.slice(0, 80)}…` : desc
+  const name = safeStr((exercise as { name?: unknown }).name)
+
+  const keyVal = (exercise as { exercise_id?: unknown }).exercise_id
   return (
-    <li key={exercise.exercise_id ?? idx} className="text-sm space-y-1 py-1">
-      <span className="font-medium">{exercise.name}</span>
-      {exercise.description && (
-        <p className="text-gray-600 text-xs">{exercise.description}</p>
-      )}
-      {(exercise.total_reps != null ||
-        exercise.sets != null ||
-        exercise.lb != null) && (
-        <span className="text-xs text-gray-500">
-          {[
-            exercise.sets != null && `${exercise.sets} sets`,
-            exercise.total_reps != null && `${exercise.total_reps} reps`,
-            exercise.lb != null && `${exercise.lb} lb`,
-          ]
-            .filter(Boolean)
-            .join(' • ')}
-        </span>
-      )}
-      {hasVideo ? (
-        <a
-          href={exercise.video}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-xs text-blue-600 hover:underline"
-        >
-          Watch video
-        </a>
-      ) : (
-        exercise.video !== undefined && (
-          <span className="text-xs text-amber-600">Video unavailable</span>
-        )
-      )}
-      {exercise.alternate_exercise && (
-        <div className="ml-3 mt-1 text-xs border-l-2 border-gray-200 pl-2">
-          <span className="font-medium">Alternate: </span>
-          {exercise.alternate_exercise.name}
-          {exercise.alternate_exercise.description && (
-            <span className="text-gray-500">
-              {' '}
-              – {exercise.alternate_exercise.description}
-            </span>
-          )}
-        </div>
+    <li
+      key={
+        keyVal != null && typeof keyVal === 'string'
+          ? keyVal
+          : typeof keyVal === 'number'
+            ? keyVal
+            : idx
+      }
+      className="py-2 border-b border-gray-100 last:border-0 text-sm"
+    >
+      <span className="font-medium text-gray-900 block">{name}</span>
+      {descShort && (
+        <span className="text-gray-600 text-xs block mt-0.5">{descShort}</span>
       )}
     </li>
   )
 }
 
 function renderDayContent(day: RoadmapDayExercise) {
-  const exercises = day.exercises ?? []
+  const exercises = Array.isArray(day.exercises) ? day.exercises : []
+  const dayLabel = safeStr(
+    (day as { exercise_name?: unknown; day?: unknown }).exercise_name ||
+      (day as { day?: unknown }).day
+  )
+  const duration = [
+    (day as { workout_timer?: unknown }).workout_timer,
+    (day as { exercise_time?: unknown }).exercise_time,
+    (day as { rest_timer?: unknown }).rest_timer,
+  ]
+    .filter(Boolean)
+    .map(v => safeStr(v))
+    .join(' • ')
+
   return (
-    <div className="space-y-2 mb-3">
-      <Text variant="default" className="font-medium">
-        {day.exercise_name || day.day}
-      </Text>
-      {day.exercise_description && (
-        <p className="text-xs text-gray-600">{day.exercise_description}</p>
-      )}
-      <ul className="list-disc ml-6 space-y-1">
+    <div className="rounded-lg bg-white border border-gray-100 p-3 shadow-sm">
+      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0 mb-2">
+        <p className="text-sm font-semibold text-gray-800">{dayLabel}</p>
+        {duration && <span className="text-xs text-gray-500">{duration}</span>}
+      </div>
+      <ul className="list-none ml-0 space-y-0">
         {exercises.map((ex, idx) => renderExerciseItem(ex, idx))}
       </ul>
     </div>
@@ -192,113 +204,210 @@ export default function RoadmapStep({
   if (roadmap) {
     return (
       <div className="space-y-6">
-        <Card className="p-6">
-          <Text variant="primary" className="text-2xl font-semibold mb-4">
+        {/* Summary card — aligned with other onboarding steps */}
+        <Card className="p-6 sm:p-8 rounded-xl shadow-md border border-gray-200/80 bg-white">
+          <h2 className="text-xl sm:text-2xl font-semibold text-gray-800 mb-1">
             Your Training Roadmap
+          </h2>
+          <Text variant="secondary" className="text-sm mb-6">
+            Overview of your plan and current phase.
           </Text>
-          <div className="mb-4 space-y-2">
+          <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
             {roadmap.primaryGoal && (
-              <Text variant="secondary" className="block">
-                Primary Goal: {roadmap.primaryGoal}
-              </Text>
+              <div>
+                <dt className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                  Primary goal
+                </dt>
+                <dd className="mt-0.5 font-medium text-gray-900">
+                  {roadmap.primaryGoal}
+                </dd>
+              </div>
             )}
             {roadmap.eventDate && (
-              <Text variant="secondary" className="block">
-                Event Date: {new Date(roadmap.eventDate).toLocaleDateString()}
-              </Text>
+              <div>
+                <dt className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                  Event date
+                </dt>
+                <dd className="mt-0.5 font-medium text-gray-900">
+                  {new Date(roadmap.eventDate).toLocaleDateString()}
+                </dd>
+              </div>
             )}
-            {roadmap.totalWeeks && (
-              <Text variant="secondary" className="block">
-                Total Weeks: {roadmap.totalWeeks}
-              </Text>
+            {roadmap.totalWeeks != null && (
+              <div>
+                <dt className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                  Total weeks
+                </dt>
+                <dd className="mt-0.5 font-medium text-gray-900">
+                  {roadmap.totalWeeks}
+                </dd>
+              </div>
             )}
             {roadmap.currentCycle && (
-              <Text variant="secondary" className="block">
-                Current Cycle: {roadmap.currentCycle}
-              </Text>
+              <div>
+                <dt className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                  Current cycle
+                </dt>
+                <dd className="mt-0.5 font-medium text-gray-900">
+                  {roadmap.currentCycle}
+                </dd>
+              </div>
             )}
-          </div>
+          </dl>
+          {roadmap.cycles?.some(c => c.cycleName === 'Amber') && (
+            <p className="text-xs text-gray-500 mt-4 pt-4 border-t border-gray-100">
+              Amber workouts are set by your coach by date; you’ll see each
+              day’s workout on the day.
+            </p>
+          )}
         </Card>
 
         {roadmap.cycles && roadmap.cycles.length > 0 && (
-          <div className="space-y-4">
+          <div className="space-y-5">
             {roadmap.cycles.map((cycle, index) => {
               const timelineData = (
                 roadmap.timeline as Record<string, Record<string, unknown>>
               )[cycle.cycleType]
               const accordionItems =
                 timelineData && typeof timelineData === 'object'
-                  ? Object.entries(timelineData).map(([week, exercises]) => ({
-                      id: `${cycle.cycleType}-${week}`,
-                      title: week,
-                      content: (
-                        <div className="space-y-2">
-                          {isRealTimelineWeek(exercises)
-                            ? exercises.map((day, dayIdx) => (
-                                <div key={dayIdx}>{renderDayContent(day)}</div>
-                              ))
-                            : Array.isArray(exercises) && (
-                                <ul className="list-disc ml-6">
-                                  {exercises.map(
-                                    (exercise: string, idx: number) => (
-                                      <li key={idx} className="text-sm">
-                                        {exercise}
-                                      </li>
-                                    )
-                                  )}
-                                </ul>
-                              )}
-                        </div>
-                      ),
-                    }))
+                  ? Object.entries(timelineData).map(([week, exercises]) => {
+                      const days = getDaysFromTimelineValue(exercises)
+                      const legacyList =
+                        days === null && Array.isArray(exercises)
+                          ? (exercises as unknown[])
+                          : null
+                      return {
+                        id: `${cycle.cycleType}-${safeStr(week)}`,
+                        title:
+                          safeStr(week) === '[object Object]' &&
+                          cycle.cycleName === 'Amber'
+                            ? 'Amber program will be added later'
+                            : safeStr(week),
+                        content: (
+                          <div className="rounded-lg bg-white border border-gray-100 p-4 space-y-4">
+                            {days !== null
+                              ? days.map((day, dayIdx) => (
+                                  <div key={dayIdx}>
+                                    {renderDayContent(day)}
+                                  </div>
+                                ))
+                              : legacyList !== null &&
+                                (cycle.cycleName === 'Amber' &&
+                                legacyList.some(
+                                  x => typeof x === 'object' && x !== null
+                                ) ? (
+                                  <Text
+                                    variant="secondary"
+                                    className="text-sm py-2"
+                                  >
+                                    Amber program will be added later
+                                  </Text>
+                                ) : (
+                                  <ul className="list-none space-y-2">
+                                    {legacyList.map(
+                                      (exercise: unknown, idx: number) => {
+                                        const label = safeStr(exercise)
+                                        const display =
+                                          label === '[object Object]'
+                                            ? cycle.cycleName === 'Amber'
+                                              ? 'Amber program will be added later'
+                                              : '—'
+                                            : label
+                                        return (
+                                          <li
+                                            key={idx}
+                                            className="text-sm text-gray-700 py-2 px-3 rounded-md bg-gray-50 border border-gray-100"
+                                          >
+                                            {display}
+                                          </li>
+                                        )
+                                      }
+                                    )}
+                                  </ul>
+                                ))}
+                          </div>
+                        ),
+                      }
+                    })
                   : []
 
+              const cycleStyle =
+                CYCLE_COLORS[cycle.cycleName] ??
+                'border-l-gray-400 bg-gray-50/50'
+
               return (
-                <Card key={index} className="p-6">
-                  <div className="flex items-center justify-between mb-4">
+                <Card
+                  key={index}
+                  className={`p-6 sm:p-8 rounded-xl shadow-md border border-gray-200/80 overflow-hidden ${cycleStyle}`}
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
                     <div>
-                      <Text variant="primary" className="text-xl font-semibold">
-                        {cycle.cycleName}
-                      </Text>
-                      <Text variant="secondary" className="text-sm">
-                        {cycle.startDate} - {cycle.endDate}
+                      <h3 className="text-lg font-semibold text-gray-900">
+                        {safeStr(cycle.cycleName)} Cycle
+                      </h3>
+                      <Text variant="secondary" className="text-sm mt-0.5">
+                        {safeStr(cycle.startDate)} – {safeStr(cycle.endDate)}
                       </Text>
                     </div>
                     <div className="flex gap-2">
                       {cycle.isActive && (
-                        <span className="px-2 py-1 bg-green-100 text-green-800 rounded text-sm">
+                        <span className="px-2.5 py-1 bg-green-100 text-green-800 rounded-lg text-xs font-medium">
                           Active
                         </span>
                       )}
                       {cycle.isCompleted && (
-                        <span className="px-2 py-1 bg-gray-100 text-gray-800 rounded text-sm">
+                        <span className="px-2.5 py-1 bg-gray-200 text-gray-700 rounded-lg text-xs font-medium">
                           Completed
                         </span>
                       )}
                     </div>
                   </div>
 
-                  {cycle.programName && (
-                    <div className="mb-4">
-                      <Text variant="default" className="font-semibold mb-2">
-                        Program
-                      </Text>
-                      <Text variant="secondary">{cycle.programName}</Text>
+                  {((cycle.programName != null &&
+                    typeof cycle.programName === 'string' &&
+                    cycle.programName.trim() !== '') ||
+                    cycle.cycleName === 'Amber' ||
+                    cycle.durationWeeks != null) && (
+                    <div className="flex flex-wrap gap-4 mb-4 text-sm">
+                      {(cycle.cycleName === 'Amber'
+                        ? true
+                        : cycle.programName != null &&
+                          typeof cycle.programName === 'string' &&
+                          cycle.programName.trim() !== '') && (
+                        <div>
+                          <span className="text-gray-500">Program: </span>
+                          <span className="font-medium text-gray-800">
+                            {cycle.cycleName === 'Amber'
+                              ? 'Amber program will be added later'
+                              : safeStr(cycle.programName)}
+                          </span>
+                        </div>
+                      )}
+                      {cycle.durationWeeks != null && (
+                        <div>
+                          <span className="text-gray-500">Duration: </span>
+                          <span className="font-medium text-gray-800">
+                            {cycle.durationWeeks} weeks
+                          </span>
+                        </div>
+                      )}
                     </div>
                   )}
 
-                  <div className="mb-4">
-                    <Text variant="secondary" className="text-sm">
-                      Duration: {cycle.durationWeeks} weeks
-                    </Text>
-                  </div>
-
                   {accordionItems.length > 0 && (
-                    <div className="mt-4">
-                      <Text variant="default" className="font-semibold mb-2">
-                        Weekly Timeline
+                    <div className="mt-5">
+                      <Text
+                        variant="default"
+                        className="font-semibold text-gray-800 mb-3 block"
+                      >
+                        Weekly timeline
                       </Text>
-                      <Accordion items={accordionItems} allowMultiple />
+                      <Accordion
+                        items={accordionItems}
+                        allowMultiple
+                        variant="outlined"
+                        contentClassName="py-4 bg-gray-50/80"
+                      />
                     </div>
                   )}
                 </Card>
@@ -311,135 +420,127 @@ export default function RoadmapStep({
         {(!roadmap.cycles || roadmap.cycles.length === 0) &&
           roadmap.timeline &&
           typeof roadmap.timeline === 'object' && (
-            <Card className="p-6">
-              <Text variant="default" className="font-semibold mb-4">
-                Weekly Timeline
+            <Card className="p-6 sm:p-8 rounded-xl shadow-md border border-gray-200/80">
+              <Text
+                variant="default"
+                className="font-semibold text-gray-800 mb-4"
+              >
+                Weekly timeline
               </Text>
-              <div className="space-y-4">
+              <div className="space-y-5">
                 {Object.entries(
                   roadmap.timeline as Record<
                     string,
                     Record<string, string[] | RoadmapDayExercise[]>
                   >
-                ).map(([cycleType, weeks]) => (
-                  <div key={cycleType} className="mb-4">
-                    <Text variant="primary" className="font-semibold mb-2">
-                      {cycleType} Cycle
-                    </Text>
-                    {Object.keys(weeks).length === 0 ? (
-                      <Text variant="secondary" className="text-sm">
-                        No program assigned for this phase.
+                ).map(([cycleType, weeks]) => {
+                  const cycleStyle =
+                    CYCLE_COLORS[cycleType] ??
+                    'border-l-4 border-l-gray-400 bg-gray-50/50'
+                  return (
+                    <div
+                      key={cycleType}
+                      className={`rounded-lg border border-gray-200 p-4 ${cycleStyle}`}
+                    >
+                      <Text
+                        variant="primary"
+                        className="font-semibold mb-3 block"
+                      >
+                        {cycleType} Cycle
                       </Text>
-                    ) : (
-                      <Accordion
-                        items={Object.entries(weeks).map(
-                          ([week, exercises]) => ({
-                            id: `${cycleType}-${week}`,
-                            title: week,
-                            content: (
-                              <div className="space-y-2">
-                                {isRealTimelineWeek(exercises)
-                                  ? exercises.map((day, dayIdx) => (
-                                      <div key={dayIdx}>
-                                        {renderDayContent(day)}
-                                      </div>
-                                    ))
-                                  : Array.isArray(exercises) && (
-                                      <ul className="list-disc ml-6">
-                                        {exercises.map(
-                                          (exercise: string, idx: number) => (
-                                            <li key={idx} className="text-sm">
-                                              {exercise}
-                                            </li>
-                                          )
-                                        )}
-                                      </ul>
-                                    )}
-                              </div>
-                            ),
-                          })
-                        )}
-                        allowMultiple
-                      />
-                    )}
-                  </div>
-                ))}
-              </div>
-            </Card>
-          )}
-
-        {/* Daily Exercises: real (by phase and day) or legacy (flat day -> string[]) */}
-        {roadmap.dailyExercise &&
-          Object.keys(roadmap.dailyExercise).length > 0 && (
-            <Card className="p-6">
-              <Text variant="default" className="font-semibold mb-4">
-                Daily Exercises
-              </Text>
-              <div className="space-y-4">
-                {(() => {
-                  const daily = roadmap.dailyExercise
-                  if (isRealDailyExerciseByPhase(daily)) {
-                    const phasesWithData = PHASES.filter(phase => daily[phase])
-                    if (phasesWithData.length === 0) {
-                      return (
-                        <Text variant="secondary">No daily exercises.</Text>
-                      )
-                    }
-                    return phasesWithData.map(phase => {
-                      const days = daily[phase]!
-                      return (
-                        <div key={phase}>
-                          <Text
-                            variant="primary"
-                            className="font-semibold mb-2"
-                          >
-                            {phase} Cycle
-                          </Text>
-                          <div className="space-y-2">
-                            {Object.entries(days).map(([dayKey, dayData]) => (
-                              <div
-                                key={`${phase}-${dayKey}`}
-                                className="border rounded p-3"
-                              >
-                                {typeof dayData === 'object' &&
-                                dayData !== null &&
-                                'exercise_name' in dayData ? (
-                                  renderDayContent(dayData)
-                                ) : (
-                                  <Text className="capitalize font-medium">
-                                    {dayKey}
-                                  </Text>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )
-                    })
-                  }
-                  return Object.entries(daily).map(([day, exercises]) => (
-                    <div key={day} className="border rounded p-3">
-                      <Text className="capitalize font-medium mb-2">{day}</Text>
-                      {Array.isArray(exercises) && (
-                        <ul className="list-disc ml-6">
-                          {exercises.map((exercise: string, idx: number) => (
-                            <li key={idx} className="text-sm">
-                              {exercise}
-                            </li>
-                          ))}
-                        </ul>
+                      {Object.keys(weeks).length === 0 ? (
+                        <Text variant="secondary" className="text-sm">
+                          No program assigned for this phase.
+                        </Text>
+                      ) : (
+                        <Accordion
+                          items={Object.entries(weeks).map(
+                            ([week, exercises]) => {
+                              const days = getDaysFromTimelineValue(exercises)
+                              const legacyList =
+                                days === null && Array.isArray(exercises)
+                                  ? (exercises as unknown[])
+                                  : null
+                              return {
+                                id: `${cycleType}-${safeStr(week)}`,
+                                title:
+                                  safeStr(week) === '[object Object]' &&
+                                  cycleType === 'Amber'
+                                    ? 'Amber program will be added later'
+                                    : safeStr(week),
+                                content: (
+                                  <div className="rounded-lg bg-white border border-gray-100 p-4 space-y-4">
+                                    {days !== null
+                                      ? days.map((day, dayIdx) => (
+                                          <div key={dayIdx}>
+                                            {renderDayContent(day)}
+                                          </div>
+                                        ))
+                                      : legacyList !== null &&
+                                        (cycleType === 'Amber' &&
+                                        legacyList.some(
+                                          x =>
+                                            typeof x === 'object' && x !== null
+                                        ) ? (
+                                          <Text
+                                            variant="secondary"
+                                            className="text-sm py-2"
+                                          >
+                                            Amber program will be added later
+                                          </Text>
+                                        ) : (
+                                          <ul className="list-none space-y-2">
+                                            {legacyList.map(
+                                              (
+                                                exercise: unknown,
+                                                idx: number
+                                              ) => {
+                                                const label = safeStr(exercise)
+                                                const display =
+                                                  label === '[object Object]'
+                                                    ? cycleType === 'Amber'
+                                                      ? 'Amber program will be added later'
+                                                      : '—'
+                                                    : label
+                                                return (
+                                                  <li
+                                                    key={idx}
+                                                    className="text-sm text-gray-700 py-2 px-3 rounded-md bg-gray-50 border border-gray-100"
+                                                  >
+                                                    {display}
+                                                  </li>
+                                                )
+                                              }
+                                            )}
+                                          </ul>
+                                        ))}
+                                  </div>
+                                ),
+                              }
+                            }
+                          )}
+                          allowMultiple
+                          variant="outlined"
+                          contentClassName="py-4 bg-gray-50/80"
+                        />
                       )}
                     </div>
-                  ))
-                })()}
+                  )
+                })}
               </div>
             </Card>
           )}
 
         {onComplete && (
-          <Card className="p-6">
-            <Button onClick={onComplete} className="w-full">
-              Complete Onboarding
+          <Card className="p-6 sm:p-8 rounded-xl shadow-md border border-gray-200/80">
+            <Text variant="secondary" className="text-sm mb-4 block">
+              You’re all set. Go to your dashboard to start training.
+            </Text>
+            <Button
+              onClick={onComplete}
+              className="w-full bg-[#3AB8ED] hover:bg-[#2ea8db] text-white font-bold rounded-lg py-3"
+            >
+              Go to dashboard
             </Button>
           </Card>
         )}
@@ -449,68 +550,51 @@ export default function RoadmapStep({
 
   // Legacy roadmap display
   return (
-    <div className="border rounded p-6 space-y-6">
-      <Text variant="primary" className="text-xl font-semibold">
-        Your Roadmap
-      </Text>
+    <div className="space-y-6">
+      <Card className="p-6 sm:p-8 rounded-xl shadow-md border border-gray-200/80 bg-white">
+        <h2 className="text-xl font-semibold text-gray-800 mb-1">
+          Your roadmap
+        </h2>
+        {confirmed !== null && (
+          <Text variant="secondary" className="text-sm mb-4">
+            {confirmed
+              ? 'You confirmed the recommended cycle.'
+              : 'You selected a custom cycle.'}
+          </Text>
+        )}
 
-      {confirmed !== null && (
-        <Text variant="secondary">
-          {confirmed
-            ? 'You confirmed the recommended cycle.'
-            : 'You selected a custom cycle.'}
-        </Text>
-      )}
-
-      {legacyRoadmap && (
-        <>
-          {/* Timeline Section */}
-          <div>
-            <Text variant="default" className="font-semibold">
-              Weekly Timeline
+        {legacyRoadmap && (
+          <>
+            <Text
+              variant="default"
+              className="font-semibold text-gray-800 mb-3 block"
+            >
+              Weekly timeline
             </Text>
-
-            <ul className="space-y-2 mt-2">
+            <ul className="space-y-3">
               {Object.entries(legacyRoadmap.timeline).map(
                 ([week, exercises], index) => (
-                  <li key={week} className="border rounded p-3">
-                    <Text className="font-medium">Week {index + 1}</Text>
-
-                    <ul className="list-disc ml-6">
+                  <li
+                    key={week}
+                    className="rounded-lg border border-gray-200 bg-gray-50/50 p-4"
+                  >
+                    <Text className="font-medium text-gray-900 mb-2 block">
+                      Week {index + 1}
+                    </Text>
+                    <ul className="list-none space-y-1">
                       {exercises.map((exercise, i) => (
-                        <li key={i}>{exercise}</li>
+                        <li key={i} className="text-sm text-gray-700">
+                          {safeStr(exercise)}
+                        </li>
                       ))}
                     </ul>
                   </li>
                 )
               )}
             </ul>
-          </div>
-
-          {/* Daily Exercise Section */}
-          <div>
-            <Text variant="default" className="font-semibold">
-              Daily Exercises
-            </Text>
-
-            <ul className="space-y-2 mt-2">
-              {Object.entries(legacyRoadmap.dailyExercise).map(
-                ([day, exercises]) => (
-                  <li key={day} className="border rounded p-3">
-                    <Text className="capitalize font-medium">{day}</Text>
-
-                    <ul className="list-disc ml-6">
-                      {exercises.map((exercise, i) => (
-                        <li key={i}>{exercise}</li>
-                      ))}
-                    </ul>
-                  </li>
-                )
-              )}
-            </ul>
-          </div>
-        </>
-      )}
+          </>
+        )}
+      </Card>
     </div>
   )
 }

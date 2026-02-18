@@ -1,3 +1,13 @@
+import type { CreateOnboardingDTO } from '@/types/onboarding'
+import type { ReadinessRecommendation } from '@/types/readiness'
+
+/** State returned by backend to resume onboarding at a specific step */
+export interface OnboardingResumeState {
+  recommendedCycle?: string
+  recommendation?: ReadinessRecommendation
+  onboardData?: CreateOnboardingDTO
+}
+
 /** Dashboard summary – from GET /athlete/dashboard or composed from train + roadmap */
 export interface DashboardSummary {
   /** When false, backend indicates user has no roadmap; redirect to onboarding */
@@ -11,6 +21,20 @@ export interface DashboardSummary {
   streak: number
   compliance: ComplianceSummary | null
   alerts: DashboardAlert[]
+  /** Event (goal/race) date – plan is aligned to this; optional from API */
+  eventDate?: string
+  /** Weeks from now until event; optional from API */
+  weeksToEvent?: number
+  /** True when plan was trimmed to last N weeks to fit event (Green/Red skip starting weeks) */
+  trimmedToEvent?: boolean
+  /** Program weeks used in roadmap when trimmed (e.g. 8) */
+  programWeeksUsed?: number
+  /** Total program weeks (e.g. 12) when trimmed */
+  programTotalWeeks?: number
+  /** When onboarding is in progress: step to resume (2, 3, or 4). Frontend shows this step. */
+  onboardingResumeStep?: 2 | 3 | 4
+  /** When onboarding is in progress: saved state to restore for steps 2/3/4 */
+  onboardingState?: OnboardingResumeState
 }
 
 export interface TodayWorkoutSummary {
@@ -19,12 +43,16 @@ export interface TodayWorkoutSummary {
   weekIndex: number
   dayIndex?: number
   dayKey: string
-  dayExercise: { exercise_name: string; exercises: unknown[] }
+  dayExercise: {
+    exercise_name?: string
+    exercises?: unknown[]
+    isRestDay?: boolean
+  }
   currentCycle?: string
   programId?: number
   programName?: string
   sessionId?: number
-  status?: 'scheduled' | 'in_progress' | 'completed' | 'skipped'
+  status?: 'scheduled' | 'in_progress' | 'completed' | 'skipped' | 'rest'
   completed?: boolean
   completedAt?: string
 }
@@ -47,6 +75,8 @@ export interface DashboardAlert {
 export interface CalendarDayEvent {
   date: string
   hasWorkout: boolean
+  /** True when backend marks this day as a scheduled rest day */
+  isRestDay?: boolean
   programName?: string
   phase?: string
   weekIndex?: number

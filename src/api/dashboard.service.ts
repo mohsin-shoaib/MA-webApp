@@ -126,15 +126,22 @@ export const dashboardService = {
           if (!d) {
             return { date, hasWorkout: false }
           }
+          const dayEx = d.dayExercise as {
+            exercises?: unknown[]
+            isRestDay?: boolean
+            exercise_name?: string
+            day?: string
+          }
+          const isRestDay = dayEx?.isRestDay === true
           const hasWorkout =
-            d.dayExercise?.exercises != null &&
-            d.dayExercise.exercises.length > 0
+            !isRestDay && dayEx?.exercises != null && dayEx.exercises.length > 0
           const rawStatus = d.sessionStatus ?? d.status
           const sessionStatus = normalizeSessionStatus(rawStatus)
           const dayKey = d.dayKey ?? d.dayExercise?.day
           return {
             date,
             hasWorkout,
+            isRestDay: isRestDay || undefined,
             programName: d.programName,
             phase: d.phase,
             weekIndex: d.weekIndex,
@@ -142,7 +149,9 @@ export const dashboardService = {
             dayKey,
             sessionId: d.sessionId,
             sessionStatus,
-            daySummary: d.dayExercise?.exercise_name ?? dayKey,
+            daySummary: isRestDay
+              ? 'Rest day'
+              : (d.dayExercise?.exercise_name ?? dayKey),
           }
         } catch {
           return { date, hasWorkout: false }
@@ -187,22 +196,31 @@ export const dashboardService = {
           const r = await trainService.getScheduledWorkout(date)
           const d = r.data?.statusCode === 200 ? r.data.data : null
           if (!d) return { date, hasWorkout: false }
+          const dayEx = d.dayExercise as {
+            exercises?: unknown[]
+            isRestDay?: boolean
+            exercise_name?: string
+            day?: string
+          }
+          const isRestDay = dayEx?.isRestDay === true
           const hasWorkout =
-            d.dayExercise?.exercises != null &&
-            d.dayExercise.exercises.length > 0
+            !isRestDay && dayEx?.exercises != null && dayEx.exercises.length > 0
           const rawStatus = d.sessionStatus ?? d.status
           const sessionStatus = normalizeSessionStatus(rawStatus)
           const dayKey = d.dayKey ?? d.dayExercise?.day
           return {
             date,
             hasWorkout,
+            isRestDay: isRestDay || undefined,
             programName: d.programName,
             phase: d.phase,
             weekIndex: d.weekIndex,
             dayKey,
             sessionId: d.sessionId,
             sessionStatus,
-            daySummary: d.dayExercise?.exercise_name ?? dayKey,
+            daySummary: isRestDay
+              ? 'Rest day'
+              : (d.dayExercise?.exercise_name ?? dayKey),
           }
         } catch {
           return { date, hasWorkout: false }

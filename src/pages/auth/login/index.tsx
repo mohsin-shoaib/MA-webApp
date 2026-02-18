@@ -12,7 +12,7 @@ import { useSnackbar } from '@/components/Snackbar/useSnackbar'
 import { useAuth } from '@/contexts/useAuth'
 import type { AxiosError } from 'axios'
 
-const Login = () => {
+export default function Login() {
   const navigate = useNavigate()
   const { showError } = useSnackbar()
   const { login: setAuth } = useAuth()
@@ -39,11 +39,24 @@ const Login = () => {
 
       // Navigate based on user role
       if (user.role === 'ATHLETE') {
-        // Check onboarding status: if already onboarded (or has program data) go to dashboard, else onboarding
+        // Check onboarding status: if already onboarded (or has program data) go to dashboard, else onboarding with optional resume state
         const data = await dashboardService.getDashboard().catch(() => null)
         const hasProgram = data ? !!(data.today ?? data.cycle) : false
         const isOnboarded = data?.isOnboarded !== false || hasProgram
-        navigate(isOnboarded ? '/dashboard' : '/onboarding')
+        if (isOnboarded) {
+          navigate('/dashboard')
+        } else {
+          const hasResume = data != null && data.onboardingResumeStep != null
+          navigate('/onboarding', {
+            state:
+              hasResume && data
+                ? {
+                    resumeStep: data.onboardingResumeStep as 2 | 3 | 4,
+                    onboardingState: data.onboardingState,
+                  }
+                : undefined,
+          })
+        }
       } else if (user.role === 'COACH') {
         navigate('/create_program')
       } else if (user.role === 'ADMIN') {
@@ -115,5 +128,3 @@ const Login = () => {
     </AuthLayout>
   )
 }
-
-export default Login

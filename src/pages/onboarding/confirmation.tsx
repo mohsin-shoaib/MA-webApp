@@ -23,7 +23,6 @@ interface ConfirmationStepProps {
   /** Full onboarding data from Step 1 (defer-save: sent to confirm endpoint) */
   readonly onboardData: CreateOnboardingDTO
   readonly onComplete: () => void
-  readonly onAlreadyOnboarded?: () => void
   readonly loading: boolean
   readonly setLoading: (value: boolean) => void
   readonly setError: (value: string | null) => void
@@ -34,7 +33,6 @@ export default function ConfirmationStep({
   recommendation,
   onboardData,
   onComplete,
-  onAlreadyOnboarded,
   loading,
   setLoading,
   setError,
@@ -136,7 +134,8 @@ export default function ConfirmationStep({
         'Confirmation failed.'
 
       if (status === 409) {
-        onAlreadyOnboarded?.()
+        setShowModal(false)
+        onComplete()
         return
       }
       setError(message)
@@ -191,37 +190,62 @@ export default function ConfirmationStep({
     value: String(p.id),
   }))
 
+  const cycleLabel = recommendedCycle ? `${recommendedCycle} Cycle` : '—'
+
   return (
     <div className="space-y-6">
-      <Card className="p-6 border-2 border-blue-500">
-        <Text variant="primary" className="text-2xl font-semibold mb-4">
-          Recommended: {recommendedCycle} Cycle
+      <Card className="p-6 sm:p-8 rounded-xl shadow-md border border-gray-200/80 bg-white">
+        {/* Confirm step = review & submit (distinct from Program step) */}
+        <h2 className="text-xl sm:text-2xl font-semibold text-gray-800 mb-1">
+          Review and confirm
+        </h2>
+        <Text variant="secondary" className="text-sm mb-6">
+          Review your selection below, then complete onboarding to continue.
         </Text>
-        {recommendation && (
-          <Text variant="secondary" className="mb-4">
-            {recommendation.reason}
-          </Text>
-        )}
-        <div className="flex gap-4">
+
+        {/* Compact summary of selection */}
+        <div className="rounded-lg bg-gray-50 border border-gray-200 py-4 px-5 mb-6">
+          <dl className="space-y-2">
+            <div>
+              <dt className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                Selected cycle
+              </dt>
+              <dd className="mt-0.5 font-semibold text-gray-900">
+                {cycleLabel}
+              </dd>
+            </div>
+            {recommendation?.reason && (
+              <div>
+                <dt className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                  Summary
+                </dt>
+                <dd className="mt-0.5 text-sm text-gray-600">
+                  {recommendation.reason}
+                </dd>
+              </div>
+            )}
+          </dl>
+        </div>
+
+        {/* Actions — same symmetry as Program step */}
+        <div className="mt-8 pt-6 border-t border-gray-100 flex flex-col sm:flex-row gap-3">
           <Button
             type="button"
             onClick={handleConfirmRecommended}
             disabled={loading}
             loading={loading}
-            className="flex-1"
+            className="flex-1 min-w-0 bg-[#3AB8ED] hover:bg-[#2ea8db] text-white font-bold rounded-lg"
           >
-            {loading ? 'Confirming...' : 'Confirm Cycle'}
+            {loading ? 'Confirming...' : 'Complete onboarding'}
           </Button>
           <Button
             type="button"
-            onClick={() => {
-              setShowModal(true)
-            }}
+            onClick={() => setShowModal(true)}
             disabled={loading}
             variant="secondary"
-            className="flex-1"
+            className="flex-1 min-w-0 bg-[#2196F3] hover:bg-[#1976D2] text-white font-bold rounded-lg border-0"
           >
-            No, Choose Another
+            Change cycle
           </Button>
         </div>
       </Card>

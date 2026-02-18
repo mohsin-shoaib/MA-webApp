@@ -21,6 +21,8 @@ export interface ExerciseDTO {
 
 export interface DailyExerciseDTO {
   day: string // "day1", "day2" for Red/Green, ISO date string for Amber
+  /** If true, this day is a rest day; no exercises required. */
+  isRestDay?: boolean
   exercise_name: string
   exercise_description?: string
   exercise_time?: string

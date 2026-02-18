@@ -14,6 +14,9 @@ import { isRealTimelineWeek } from '@/types/roadmap'
 import type { AxiosError } from 'axios'
 import { useSnackbar } from '@/components/Snackbar/useSnackbar'
 
+/** Set to true to show the "Enroll in this program" button. */
+const SHOW_ENROLL_BUTTON = false
+
 function renderDaySummary(day: RoadmapDayExercise) {
   const exercises = day.exercises ?? []
   const names = exercises
@@ -164,16 +167,18 @@ export function ProgramDetail() {
 
   if (loading) {
     return (
-      <div className="flex items-center gap-2 py-8">
-        <Spinner size="small" variant="primary" />
-        <Text variant="secondary">Loading program...</Text>
+      <div className="space-y-6 max-w-4xl">
+        <div className="flex items-center gap-2 py-8">
+          <Spinner size="small" variant="primary" />
+          <Text variant="secondary">Loading program...</Text>
+        </div>
       </div>
     )
   }
 
   if (!program) {
     return (
-      <div className="space-y-4 max-w-2xl">
+      <div className="space-y-6 max-w-4xl">
         <Button
           type="button"
           variant="secondary"
@@ -199,8 +204,8 @@ export function ProgramDetail() {
   }
 
   return (
-    <div className="space-y-6 max-w-2xl">
-      <div className="flex items-center gap-3">
+    <div className="space-y-6 max-w-4xl">
+      <div className="flex flex-wrap items-center gap-3">
         <Button
           type="button"
           variant="secondary"
@@ -237,15 +242,17 @@ export function ProgramDetail() {
               </p>
             )}
         </div>
-        <div className="mt-6">
-          <Button
-            type="button"
-            onClick={handleEnrollClick}
-            disabled={enrollLoading}
-          >
-            Enroll in this program
-          </Button>
-        </div>
+        {SHOW_ENROLL_BUTTON && (
+          <div className="mt-6">
+            <Button
+              type="button"
+              onClick={handleEnrollClick}
+              disabled={enrollLoading}
+            >
+              Enroll in this program
+            </Button>
+          </div>
+        )}
       </Card>
 
       {/* Review step: show roadmap and timeline, then confirm to enroll */}

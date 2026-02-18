@@ -28,6 +28,18 @@ export const trainService = {
     }),
 
   /**
+   * Get Amber exercise for a specific date (date-driven Amber program).
+   * GET /athlete/amber/exercise?date=YYYY-MM-DD
+   * Returns day exercise for that date or empty/notSet when not configured.
+   */
+  getAmberExerciseForDate: (date: string) =>
+    api.get<{
+      statusCode: number
+      data?: Record<string, unknown>
+      message?: string
+    }>('athlete/amber/exercise', { params: { date } }),
+
+  /**
    * Create or get session for a date.
    * POST /athlete/train/sessions
    */

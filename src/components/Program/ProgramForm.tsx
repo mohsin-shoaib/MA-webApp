@@ -48,7 +48,8 @@ const programSchema = z.object({
     .array(
       z.object({
         day: z.string().min(1, 'Day is required'),
-        exercise_name: z.string().min(1, 'Exercise name is required'),
+        isRestDay: z.boolean().optional().default(false),
+        exercise_name: z.string().optional(),
         exercise_description: z.string().optional(),
         exercise_time: z.string().optional(),
         workout_timer: z.string().optional(),
@@ -75,10 +76,29 @@ const programSchema = z.object({
                 .nullable(),
             })
           )
-          .min(1, 'At least one exercise is required'),
+          .optional(),
       })
     )
-    .min(1, 'Add at least one daily exercise to save.'),
+    .min(1, 'Add at least one daily exercise to save.')
+    .superRefine((arr, ctx) => {
+      arr.forEach((item, i) => {
+        if (item.isRestDay) return
+        if (!item.exercise_name?.trim()) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'Exercise name is required',
+            path: [i, 'exercise_name'],
+          })
+        }
+        if (!item.exercises?.length) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'At least one exercise is required',
+            path: [i, 'exercises'],
+          })
+        }
+      })
+    }),
 })
 
 export interface ProgramFormProps {
@@ -166,7 +186,29 @@ export function ProgramForm({
       subCategory: program?.subCategory || null,
       cycleId: program?.cycleId || initialCycleId || 0,
       isActive: program?.isActive ?? true,
-      dailyExercises: program?.dailyExercise || [],
+      dailyExercises: (() => {
+        const raw = program?.dailyExercise
+        if (!raw) return []
+        if (Array.isArray(raw)) {
+          return raw.map((d: DailyExerciseDTO & { isRestDay?: boolean }) => ({
+            ...d,
+            isRestDay: d.isRestDay ?? d.exercises?.length === 0,
+            exercises: d.exercises ?? [],
+          }))
+        }
+        const obj = raw as Record<
+          string,
+          DailyExerciseDTO & { isRestDay?: boolean }
+        >
+        return Object.entries(obj)
+          .map(([day, d]) => ({
+            ...d,
+            day,
+            isRestDay: d.isRestDay ?? d.exercises?.length === 0,
+            exercises: d.exercises ?? [],
+          }))
+          .sort((a, b) => String(a.day).localeCompare(String(b.day)))
+      })(),
     },
   })
 
@@ -256,6 +298,7 @@ export function ProgramForm({
       const dayNumber = fields.length + 1
       append({
         day: `day${dayNumber}`,
+        isRestDay: false,
         exercise_name: '',
         exercise_description: '',
         exercise_time: '',
@@ -268,6 +311,7 @@ export function ProgramForm({
       const today = new Date().toISOString().split('T')[0]
       append({
         day: today,
+        isRestDay: false,
         exercise_name: '',
         exercise_description: '',
         exercise_time: '',
@@ -441,13 +485,30 @@ export function ProgramForm({
         return
       }
 
-      // Validate each daily exercise has at least one exercise
+      // Validate each non–rest-day daily exercise has at least one exercise
       for (const dailyExercise of data.dailyExercises) {
+        if (dailyExercise.isRestDay) continue
         if (!dailyExercise.exercises || dailyExercise.exercises.length === 0) {
           showError('Each daily exercise must have at least one exercise')
           return
         }
       }
+
+      // Normalize payload: rest days get exercises: [] and optional label
+      const normalizedDailyExercises = data.dailyExercises.map(d =>
+        d.isRestDay
+          ? {
+              day: d.day,
+              isRestDay: true as const,
+              exercise_name: 'Rest Day',
+              exercises: [] as ExerciseDTO[],
+            }
+          : {
+              ...d,
+              isRestDay: false as const,
+              exercises: d.exercises ?? [],
+            }
+      )
 
       if (isEditMode && program) {
         // Update existing program
@@ -458,13 +519,16 @@ export function ProgramForm({
           subCategory: data.subCategory,
           cycleId: data.cycleId,
           isActive: data.isActive,
-          dailyExercises: data.dailyExercises,
+          dailyExercises: normalizedDailyExercises,
         }
         await programService.update(program.id, updateData)
         showSuccess('Program updated successfully!')
       } else {
         // Create new program
-        await programService.create(data)
+        await programService.create({
+          ...data,
+          dailyExercises: normalizedDailyExercises,
+        })
         showSuccess('Program created successfully!')
         reset()
       }
@@ -747,6 +811,15 @@ function DailyExerciseCard({
 }: Readonly<DailyExerciseCardProps>) {
   const exercises =
     watch(`dailyExercises.${dailyExerciseIndex}.exercises`) || []
+  const isRestDay =
+    watch(`dailyExercises.${dailyExerciseIndex}.isRestDay`) ?? false
+
+  const handleRestDayChange = (value: boolean) => {
+    setValue(`dailyExercises.${dailyExerciseIndex}.isRestDay`, value)
+    if (value) {
+      setValue(`dailyExercises.${dailyExerciseIndex}.exercises`, [])
+    }
+  }
 
   return (
     <div className="border border-mid-gray rounded-lg p-4 space-y-4 bg-light-gray">
@@ -763,6 +836,14 @@ function DailyExerciseCard({
         >
           Remove
         </Button>
+      </div>
+
+      <div className="flex items-center gap-2">
+        <Switch
+          value={isRestDay}
+          onValueChange={handleRestDayChange}
+          label="Rest day"
+        />
       </div>
 
       <div className="grid grid-cols-2 gap-4">
@@ -791,90 +872,106 @@ function DailyExerciseCard({
           )}
         </div>
 
-        <Input
-          label="Exercise Name"
-          placeholder="e.g., Upper Body Strength"
-          required
-          {...register(`dailyExercises.${dailyExerciseIndex}.exercise_name`, {
-            required: 'Exercise name is required',
-          })}
-          error={
-            errors.dailyExercises?.[dailyExerciseIndex]?.exercise_name
-              ?.message as string | undefined
-          }
-        />
-      </div>
-
-      <div className="grid grid-cols-3 gap-4">
-        <TextArea
-          label="Exercise Description"
-          placeholder="Description of the exercise day"
-          minLines={2}
-          {...register(
-            `dailyExercises.${dailyExerciseIndex}.exercise_description`
-          )}
-        />
-        <Input
-          label="Exercise Time"
-          placeholder="e.g., 60 minutes"
-          {...register(`dailyExercises.${dailyExerciseIndex}.exercise_time`)}
-        />
-        <Input
-          label="Workout Timer"
-          placeholder="e.g., 45 seconds"
-          {...register(`dailyExercises.${dailyExerciseIndex}.workout_timer`)}
-        />
-      </div>
-
-      <Input
-        label="Rest Timer"
-        placeholder="e.g., 90 seconds"
-        {...register(`dailyExercises.${dailyExerciseIndex}.rest_timer`)}
-      />
-
-      {/* Exercises List */}
-      <div className="space-y-3">
-        <div className="flex justify-between items-center">
-          <Text variant="default" className="font-medium">
-            Exercises
-          </Text>
-          <Button
-            type="button"
-            variant="outline"
-            size="small"
-            leftIcon={<Icon name="plus" family="solid" size={14} />}
-            onClick={onAddExercise}
-          >
-            Add Exercise
-          </Button>
-        </div>
-
-        {exercises.map((exercise: ExerciseDTO, exerciseIndex: number) => (
-          <ExerciseCard
-            key={exercise.exercise_id}
-            exercise={exercise}
-            dailyExerciseIndex={dailyExerciseIndex}
-            exerciseIndex={exerciseIndex}
-            register={register}
-            errors={errors}
-            onRemove={() => onRemoveExercise(exerciseIndex)}
-            onAddAlternate={() => onAddAlternate(exerciseIndex)}
-            onRemoveAlternate={() => onRemoveAlternate(exerciseIndex)}
-            onVideoUpload={(file: File, isAlternate: boolean) =>
-              onVideoUpload(file, exerciseIndex, isAlternate)
+        {!isRestDay && (
+          <Input
+            label="Exercise Name"
+            placeholder="e.g., Upper Body Strength"
+            required
+            {...register(`dailyExercises.${dailyExerciseIndex}.exercise_name`, {
+              required: 'Exercise name is required',
+            })}
+            error={
+              errors.dailyExercises?.[dailyExerciseIndex]?.exercise_name
+                ?.message as string | undefined
             }
-            uploadingVideo={uploadingVideo}
           />
-        ))}
-
-        {exercises.length === 0 && (
-          <div className="border border-dashed border-mid-gray rounded p-4 text-center">
-            <Text variant="muted" className="text-sm">
-              No exercises added. Click "Add Exercise" to add one.
-            </Text>
-          </div>
         )}
       </div>
+
+      {!isRestDay && (
+        <>
+          <div className="grid grid-cols-3 gap-4">
+            <TextArea
+              label="Exercise Description"
+              placeholder="Description of the exercise day"
+              minLines={2}
+              {...register(
+                `dailyExercises.${dailyExerciseIndex}.exercise_description`
+              )}
+            />
+            <Input
+              label="Exercise Time"
+              placeholder="e.g., 60 minutes"
+              {...register(
+                `dailyExercises.${dailyExerciseIndex}.exercise_time`
+              )}
+            />
+            <Input
+              label="Workout Timer"
+              placeholder="e.g., 45 seconds"
+              {...register(
+                `dailyExercises.${dailyExerciseIndex}.workout_timer`
+              )}
+            />
+          </div>
+
+          <Input
+            label="Rest Timer"
+            placeholder="e.g., 90 seconds"
+            {...register(`dailyExercises.${dailyExerciseIndex}.rest_timer`)}
+          />
+
+          {/* Exercises List */}
+          <div className="space-y-3">
+            <div className="flex justify-between items-center">
+              <Text variant="default" className="font-medium">
+                Exercises
+              </Text>
+              <Button
+                type="button"
+                variant="outline"
+                size="small"
+                leftIcon={<Icon name="plus" family="solid" size={14} />}
+                onClick={onAddExercise}
+              >
+                Add Exercise
+              </Button>
+            </div>
+
+            {exercises.map((exercise: ExerciseDTO, exerciseIndex: number) => (
+              <ExerciseCard
+                key={exercise.exercise_id}
+                exercise={exercise}
+                dailyExerciseIndex={dailyExerciseIndex}
+                exerciseIndex={exerciseIndex}
+                register={register}
+                errors={errors}
+                onRemove={() => onRemoveExercise(exerciseIndex)}
+                onAddAlternate={() => onAddAlternate(exerciseIndex)}
+                onRemoveAlternate={() => onRemoveAlternate(exerciseIndex)}
+                onVideoUpload={(file: File, isAlternate: boolean) =>
+                  onVideoUpload(file, exerciseIndex, isAlternate)
+                }
+                uploadingVideo={uploadingVideo}
+              />
+            ))}
+
+            {exercises.length === 0 && (
+              <div className="border border-dashed border-mid-gray rounded p-4 text-center">
+                <Text variant="muted" className="text-sm">
+                  No exercises added. Click "Add Exercise" to add one.
+                </Text>
+              </div>
+            )}
+          </div>
+        </>
+      )}
+
+      {isRestDay && (
+        <Text variant="secondary" className="text-sm">
+          No exercises needed for this rest day.
+        </Text>
+      )}
     </div>
   )
 }

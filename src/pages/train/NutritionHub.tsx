@@ -134,9 +134,11 @@ export default function NutritionHub() {
 
   return (
     <div className="space-y-6 max-w-4xl">
-      <Text variant="primary" className="text-2xl font-semibold">
-        Nutrition Hub
-      </Text>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <Text variant="primary" className="text-2xl font-semibold">
+          Nutrition Hub
+        </Text>
+      </div>
       <Tabs
         items={[
           { id: 'summary', label: 'Today', content: summaryContent },
@@ -177,6 +179,8 @@ export default function NutritionHub() {
         defaultActiveTab="summary"
         activeTab={activeTab}
         onTabChange={setActiveTab}
+        className="w-full"
+        contentClassName="pt-6"
       />
     </div>
   )

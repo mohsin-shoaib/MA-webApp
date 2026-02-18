@@ -30,4 +30,13 @@ export const onboardingService = {
       `athlete/onboarding/update-by-id/${onboardingId}`,
       data
     ),
+
+  /**
+   * Mark onboarding as completed (e.g. when user clicks "Go to dashboard" on step 4).
+   * Backend sets onboarding_completed so GET dashboard returns isOnboarded: true next time.
+   */
+  completeOnboarding: () =>
+    api.post<{ statusCode: number; data?: unknown; message?: string }>(
+      'athlete/onboarding/complete'
+    ),
 }
