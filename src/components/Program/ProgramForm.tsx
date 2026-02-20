@@ -31,9 +31,12 @@ import type {
   UpdateProgramDTO,
   DailyExerciseDTO,
   ExerciseDTO,
+  WeeklyStructureDTO,
+  SectionType,
 } from '@/types/program'
 import type { Cycle } from '@/types/cycle'
 import type { GoalType } from '@/types/goal-type'
+import type { User } from '@/types/admin'
 import { AxiosError } from 'axios'
 
 // Validation schema matching the guide
@@ -44,11 +47,17 @@ const programSchema = z.object({
   subCategory: z.string().nullable().optional(),
   cycleId: z.number().min(1, 'Cycle is required'),
   isActive: z.boolean().default(true),
+  isCustom: z.boolean().optional().default(false),
+  assignedToUserId: z.number().nullable().optional(),
   dailyExercises: z
     .array(
       z.object({
         day: z.string().min(1, 'Day is required'),
         isRestDay: z.boolean().optional().default(false),
+        sectionType: z
+          .enum(['default', 'superset', 'circuit', 'amrap', 'emom'])
+          .optional()
+          .default('default'),
         exercise_name: z.string().optional(),
         exercise_description: z.string().optional(),
         exercise_time: z.string().optional(),
@@ -118,6 +127,8 @@ export interface ProgramFormProps {
     cycleId: number
     isActive: boolean
     dailyExercise: DailyExerciseDTO[]
+    isCustom?: boolean
+    assignedToUserId?: number | null
   }
   /**
    * Callback when form is submitted successfully
@@ -148,6 +159,7 @@ export function ProgramForm({
 }: Readonly<ProgramFormProps>) {
   const [cycles, setCycles] = useState<Cycle[]>([])
   const [goalTypes, setGoalTypes] = useState<GoalType[]>([])
+  const [athletes, setAthletes] = useState<User[]>([])
   const [showCategoryFields, setShowCategoryFields] = useState(false)
   const [dayInputType, setDayInputType] = useState<'sequential' | 'date'>(
     'sequential'
@@ -186,15 +198,26 @@ export function ProgramForm({
       subCategory: program?.subCategory || null,
       cycleId: program?.cycleId || initialCycleId || 0,
       isActive: program?.isActive ?? true,
+      isCustom: program?.isCustom ?? false,
+      assignedToUserId: program?.assignedToUserId ?? null,
       dailyExercises: (() => {
         const raw = program?.dailyExercise
         if (!raw) return []
         if (Array.isArray(raw)) {
-          return raw.map((d: DailyExerciseDTO & { isRestDay?: boolean }) => ({
-            ...d,
-            isRestDay: d.isRestDay ?? d.exercises?.length === 0,
-            exercises: d.exercises ?? [],
-          }))
+          return raw.map(
+            (
+              d: DailyExerciseDTO & {
+                isRestDay?: boolean
+                sectionType?: string
+              }
+            ) => ({
+              ...d,
+              isRestDay: d.isRestDay ?? d.exercises?.length === 0,
+              sectionType: ((d as { sectionType?: string }).sectionType ??
+                'default') as SectionType,
+              exercises: d.exercises ?? [],
+            })
+          ) as CreateProgramDTO['dailyExercises']
         }
         const obj = raw as Record<
           string,
@@ -205,9 +228,13 @@ export function ProgramForm({
             ...d,
             day,
             isRestDay: d.isRestDay ?? d.exercises?.length === 0,
+            sectionType: ((d as { sectionType?: string }).sectionType ??
+              'default') as SectionType,
             exercises: d.exercises ?? [],
           }))
-          .sort((a, b) => String(a.day).localeCompare(String(b.day)))
+          .sort((a, b) =>
+            String(a.day).localeCompare(String(b.day))
+          ) as CreateProgramDTO['dailyExercises']
       })(),
     },
   })
@@ -252,11 +279,22 @@ export function ProgramForm({
     }
   }, [showError])
 
+  const fetchAthletes = useCallback(async () => {
+    try {
+      const response = await adminService.getUsers()
+      const rows = response.data.data?.rows || []
+      setAthletes(rows.filter((u: User) => u.role?.toUpperCase() === 'ATHLETE'))
+    } catch (error) {
+      console.error('Error fetching athletes:', error)
+    }
+  }, [])
+
   // Fetch cycles and goal types
   useEffect(() => {
     fetchCycles()
     fetchGoalTypes()
-  }, [fetchCycles, fetchGoalTypes])
+    fetchAthletes()
+  }, [fetchCycles, fetchGoalTypes, fetchAthletes])
 
   // Handle cycle change
   useEffect(() => {
@@ -299,6 +337,7 @@ export function ProgramForm({
       append({
         day: `day${dayNumber}`,
         isRestDay: false,
+        sectionType: 'default',
         exercise_name: '',
         exercise_description: '',
         exercise_time: '',
@@ -312,6 +351,7 @@ export function ProgramForm({
       append({
         day: today,
         isRestDay: false,
+        sectionType: 'default',
         exercise_name: '',
         exercise_description: '',
         exercise_time: '',
@@ -500,6 +540,7 @@ export function ProgramForm({
           ? {
               day: d.day,
               isRestDay: true as const,
+              sectionType: 'default' as SectionType,
               exercise_name: 'Rest Day',
               exercises: [] as ExerciseDTO[],
             }
@@ -509,6 +550,28 @@ export function ProgramForm({
               exercises: d.exercises ?? [],
             }
       )
+
+      // Phase 3/4: build weeklyStructure (one week, each day = one section with sectionType) so backend can store hierarchy
+      const weeklyStructure: WeeklyStructureDTO = {
+        weeks: [
+          {
+            weekNumber: 1,
+            days: normalizedDailyExercises.map((d, idx) => ({
+              dayNumber: idx + 1,
+              isRestDay: d.isRestDay ?? false,
+              sections: [
+                {
+                  sectionType:
+                    ((d as { sectionType?: SectionType })
+                      .sectionType as SectionType) || 'default',
+                  sectionConfig: null,
+                  exercises: d.exercises ?? [],
+                },
+              ],
+            })),
+          },
+        ],
+      }
 
       if (isEditMode && program) {
         // Update existing program
@@ -520,6 +583,9 @@ export function ProgramForm({
           cycleId: data.cycleId,
           isActive: data.isActive,
           dailyExercises: normalizedDailyExercises,
+          weeklyStructure,
+          isCustom: data.isCustom,
+          assignedToUserId: data.assignedToUserId ?? null,
         }
         await programService.update(program.id, updateData)
         showSuccess('Program updated successfully!')
@@ -528,6 +594,9 @@ export function ProgramForm({
         await programService.create({
           ...data,
           dailyExercises: normalizedDailyExercises,
+          weeklyStructure,
+          isCustom: data.isCustom,
+          assignedToUserId: data.assignedToUserId ?? null,
         })
         showSuccess('Program created successfully!')
         reset()
@@ -543,7 +612,12 @@ export function ProgramForm({
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+    <form
+      onSubmit={handleSubmit(
+        onSubmit as (data: CreateProgramDTO) => void | Promise<void>
+      )}
+      className="space-y-6"
+    >
       <Stack direction="vertical" spacing={6}>
         {/* Basic Information */}
         <div className="space-y-4">
@@ -588,6 +662,44 @@ export function ProgramForm({
             error={errors.cycleId?.message}
             helperText="Cycle cannot be changed"
           />
+
+          <div className="flex flex-wrap items-center gap-4">
+            <Switch
+              label="Custom (1:1) program"
+              value={watch('isCustom') ?? false}
+              onValueChange={(value: boolean) => {
+                setValue('isCustom', value, { shouldValidate: true })
+                if (!value)
+                  setValue('assignedToUserId', null, { shouldValidate: true })
+              }}
+            />
+            {(watch('isCustom') ?? false) && (
+              <Dropdown
+                label="Assign to athlete"
+                placeholder="Select athlete"
+                value={
+                  watch('assignedToUserId') != null
+                    ? String(watch('assignedToUserId'))
+                    : undefined
+                }
+                onValueChange={value =>
+                  setValue('assignedToUserId', value ? Number(value) : null, {
+                    shouldValidate: true,
+                  })
+                }
+                options={[
+                  { value: '', label: '— Select —' },
+                  ...athletes.map(a => ({
+                    value: String(a.id),
+                    label:
+                      [a.firstName, a.lastName].filter(Boolean).join(' ') ||
+                      a.email ||
+                      String(a.id),
+                  })),
+                ]}
+              />
+            )}
+          </div>
 
           {/* Category and SubCategory (conditional) */}
           {showCategoryFields && (
@@ -838,12 +950,36 @@ function DailyExerciseCard({
         </Button>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-4">
         <Switch
           value={isRestDay}
           onValueChange={handleRestDayChange}
           label="Rest day"
         />
+        {!isRestDay && (
+          <Dropdown
+            label="Block type"
+            value={
+              (watch(
+                `dailyExercises.${dailyExerciseIndex}.sectionType` as keyof CreateProgramDTO
+              ) as string | undefined) ?? 'default'
+            }
+            onValueChange={v =>
+              setValue(
+                `dailyExercises.${dailyExerciseIndex}.sectionType` as keyof CreateProgramDTO,
+                (v || 'default') as SectionType,
+                { shouldValidate: true }
+              )
+            }
+            options={[
+              { value: 'default', label: 'Default' },
+              { value: 'superset', label: 'Superset' },
+              { value: 'circuit', label: 'Circuit' },
+              { value: 'amrap', label: 'AMRAP' },
+              { value: 'emom', label: 'EMOM' },
+            ]}
+          />
+        )}
       </div>
 
       <div className="grid grid-cols-2 gap-4">

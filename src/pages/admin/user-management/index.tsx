@@ -20,6 +20,9 @@ const UserManagement = () => {
   const [updatingRoles, setUpdatingRoles] = useState<
     Record<string | number, boolean>
   >({})
+  const [actionLoading, setActionLoading] = useState<Record<string, boolean>>(
+    {}
+  )
   const { showError, showSuccess } = useSnackbar()
   const { user: currentUser } = useAuth()
 
@@ -52,19 +55,102 @@ const UserManagement = () => {
       setUpdatingRoles(prev => ({ ...prev, [userId]: true }))
       await adminService.updateUserRole(userId, { role: 'COACH_HEAD' })
       showSuccess('User role updated to Coach Head successfully')
-
-      // Refresh the user list
       const response = await adminService.getUsers()
-      const usersData = response.data.data?.rows || []
-      setUsers(usersData)
+      setUsers(response.data.data?.rows || [])
     } catch (error) {
       const axiosError = error as AxiosError<{ message: string }>
-      const errorMessage =
-        axiosError.response?.data?.message ||
-        'Failed to update user role. Please try again.'
-      showError(errorMessage)
+      showError(
+        axiosError.response?.data?.message || 'Failed to update user role.'
+      )
     } finally {
       setUpdatingRoles(prev => ({ ...prev, [userId]: false }))
+    }
+  }
+
+  const handleImpersonate = async (userId: string | number) => {
+    const key = `impersonate-${userId}`
+    if (
+      !globalThis.confirm(
+        'Impersonate this user? You will be logged in as them.'
+      )
+    )
+      return
+    try {
+      setActionLoading(prev => ({ ...prev, [key]: true }))
+      const res = await adminService.impersonate(userId)
+      const token = (res.data as { data?: { accessToken?: string } })?.data
+        ?.accessToken
+      if (token) {
+        localStorage.setItem('accessToken', token)
+        showSuccess('Impersonating user. Reloading…')
+        globalThis.location.href = '/dashboard'
+      } else {
+        showError('No token returned.')
+      }
+    } catch (err) {
+      const ax = err as AxiosError<{ message?: string }>
+      showError(ax.response?.data?.message || 'Impersonate failed.')
+    } finally {
+      setActionLoading(prev => ({ ...prev, [key]: false }))
+    }
+  }
+
+  const handleResetPassword = async (userId: string | number) => {
+    const key = `reset-${userId}`
+    if (!globalThis.confirm('Send reset password link to this user?')) return
+    try {
+      setActionLoading(prev => ({ ...prev, [key]: true }))
+      const res = await adminService.resetPassword(userId)
+      const link = (res.data as { data?: { resetLink?: string } })?.data
+        ?.resetLink
+      showSuccess(link ? 'Reset link generated.' : 'Reset password triggered.')
+    } catch (err) {
+      const ax = err as AxiosError<{ message?: string }>
+      showError(ax.response?.data?.message || 'Reset password failed.')
+    } finally {
+      setActionLoading(prev => ({ ...prev, [key]: false }))
+    }
+  }
+
+  const handleDisable = async (userId: string | number) => {
+    if (
+      !globalThis.confirm('Disable this user? They will not be able to log in.')
+    )
+      return
+    try {
+      setActionLoading(prev => ({ ...prev, [`disable-${userId}`]: true }))
+      await adminService.disable(userId)
+      showSuccess('User disabled.')
+      const response = await adminService.getUsers()
+      setUsers(response.data.data?.rows || [])
+    } catch (err) {
+      const ax = err as AxiosError<{ message?: string }>
+      showError(ax.response?.data?.message || 'Disable failed.')
+    } finally {
+      setActionLoading(prev => {
+        const next = { ...prev }
+        delete next[`disable-${userId}`]
+        return next
+      })
+    }
+  }
+
+  const handleEnable = async (userId: string | number) => {
+    try {
+      setActionLoading(prev => ({ ...prev, [`enable-${userId}`]: true }))
+      await adminService.enable(userId)
+      showSuccess('User enabled.')
+      const response = await adminService.getUsers()
+      setUsers(response.data.data?.rows || [])
+    } catch (err) {
+      const ax = err as AxiosError<{ message?: string }>
+      showError(ax.response?.data?.message || 'Enable failed.')
+    } finally {
+      setActionLoading(prev => {
+        const next = { ...prev }
+        delete next[`enable-${userId}`]
+        return next
+      })
     }
   }
 
@@ -204,28 +290,98 @@ const UserManagement = () => {
       label: 'Actions',
       sortable: false,
       align: 'right',
-      width: '150px',
+      width: '280px',
       render: (_value, row) => {
-        // Only show promote button for COACH users and only if current user is ADMIN
-        const isCoach = row.role === 'COACH'
         const isAdmin = currentUser?.role === 'ADMIN'
+        const isSelf = String(currentUser?.id) === String(row.id)
+        const isActive = row.isActive !== false
+        const isCoach = row.role === 'COACH'
         const isUpdating = updatingRoles[row.id] || false
+        const impLoading = actionLoading[`impersonate-${row.id}`]
+        const resetLoading = actionLoading[`reset-${row.id}`]
+        const disableLoading = actionLoading[`disable-${row.id}`]
+        const enableLoading = actionLoading[`enable-${row.id}`]
 
-        if (!isCoach || !isAdmin) {
+        if (!isAdmin) {
+          if (isCoach) {
+            return (
+              <Button
+                variant="outline"
+                size="small"
+                onClick={() => handlePromoteToCoachHead(row.id)}
+                loading={isUpdating}
+                disabled={isUpdating}
+                leftIcon={<Icon name="arrow-up" family="solid" size={14} />}
+              >
+                Promote
+              </Button>
+            )
+          }
           return <Text variant="muted">—</Text>
         }
 
         return (
-          <Button
-            variant="outline"
-            size="small"
-            onClick={() => handlePromoteToCoachHead(row.id)}
-            loading={isUpdating}
-            disabled={isUpdating}
-            leftIcon={<Icon name="arrow-up" family="solid" size={14} />}
-          >
-            Promote
-          </Button>
+          <div className="flex flex-wrap items-center gap-1 justify-end">
+            {isCoach && (
+              <Button
+                variant="outline"
+                size="small"
+                onClick={() => handlePromoteToCoachHead(row.id)}
+                loading={isUpdating}
+                disabled={isUpdating}
+                leftIcon={<Icon name="arrow-up" family="solid" size={14} />}
+              >
+                Promote
+              </Button>
+            )}
+            {!isSelf && (
+              <>
+                <Button
+                  variant="outline"
+                  size="small"
+                  onClick={() => handleImpersonate(row.id)}
+                  loading={impLoading}
+                  disabled={impLoading}
+                  leftIcon={<Icon name="user" family="solid" size={12} />}
+                >
+                  Impersonate
+                </Button>
+                <Button
+                  variant="outline"
+                  size="small"
+                  onClick={() => handleResetPassword(row.id)}
+                  loading={resetLoading}
+                  disabled={resetLoading}
+                  leftIcon={<Icon name="key" family="solid" size={12} />}
+                >
+                  Reset PW
+                </Button>
+                {isActive ? (
+                  <Button
+                    variant="outline"
+                    size="small"
+                    onClick={() => handleDisable(row.id)}
+                    loading={disableLoading}
+                    disabled={disableLoading}
+                    leftIcon={<Icon name="ban" family="solid" size={12} />}
+                  >
+                    Disable
+                  </Button>
+                ) : (
+                  <Button
+                    variant="outline"
+                    size="small"
+                    onClick={() => handleEnable(row.id)}
+                    loading={enableLoading}
+                    disabled={enableLoading}
+                    leftIcon={<Icon name="check" family="solid" size={12} />}
+                  >
+                    Enable
+                  </Button>
+                )}
+              </>
+            )}
+          </div>
         )
       },
     },

@@ -8,7 +8,7 @@ import { DataTable, type Column } from '@/components/DataTable'
 import { Modal } from '@/components/Modal'
 import { Tooltip } from '@/components/Tooltip'
 import { ProgramForm } from '@/components/Program/ProgramForm'
-import { adminService } from '@/api/admin.service'
+import { adminService, type ProgramEnrollmentRow } from '@/api/admin.service'
 import { programService } from '@/api/program.service'
 import { useSnackbar } from '@/components/Snackbar/useSnackbar'
 import type { Cycle } from '@/types/cycle'
@@ -30,6 +30,11 @@ const CyclePrograms = () => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [editingProgram, setEditingProgram] = useState<Program | null>(null)
+  const [enrollmentsProgram, setEnrollmentsProgram] = useState<Program | null>(
+    null
+  )
+  const [enrollments, setEnrollments] = useState<ProgramEnrollmentRow[]>([])
+  const [enrollmentsLoading, setEnrollmentsLoading] = useState(false)
   const { showError, showSuccess } = useSnackbar()
 
   // Fetch cycle name
@@ -114,6 +119,35 @@ const CyclePrograms = () => {
     setEditingProgram(null)
   }
 
+  const handleViewEnrollments = async (program: Program) => {
+    setEnrollmentsProgram(program)
+    setEnrollments([])
+    setEnrollmentsLoading(true)
+    try {
+      const res = await adminService.getProgramEnrollments(program.id, {
+        page: 1,
+        limit: 100,
+      })
+      const body = res.data as {
+        data?: { data?: ProgramEnrollmentRow[]; rows?: ProgramEnrollmentRow[] }
+      }
+      const inner = body?.data
+      // API returns { data: { data: [...], meta } } or { data: { rows: [...] } }
+      const rows = Array.isArray(inner?.data) ? inner.data : (inner?.rows ?? [])
+      setEnrollments(rows)
+    } catch (err) {
+      const ax = err as AxiosError<{ message?: string }>
+      showError(ax.response?.data?.message || 'Failed to load enrollments.')
+    } finally {
+      setEnrollmentsLoading(false)
+    }
+  }
+
+  const handleCloseEnrollmentsModal = () => {
+    setEnrollmentsProgram(null)
+    setEnrollments([])
+  }
+
   // Amber cycle (id 2) allows only one program
   const isAmberCycle = cycleId === '2'
   const isAmberLimitReached = isAmberCycle && programs.length >= 1
@@ -173,16 +207,26 @@ const CyclePrograms = () => {
       label: 'Actions',
       sortable: false,
       align: 'center',
-      width: '120px',
+      width: '200px',
       render: (_value, row) => (
-        <Button
-          variant="outline"
-          size="small"
-          onClick={() => handleEditProgram(row)}
-          leftIcon={<Icon name="edit" family="solid" size={14} />}
-        >
-          Update
-        </Button>
+        <div className="flex flex-wrap items-center justify-center gap-1">
+          <Button
+            variant="outline"
+            size="small"
+            onClick={() => handleViewEnrollments(row)}
+            leftIcon={<Icon name="users" family="solid" size={14} />}
+          >
+            Enrollments
+          </Button>
+          <Button
+            variant="outline"
+            size="small"
+            onClick={() => handleEditProgram(row)}
+            leftIcon={<Icon name="edit" family="solid" size={14} />}
+          >
+            Update
+          </Button>
+        </div>
       ),
     },
   ]
@@ -279,6 +323,62 @@ const CyclePrograms = () => {
                 onSuccess={handleFormSuccess}
                 onCancel={handleCloseEditModal}
               />
+            </div>
+          </Modal>
+        )}
+
+        {/* Enrollments Modal */}
+        {enrollmentsProgram && (
+          <Modal
+            visible={!!enrollmentsProgram}
+            onClose={handleCloseEnrollmentsModal}
+            title={`Enrollments: ${enrollmentsProgram.name}`}
+            size="medium"
+            showCloseButton={true}
+          >
+            <div className="p-4">
+              {enrollmentsLoading ? (
+                <Text variant="secondary">Loading enrollments…</Text>
+              ) : enrollments.length === 0 ? (
+                <Text variant="muted">No enrollments for this program.</Text>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="text-left py-2 font-medium">User</th>
+                        <th className="text-left py-2 font-medium">Start</th>
+                        <th className="text-left py-2 font-medium">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {enrollments.map(en => (
+                        <tr key={en.id} className="border-b">
+                          <td className="py-2">
+                            {en.user
+                              ? [en.user.firstName, en.user.lastName]
+                                  .filter(Boolean)
+                                  .join(' ') || en.user.email
+                              : `User #${en.userId}`}
+                          </td>
+                          <td className="py-2">
+                            {en.startDate
+                              ? new Date(en.startDate).toLocaleDateString()
+                              : '—'}
+                          </td>
+                          <td className="py-2">
+                            {en.isActive ? (
+                              <span className="text-green-600">Active</span>
+                            ) : (
+                              <span className="text-gray-500">Inactive</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           </Modal>
         )}

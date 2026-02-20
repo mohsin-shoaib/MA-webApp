@@ -19,16 +19,54 @@ export interface ExerciseDTO {
   alternate_exercise?: AlternateExerciseDTO | null
 }
 
+/** Section type (Phase 4) */
+export type SectionType = 'default' | 'superset' | 'circuit' | 'amrap' | 'emom'
+
+/** Section config for AMRAP/EMOM */
+export interface SectionConfig {
+  minutes?: number
+  durationMinutes?: number
+  rounds?: number
+}
+
+/** Section within a day (Phase 3/4) */
+export interface SectionDTO {
+  sectionType?: SectionType
+  sectionConfig?: SectionConfig | null
+  exercises: ExerciseDTO[]
+}
+
 export interface DailyExerciseDTO {
   day: string // "day1", "day2" for Red/Green, ISO date string for Amber
   /** If true, this day is a rest day; no exercises required. */
   isRestDay?: boolean
+  /** Phase 4: block type for this day (one section per day in builder) */
+  sectionType?: SectionType
   exercise_name: string
   exercise_description?: string
   exercise_time?: string
   workout_timer?: string
   rest_timer?: string
   exercises: ExerciseDTO[]
+  /** Phase 3/4: when present, workout player can render by section type */
+  sections?: SectionDTO[]
+}
+
+/** Phase 3: Week → Days → Sections → Exercises (optional; when sent, backend uses this shape) */
+export interface WeekInProgramDTO {
+  weekNumber: number
+  days: DayInWeekDTO[]
+}
+
+export interface DayInWeekDTO {
+  dayNumber: number
+  isRestDay?: boolean
+  sections: SectionDTO[]
+}
+
+/** When backend returns dailyExercise with hierarchy it may be { weeks: WeekInProgramDTO[] } */
+export interface WeeklyStructureDTO {
+  weeks: WeekInProgramDTO[]
 }
 
 // Create Program DTO (matches backend CreateProgramDTO)
@@ -40,6 +78,11 @@ export interface CreateProgramDTO {
   cycleId: number
   isActive?: boolean
   dailyExercises: DailyExerciseDTO[]
+  /** Phase 3: optional hierarchy; when provided, backend may prefer this over dailyExercises */
+  weeklyStructure?: WeeklyStructureDTO
+  /** Phase 6: Custom 1:1 program assigned to one athlete */
+  isCustom?: boolean
+  assignedToUserId?: number | null
 }
 
 // Update Program DTO (all fields optional)
@@ -51,6 +94,9 @@ export interface UpdateProgramDTO {
   cycleId?: number
   isActive?: boolean
   dailyExercises?: DailyExerciseDTO[]
+  weeklyStructure?: WeeklyStructureDTO
+  isCustom?: boolean
+  assignedToUserId?: number | null
 }
 
 // Program response from API
@@ -66,6 +112,9 @@ export interface Program extends Record<string, unknown> {
   alternateExercise: Record<string, unknown> // Empty object for backward compatibility
   createdAt: string
   updatedAt: string
+  /** Phase 6: Custom 1:1 program */
+  isCustom?: boolean
+  assignedToUserId?: number | null
 }
 
 export interface CreateProgramResponse {

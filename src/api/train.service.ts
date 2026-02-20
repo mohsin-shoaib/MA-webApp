@@ -85,4 +85,24 @@ export const trainService = {
       `athlete/train/sessions/${sessionId}/sets`,
       body
     ),
+
+  /**
+   * Get exercise library catalog (athlete).
+   * GET /athlete/train/exercise-library?q=&page=&limit=&muscleGroup=&equipment=&movementPattern=
+   */
+  getExerciseLibrary: (params?: {
+    q?: string
+    page?: number
+    limit?: number
+    muscleGroup?: string
+    equipment?: string
+    movementPattern?: string
+  }) =>
+    api.get<{
+      statusCode: number
+      data?: {
+        data: import('@/types/exercise').Exercise[]
+        meta: { total: number; page: number; limit: number; totalPages: number }
+      }
+    }>('athlete/train/exercise-library', { params }),
 }

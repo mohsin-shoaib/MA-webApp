@@ -8,6 +8,13 @@ import AdminUserManagement from '@/pages/admin/user-management'
 import AdminGoalTypes from '@/pages/admin/goal-types'
 import AdminProgramManagement from '@/pages/admin/program-management'
 import CyclePrograms from '@/pages/admin/program-management/cycle-programs'
+import AdminExerciseLibraryPage from '@/pages/admin/exercise-library'
+import AdminExerciseNewPage from '@/pages/admin/exercise-library/ExerciseNew'
+import AdminExerciseEditPage from '@/pages/admin/exercise-library/ExerciseEdit'
+import AdminAnnouncements from '@/pages/admin/announcements'
+import AdminNutritionConfig from '@/pages/admin/nutrition-config'
+import AdminTests from '@/pages/admin/tests'
+import AdminRecovery from '@/pages/admin/recovery'
 import CoachHeadUserManagement from '@/pages/coach-head/user-management'
 import CoachUserManagement from '@/pages/coach/user-management'
 import Profile from '@/pages/profile'
@@ -116,6 +123,76 @@ export const routes = [
       <ProtectedRoute allowedRoles={['ADMIN']}>
         <AppLayout>
           <AdminProgramManagement />
+        </AppLayout>
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/admin/exercises',
+    element: (
+      <ProtectedRoute allowedRoles={['ADMIN']}>
+        <AppLayout>
+          <AdminExerciseLibraryPage />
+        </AppLayout>
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/admin/exercises/new',
+    element: (
+      <ProtectedRoute allowedRoles={['ADMIN']}>
+        <AppLayout>
+          <AdminExerciseNewPage />
+        </AppLayout>
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/admin/exercises/:id/edit',
+    element: (
+      <ProtectedRoute allowedRoles={['ADMIN']}>
+        <AppLayout>
+          <AdminExerciseEditPage />
+        </AppLayout>
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/admin/announcements',
+    element: (
+      <ProtectedRoute allowedRoles={['ADMIN']}>
+        <AppLayout>
+          <AdminAnnouncements />
+        </AppLayout>
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/admin/nutrition-config',
+    element: (
+      <ProtectedRoute allowedRoles={['ADMIN']}>
+        <AppLayout>
+          <AdminNutritionConfig />
+        </AppLayout>
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/admin/tests',
+    element: (
+      <ProtectedRoute allowedRoles={['ADMIN']}>
+        <AppLayout>
+          <AdminTests />
+        </AppLayout>
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/admin/recovery',
+    element: (
+      <ProtectedRoute allowedRoles={['ADMIN']}>
+        <AppLayout>
+          <AdminRecovery />
         </AppLayout>
       </ProtectedRoute>
     ),

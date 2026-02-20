@@ -5,7 +5,12 @@ import { Card } from '@/components/Card'
 import { Button } from '@/components/Button'
 import { Spinner } from '@/components/Spinner'
 import { trainService } from '@/api/train.service'
-import type { DailyExerciseDTO, ExerciseDTO } from '@/types/program'
+import type {
+  DailyExerciseDTO,
+  ExerciseDTO,
+  SectionDTO,
+  SectionType,
+} from '@/types/program'
 import type { AxiosError } from 'axios'
 
 export default function WorkoutPlayer() {
@@ -123,7 +128,26 @@ export default function WorkoutPlayer() {
     )
   }
 
-  const exercises: ExerciseDTO[] = dayExercise?.exercises ?? []
+  const dayWithSections = dayExercise as DailyExerciseDTO & {
+    sections?: SectionDTO[]
+  }
+  const sections =
+    dayWithSections?.sections?.filter(s => s.exercises?.length) ?? []
+  const hasSections = sections.length > 0
+  const exercises: ExerciseDTO[] = hasSections
+    ? sections.flatMap(s => s.exercises ?? [])
+    : (dayExercise?.exercises ?? [])
+
+  const sectionTypeLabel = (t?: SectionType) => {
+    if (!t || t === 'default') return null
+    const labels: Record<string, string> = {
+      superset: 'Superset',
+      circuit: 'Circuit',
+      amrap: 'AMRAP',
+      emom: 'EMOM',
+    }
+    return labels[t] ?? t
+  }
 
   return (
     <div className="space-y-6 max-w-4xl">
@@ -167,6 +191,63 @@ export default function WorkoutPlayer() {
               ? 'No workout set for this day.'
               : 'No exercises for this day.'}
           </Text>
+        ) : hasSections ? (
+          sections.map((section, sIdx) => (
+            <div key={sIdx} className="space-y-2">
+              {sectionTypeLabel(section.sectionType) && (
+                <div
+                  className="text-sm font-semibold uppercase tracking-wide px-2 py-1 rounded"
+                  style={{ backgroundColor: '#3AB8ED22', color: '#0e7490' }}
+                >
+                  {sectionTypeLabel(section.sectionType)}
+                  {section.sectionConfig?.minutes != null &&
+                    ` • ${section.sectionConfig.minutes} min`}
+                  {section.sectionConfig?.durationMinutes != null &&
+                    ` • ${section.sectionConfig.durationMinutes} min`}
+                </div>
+              )}
+              <div className="space-y-2">
+                {(section.exercises ?? []).map((ex, idx) => (
+                  <Card
+                    key={ex.exercise_id ?? `${sIdx}-${idx}`}
+                    className="p-4"
+                  >
+                    <Text variant="default" className="font-medium">
+                      {ex.name}
+                    </Text>
+                    {ex.description && (
+                      <Text variant="secondary" className="text-sm mt-1">
+                        {ex.description}
+                      </Text>
+                    )}
+                    {(ex.sets != null ||
+                      ex.total_reps != null ||
+                      ex.lb != null) && (
+                      <Text variant="secondary" className="text-sm mt-1">
+                        {[
+                          ex.sets != null && `${ex.sets} sets`,
+                          ex.total_reps != null && `${ex.total_reps} reps`,
+                          ex.lb != null && `${ex.lb} lb`,
+                        ]
+                          .filter(Boolean)
+                          .join(' • ')}
+                      </Text>
+                    )}
+                    {ex.video && (
+                      <a
+                        href={ex.video}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm text-blue-600 hover:underline mt-2 inline-block"
+                      >
+                        Watch video
+                      </a>
+                    )}
+                  </Card>
+                ))}
+              </div>
+            </div>
+          ))
         ) : (
           exercises.map((ex, idx) => (
             <Card key={ex.exercise_id ?? idx} className="p-4">

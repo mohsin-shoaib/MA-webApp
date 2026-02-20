@@ -73,6 +73,36 @@ export function Sidebar() {
       roles: ['ADMIN'],
     },
     {
+      path: '/admin/exercises',
+      label: 'Exercise Library',
+      icon: 'dumbbell',
+      roles: ['ADMIN'],
+    },
+    {
+      path: '/admin/announcements',
+      label: 'Announcements',
+      icon: 'bullhorn',
+      roles: ['ADMIN'],
+    },
+    {
+      path: '/admin/nutrition-config',
+      label: 'Nutrition Config',
+      icon: 'apple-alt',
+      roles: ['ADMIN'],
+    },
+    {
+      path: '/admin/tests',
+      label: 'Tests',
+      icon: 'clipboard-check',
+      roles: ['ADMIN'],
+    },
+    {
+      path: '/admin/recovery',
+      label: 'Recovery',
+      icon: 'heart-pulse',
+      roles: ['ADMIN'],
+    },
+    {
       path: '/coach-head/user-management',
       label: 'User Management',
       icon: 'users',

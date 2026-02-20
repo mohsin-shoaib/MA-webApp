@@ -12,8 +12,235 @@ import type {
   ExerciseDTO,
   AlternateExerciseDTO,
 } from '@/types/program'
+import type { Exercise } from '@/types/exercise'
 import type { AxiosError } from 'axios'
 import { useSnackbar } from '@/components/Snackbar/useSnackbar'
+
+const CATALOG_PAGE_SIZE = 12
+
+/** Athlete catalog view: exercises from GET /athlete/train/exercise-library */
+function ExerciseCatalogView() {
+  const [items, setItems] = useState<Exercise[]>([])
+  const [meta, setMeta] = useState({
+    total: 0,
+    page: 1,
+    limit: CATALOG_PAGE_SIZE,
+    totalPages: 1,
+  })
+  const [loading, setLoading] = useState(true)
+  const [page, setPage] = useState(1)
+  const [q, setQ] = useState('')
+  const [muscleGroup, setMuscleGroup] = useState('')
+  const [equipment, setEquipment] = useState('')
+  const [movementPattern, setMovementPattern] = useState('')
+
+  const fetchCatalog = useCallback(
+    (pageOverride?: number) => {
+      const p = pageOverride ?? page
+      setLoading(true)
+      trainService
+        .getExerciseLibrary({
+          q: q.trim() || undefined,
+          page: p,
+          limit: CATALOG_PAGE_SIZE,
+          muscleGroup: muscleGroup.trim() || undefined,
+          equipment: equipment.trim() || undefined,
+          movementPattern: movementPattern.trim() || undefined,
+        })
+        .then(res => {
+          if (res.data.statusCode === 200 && res.data.data) {
+            setItems(res.data.data.data ?? [])
+            setMeta(
+              res.data.data.meta ?? {
+                total: 0,
+                page: p,
+                limit: CATALOG_PAGE_SIZE,
+                totalPages: 1,
+              }
+            )
+          }
+        })
+        .catch(() => setItems([]))
+        .finally(() => setLoading(false))
+    },
+    [page, q, muscleGroup, equipment, movementPattern]
+  )
+
+  useEffect(() => {
+    queueMicrotask(() => fetchCatalog())
+  }, [fetchCatalog])
+
+  const onSearch = () => {
+    setPage(1)
+    fetchCatalog(1)
+  }
+
+  const tagsDisplay = (ex: Exercise) => {
+    const t = ex.tags
+    if (!t) return null
+    const parts = [
+      ...(t.muscleGroup ?? []),
+      ...(t.equipment ?? []),
+      ...(t.movementPattern ?? []),
+    ]
+    return parts.slice(0, 4).join(', ') + (parts.length > 4 ? '…' : '')
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1 min-w-0">
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              aria-hidden
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+              />
+            </svg>
+          </span>
+          <input
+            type="search"
+            placeholder="Search catalog…"
+            value={q}
+            onChange={e => setQ(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && onSearch()}
+            className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm placeholder:text-gray-400 focus:ring-2 focus:ring-[#3AB8ED]/30 focus:border-[#3AB8ED] outline-none"
+            aria-label="Search catalog"
+          />
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            placeholder="Muscle"
+            value={muscleGroup}
+            onChange={e => setMuscleGroup(e.target.value)}
+            className="border border-gray-200 rounded-lg px-3 py-2 text-sm w-28"
+          />
+          <input
+            placeholder="Equipment"
+            value={equipment}
+            onChange={e => setEquipment(e.target.value)}
+            className="border border-gray-200 rounded-lg px-3 py-2 text-sm w-28"
+          />
+          <input
+            placeholder="Pattern"
+            value={movementPattern}
+            onChange={e => setMovementPattern(e.target.value)}
+            className="border border-gray-200 rounded-lg px-3 py-2 text-sm w-28"
+          />
+          <Button
+            type="button"
+            variant="secondary"
+            size="small"
+            onClick={onSearch}
+          >
+            Apply
+          </Button>
+        </div>
+      </div>
+      <div className="flex items-center justify-between gap-2">
+        <Text
+          variant="default"
+          className="font-medium text-sm text-gray-500 uppercase tracking-wide"
+        >
+          Catalog
+        </Text>
+        {meta.total > 0 && (
+          <Text variant="secondary" className="text-sm">
+            {meta.total} exercise{meta.total !== 1 ? 's' : ''}
+          </Text>
+        )}
+      </div>
+      {loading ? (
+        <div className="flex items-center gap-2 py-8">
+          <Spinner size="small" variant="primary" />
+          <Text variant="secondary">Loading…</Text>
+        </div>
+      ) : items.length === 0 ? (
+        <Card className="p-0">
+          <div className="p-6 text-center">
+            <Text variant="secondary" className="text-sm">
+              No exercises in the catalog. Try different filters.
+            </Text>
+          </div>
+        </Card>
+      ) : (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {items.map(ex => (
+            <Card
+              key={ex.id}
+              className="p-0 border border-gray-200/80 overflow-hidden"
+            >
+              <div className="p-4">
+                <Text
+                  variant="default"
+                  className="font-semibold text-gray-900 block"
+                >
+                  {ex.name}
+                </Text>
+                {ex.description && (
+                  <Text
+                    variant="secondary"
+                    className="text-sm mt-1 line-clamp-2"
+                  >
+                    {ex.description}
+                  </Text>
+                )}
+                {tagsDisplay(ex) && (
+                  <Text variant="secondary" className="text-xs mt-2">
+                    {tagsDisplay(ex)}
+                  </Text>
+                )}
+                {ex.videoUrl && (
+                  <a
+                    href={ex.videoUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[#3AB8ED] text-sm mt-2 inline-block hover:underline"
+                  >
+                    View video
+                  </a>
+                )}
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
+      {meta.totalPages > 1 && (
+        <div className="flex justify-center gap-2 pt-2">
+          <Button
+            type="button"
+            variant="secondary"
+            size="small"
+            disabled={page <= 1}
+            onClick={() => setPage(p => Math.max(1, p - 1))}
+          >
+            Previous
+          </Button>
+          <span className="px-2 flex items-center text-sm text-gray-600">
+            {meta.page} / {meta.totalPages}
+          </span>
+          <Button
+            type="button"
+            variant="secondary"
+            size="small"
+            disabled={page >= meta.totalPages}
+            onClick={() => setPage(p => Math.min(meta.totalPages, p + 1))}
+          >
+            Next
+          </Button>
+        </div>
+      )}
+    </div>
+  )
+}
 
 /** Normalise dailyExercise (array or object keyed by day) to ordered array. */
 function normalizeDailyExercise(
@@ -47,7 +274,10 @@ function formatExercisePreset(ex: ExerciseDTO): string {
   return parts.join(' • ')
 }
 
-function NoProgramView({ onBrowse }: Readonly<{ onBrowse: () => void }>) {
+function NoProgramView({
+  onBrowse,
+  onBrowseCatalog,
+}: Readonly<{ onBrowse: () => void; onBrowseCatalog?: () => void }>) {
   return (
     <div className="space-y-6 max-w-4xl">
       <div className="flex flex-wrap items-center gap-3">
@@ -57,6 +287,11 @@ function NoProgramView({ onBrowse }: Readonly<{ onBrowse: () => void }>) {
         <Text variant="primary" className="text-2xl font-semibold">
           Exercise library
         </Text>
+        {onBrowseCatalog && (
+          <Button type="button" variant="secondary" onClick={onBrowseCatalog}>
+            Browse catalog
+          </Button>
+        )}
       </div>
       <Card className="p-6 border border-gray-200/80">
         <Text
@@ -72,9 +307,16 @@ function NoProgramView({ onBrowse }: Readonly<{ onBrowse: () => void }>) {
           Enroll in a program first to browse days and exercises and log your
           sets.
         </Text>
-        <Button type="button" onClick={onBrowse}>
-          Browse programs
-        </Button>
+        <div className="flex gap-2">
+          <Button type="button" onClick={onBrowse}>
+            Browse programs
+          </Button>
+          {onBrowseCatalog && (
+            <Button type="button" variant="secondary" onClick={onBrowseCatalog}>
+              Browse catalog
+            </Button>
+          )}
+        </div>
       </Card>
     </div>
   )
@@ -94,11 +336,13 @@ function DaysView({
   days,
   onDayClick,
   onBack,
+  onBrowseCatalog,
 }: Readonly<{
   programName: string
   days: DailyExerciseDTO[]
   onDayClick: (day: DailyExerciseDTO) => void
   onBack: () => void
+  onBrowseCatalog?: () => void
 }>) {
   const [daySearch, setDaySearch] = useState('')
   const [dayFilter, setDayFilter] = useState<DayFilterType>('all')
@@ -127,6 +371,11 @@ function DaysView({
         <Text variant="primary" className="text-2xl font-semibold">
           Exercise library
         </Text>
+        {onBrowseCatalog && (
+          <Button type="button" variant="secondary" onClick={onBrowseCatalog}>
+            Browse catalog
+          </Button>
+        )}
       </div>
 
       <Card className="p-0">
@@ -478,6 +727,9 @@ export default function ExerciseLibrary() {
   const [exerciseFilter, setExerciseFilter] = useState<
     'all' | 'video' | 'weight'
   >('all')
+  const [libraryMode, setLibraryMode] = useState<'program' | 'catalog'>(
+    'program'
+  )
 
   const onProgramLoaded = useCallback((data: UserProgram) => {
     setUserProgram(data)
@@ -642,6 +894,33 @@ export default function ExerciseLibrary() {
     }
   }
 
+  if (libraryMode === 'catalog') {
+    return (
+      <div className="space-y-6 max-w-4xl">
+        <div className="flex flex-wrap items-center gap-3">
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => navigate('/train')}
+          >
+            ← Back to Train
+          </Button>
+          <Text variant="primary" className="text-2xl font-semibold">
+            Exercise library
+          </Text>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => setLibraryMode('program')}
+          >
+            My program
+          </Button>
+        </div>
+        <ExerciseCatalogView />
+      </div>
+    )
+  }
+
   if (loading) {
     return (
       <div className="space-y-6 max-w-4xl">
@@ -654,7 +933,12 @@ export default function ExerciseLibrary() {
   }
 
   if (!userProgram || days.length === 0) {
-    return <NoProgramView onBrowse={() => navigate('/train')} />
+    return (
+      <NoProgramView
+        onBrowse={() => navigate('/train')}
+        onBrowseCatalog={() => setLibraryMode('catalog')}
+      />
+    )
   }
 
   const programName = userProgram.program?.name ?? 'Program'
@@ -666,6 +950,7 @@ export default function ExerciseLibrary() {
         days={days}
         onDayClick={handleDayClick}
         onBack={() => navigate('/train')}
+        onBrowseCatalog={() => setLibraryMode('catalog')}
       />
     )
   }
