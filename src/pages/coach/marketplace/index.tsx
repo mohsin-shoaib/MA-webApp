@@ -340,8 +340,16 @@ export default function CoachMarketplace() {
                 </>
               )}
             </div>
+            {!form.filePath?.trim() && (
+              <p className="text-sm text-amber-600">
+                Upload a file to enable Create.
+              </p>
+            )}
             <div className="flex gap-2 pt-2">
-              <Button onClick={handleCreate} disabled={saving}>
+              <Button
+                onClick={handleCreate}
+                disabled={saving || !form.filePath?.trim() || uploadingFile}
+              >
                 {saving ? 'Creating...' : 'Create'}
               </Button>
               <Button variant="secondary" onClick={() => setCreateOpen(false)}>
