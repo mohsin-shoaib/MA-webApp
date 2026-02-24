@@ -43,6 +43,12 @@ export function Sidebar() {
       roles: ['ATHLETE'],
     },
     {
+      path: '/progress',
+      label: 'Progress',
+      icon: 'spinner',
+      roles: ['ATHLETE'],
+    },
+    {
       path: '/create_program',
       label: 'Create Program',
       icon: 'plus-circle',
@@ -70,6 +76,18 @@ export function Sidebar() {
       path: '/admin/program-management',
       label: 'Manage Program',
       icon: 'clipboard-list',
+      roles: ['ADMIN'],
+    },
+    {
+      path: '/admin/announcements',
+      label: 'Announcements',
+      icon: 'bullhorn',
+      roles: ['ADMIN'],
+    },
+    {
+      path: '/admin/curriculum',
+      label: '90 Unchained',
+      icon: 'book',
       roles: ['ADMIN'],
     },
     {

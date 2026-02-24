@@ -24,6 +24,9 @@ import { AuthRedirect } from '@/components/AuthRedirect'
 import { NotFound } from '@/components/NotFound'
 import { AppLayout } from '@/components/AppLayout'
 import { Navigate } from 'react-router-dom'
+import Progress from '@/pages/progress'
+import AdminAnnouncements from '@/pages/admin/announcement'
+import AdminCurriculum from '@/pages/admin/curriculum'
 
 export const routes = [
   {
@@ -116,6 +119,26 @@ export const routes = [
       <ProtectedRoute allowedRoles={['ADMIN']}>
         <AppLayout>
           <AdminProgramManagement />
+        </AppLayout>
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/admin/announcements',
+    element: (
+      <ProtectedRoute allowedRoles={['ADMIN']}>
+        <AppLayout>
+          <AdminAnnouncements />
+        </AppLayout>
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/admin/curriculum',
+    element: (
+      <ProtectedRoute allowedRoles={['ADMIN']}>
+        <AppLayout>
+          <AdminCurriculum />
         </AppLayout>
       </ProtectedRoute>
     ),
@@ -226,6 +249,16 @@ export const routes = [
       <ProtectedRoute allowedRoles={['ATHLETE']}>
         <AppLayout>
           <NutritionHub />
+        </AppLayout>
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/progress',
+    element: (
+      <ProtectedRoute allowedRoles={['ATHLETE']}>
+        <AppLayout>
+          <Progress />
         </AppLayout>
       </ProtectedRoute>
     ),

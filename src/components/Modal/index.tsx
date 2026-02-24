@@ -123,9 +123,9 @@ export function Modal({
     if (!dialog) return
 
     if (visible) {
-      dialog.showModal()
+      if (!dialog.open) dialog.showModal()
     } else {
-      dialog.close()
+      if (dialog.open) dialog.close()
     }
   }, [visible])
 
