@@ -31,15 +31,53 @@ export interface DailyExerciseDTO {
   exercises: ExerciseDTO[]
 }
 
+// --- Program Builder hierarchy: Program → Weeks → Days → Sections → Exercises ---
+export interface ProgramStructureSectionExercise {
+  exerciseId: number
+  sets?: number
+  reps?: number
+  rpe?: number
+  weightPercent?: number
+  tempo?: string
+  rest?: string
+  coachingNotes?: string
+}
+
+export interface ProgramStructureSection {
+  sectionType?: 'normal' | 'superset' | 'circuit' | 'AMRAP' | 'EMOM'
+  name?: string
+  exercises: ProgramStructureSectionExercise[]
+}
+
+export interface ProgramStructureDay {
+  dayIndex: number
+  isRestDay?: boolean
+  dayName?: string
+  sections?: ProgramStructureSection[]
+}
+
+export interface ProgramStructureWeek {
+  weekIndex: number
+  weekName?: string
+  days: ProgramStructureDay[]
+}
+
+export interface ProgramStructure {
+  weeks: ProgramStructureWeek[]
+}
+
 // Create Program DTO (matches backend CreateProgramDTO)
 export interface CreateProgramDTO {
   program_name: string
   program_description: string
-  category?: string | null // Required for Red/Green, optional for Amber
-  subCategory?: string | null // Required for Red/Green, optional for Amber
+  category?: string | null
+  subCategory?: string | null
   cycleId: number
   isActive?: boolean
-  dailyExercises: DailyExerciseDTO[]
+  /** Legacy flat structure; required if programStructure not provided */
+  dailyExercises?: DailyExerciseDTO[]
+  /** Program Builder hierarchy; when provided, backend derives dailyExercise */
+  programStructure?: ProgramStructure
 }
 
 // Update Program DTO (all fields optional)
@@ -51,6 +89,7 @@ export interface UpdateProgramDTO {
   cycleId?: number
   isActive?: boolean
   dailyExercises?: DailyExerciseDTO[]
+  programStructure?: ProgramStructure
 }
 
 // Program response from API
@@ -62,8 +101,9 @@ export interface Program extends Record<string, unknown> {
   category: string | null
   subCategory: string | null
   cycleId: number
-  dailyExercise: DailyExerciseDTO[] // JSON field from database
-  alternateExercise: Record<string, unknown> // Empty object for backward compatibility
+  dailyExercise: DailyExerciseDTO[]
+  alternateExercise: Record<string, unknown>
+  programStructure?: ProgramStructure | null
   createdAt: string
   updatedAt: string
 }
@@ -154,6 +194,16 @@ export interface GetProgramsResponse {
     }
   }
   message: string
+}
+
+/** Response from GET /athlete/program/recommended-next (PRD 10.7) */
+export interface RecommendedNextResponse {
+  statusCode: number
+  data: {
+    program: Program | null
+    reason: string | null
+  }
+  message?: string
 }
 
 /** Current enrolled program (GET /athlete/program/current). dailyExercise may be array or object keyed by day. */

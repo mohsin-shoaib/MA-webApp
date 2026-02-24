@@ -4,7 +4,10 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "generate:firebase-sw": "node scripts/generate-firebase-sw.js",
+    "predev": "node scripts/generate-firebase-sw.js",
     "dev": "vite",
+    "prebuild": "node scripts/generate-firebase-sw.js",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
@@ -20,6 +23,7 @@
     "@fortawesome/react-fontawesome": "^3.2.0",
     "@hookform/resolvers": "^5.2.2",
     "axios": "^1.13.5",
+    "firebase": "^12.9.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-hook-form": "^7.71.1",

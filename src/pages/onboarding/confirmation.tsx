@@ -64,14 +64,17 @@ export default function ConfirmationStep({
     resetManualState()
   }, [resetManualState])
 
-  // When user selects a cycle (Red/Green), fetch programs; Amber has no programs
+  // When user selects a cycle (Red/Green/Sustainment), fetch programs; Amber has no programs; Sustainment program optional
   useEffect(() => {
     if (!cycleName) {
       setProgramsForCycle([])
       setSelectedProgramId(null)
       return
     }
-    if (!CYCLES_REQUIRING_PROGRAM.includes(cycleName)) {
+    const needsProgramList =
+      CYCLES_REQUIRING_PROGRAM.includes(cycleName) ||
+      cycleName === 'Sustainment'
+    if (!needsProgramList) {
       setProgramsForCycle([])
       setSelectedProgramId(null)
       return
@@ -183,6 +186,7 @@ export default function ConfirmationStep({
     { label: 'Red Cycle', value: 'Red' },
     { label: 'Amber Cycle', value: 'Amber' },
     { label: 'Green Cycle', value: 'Green' },
+    { label: 'Sustainment', value: 'Sustainment' },
   ]
 
   const programOptions = programsForCycle.map(p => ({
@@ -282,6 +286,15 @@ export default function ConfirmationStep({
           closeOnEscape={!loading}
         >
           <div className="space-y-4">
+            {cycleName && cycleName !== recommendedCycle && (
+              <div
+                className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800"
+                role="alert"
+              >
+                You’re choosing a different cycle than recommended. This may
+                affect your timeline. You can still continue.
+              </div>
+            )}
             <Dropdown
               label="Select Cycle"
               value={cycleName}

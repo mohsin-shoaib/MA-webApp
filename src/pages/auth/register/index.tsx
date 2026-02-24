@@ -10,6 +10,7 @@ import { Stack } from '@/components/Stack'
 import { Link, useNavigate } from 'react-router-dom'
 import { useSnackbar } from '@/components/Snackbar/useSnackbar'
 import { useAuth } from '@/contexts/useAuth'
+import { registerFcmTokenIfNeeded } from '@/lib/fcm-registration'
 import type { AxiosError } from 'axios'
 
 interface FormValues extends RegisterProps {
@@ -66,11 +67,15 @@ const Register = () => {
         rememberMe: user.rememberMe,
       })
 
+      if (user.role === 'ATHLETE') {
+        registerFcmTokenIfNeeded().catch(() => {})
+      }
+
       showSuccess('Registration successful!')
 
-      // Navigate based on user role
+      // Navigate based on user role (PRD 8.1.3: athlete proceeds to subscription then onboarding)
       if (user.role === 'ATHLETE') {
-        navigate('/onboarding')
+        navigate('/subscription')
       } else if (user.role === 'COACH') {
         navigate('/create_program')
       } else if (user.role === 'ADMIN') {

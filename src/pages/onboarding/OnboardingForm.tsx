@@ -5,6 +5,7 @@ import { Input } from '@/components/Input'
 import { Dropdown } from '@/components/Dropdown'
 import { Button } from '@/components/Button'
 import { DatePicker } from '@/components/DatePicker'
+import { Checkbox } from '@/components/Checkbox'
 import type { OnboardingProps, CreateOnboardingDTO } from '@/types/onboarding'
 import type { ReadinessRecommendation } from '@/types/readiness'
 import { readinessService } from '@/api/readiness.service'
@@ -48,6 +49,8 @@ export default function OnboardingForm({
   const [secondaryGoal, setSecondaryGoal] = useState<string>(
     initialValues?.secondaryGoal || ''
   )
+  const [returningFromEvent, setReturningFromEvent] = useState(false)
+  const [severeConstraints, setSevereConstraints] = useState(false)
   const [goalTypes, setGoalTypes] = useState<GoalType[]>([])
   const [loadingGoals, setLoadingGoals] = useState(false)
 
@@ -127,6 +130,8 @@ export default function OnboardingForm({
         secondaryGoal: secondaryGoal || '',
         equipment: equipment.length > 0 ? equipment : undefined,
         eventDate: eventDate || undefined,
+        returningFromEvent: returningFromEvent || undefined,
+        severeConstraints: severeConstraints || undefined,
       }
 
       // Defer-save: evaluate only (no create). Store recommendation + form data for Step 3 confirm.
@@ -134,6 +139,8 @@ export default function OnboardingForm({
         trainingExperience: payload.trainingExperience,
         primaryGoal: payload.primaryGoal,
         eventDate: payload.eventDate,
+        returningFromEvent: payload.returningFromEvent,
+        severeConstraints: payload.severeConstraints,
       })
       const apiResponse = axiosResponse.data
       if (apiResponse.statusCode !== 200 || !apiResponse.data) {
@@ -284,6 +291,19 @@ export default function OnboardingForm({
         placeholder="e.g., Soldier"
         error={errors.job?.message}
       />
+
+      <div className="space-y-3">
+        <Checkbox
+          label="Returning from selection/deployment (recommend Red Cycle)"
+          checked={returningFromEvent}
+          onValueChange={v => setReturningFromEvent(v)}
+        />
+        <Checkbox
+          label="Limited time or equipment — recommend Sustainment programs"
+          checked={severeConstraints}
+          onValueChange={v => setSevereConstraints(v)}
+        />
+      </div>
 
       <Dropdown
         label="Equipments"

@@ -7,6 +7,8 @@ import { SummaryTab } from './nutrition/SummaryTab'
 import { MacroCalculator } from './nutrition/MacroCalculator'
 import { MealLogging } from './nutrition/MealLogging'
 import { HydrationSection } from './nutrition/HydrationSection'
+import { HistoryTab } from './nutrition/HistoryTab'
+import { NutritionPdfsPlaceholder } from './nutrition/NutritionPdfsPlaceholder'
 import type { UserNutritionTarget, MealLog } from '@/types/nutrition'
 
 function parseHydrationData(data: unknown): {
@@ -174,6 +176,16 @@ export default function NutritionHub() {
                 onReload={() => loadDaily(selectedDate)}
               />
             ),
+          },
+          {
+            id: 'history',
+            label: 'History',
+            content: <HistoryTab />,
+          },
+          {
+            id: 'pdfs',
+            label: 'Nutrition PDFs',
+            content: <NutritionPdfsPlaceholder />,
           },
         ]}
         defaultActiveTab="summary"

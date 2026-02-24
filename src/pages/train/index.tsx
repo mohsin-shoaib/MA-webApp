@@ -7,12 +7,25 @@ import { Spinner } from '@/components/Spinner'
 import { Icon } from '@/components/Icon'
 import { Tooltip } from '@/components/Tooltip'
 import { trainService } from '@/api/train.service'
+import type { WorkoutSession } from '@/types/train'
 import type { AxiosError } from 'axios'
+import { RecoverySection } from './RecoverySection'
+
+function getLastWeekDates(): { from: string; to: string } {
+  const to = new Date()
+  const from = new Date()
+  from.setDate(from.getDate() - 6)
+  return {
+    from: from.toISOString().slice(0, 10),
+    to: to.toISOString().slice(0, 10),
+  }
+}
 
 export default function TrainPage() {
   const navigate = useNavigate()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [recentSessions, setRecentSessions] = useState<WorkoutSession[]>([])
   const [todayWorkout, setTodayWorkout] = useState<{
     date: string
     phase: string
@@ -68,6 +81,19 @@ export default function TrainPage() {
     return () => {
       cancelled.current = true
     }
+  }, [])
+
+  useEffect(() => {
+    const { from, to } = getLastWeekDates()
+    trainService
+      .getSessions(from, to)
+      .then(res => {
+        if (res.data?.statusCode === 200 && Array.isArray(res.data.data)) {
+          const list = res.data.data as WorkoutSession[]
+          setRecentSessions(list.slice(0, 7))
+        }
+      })
+      .catch(() => {})
   }, [])
 
   const cycleName = todayWorkout?.currentCycle ?? null
@@ -294,25 +320,52 @@ export default function TrainPage() {
             </div>
           </Card>
 
-          {/* Recovery – placeholder */}
-          <Card className="p-0">
-            <div className="flex items-center gap-2">
-              <Text variant="default" className="font-semibold">
-                Recovery protocols
+          {/* Recent workouts (PRD 9.3.4) */}
+          {recentSessions.length > 0 && (
+            <Card className="p-0">
+              <Text variant="default" className="font-semibold p-4 pb-2 block">
+                Recent workouts
               </Text>
-              <Tooltip
-                content="Mobility, stretching, and soft tissue routines. Phase 2."
-                position="top"
-              >
-                <span
-                  className="inline-flex text-gray-500 cursor-help"
-                  aria-label="More info"
-                >
-                  <Icon name="circle-info" family="solid" size={16} />
-                </span>
-              </Tooltip>
-            </div>
-          </Card>
+              <ul className="divide-y divide-gray-100 px-4 pb-4">
+                {recentSessions.map(s => {
+                  const dateStr =
+                    typeof s.scheduledDate === 'string'
+                      ? s.scheduledDate.slice(0, 10)
+                      : ''
+                  const isCompleted =
+                    (s.status ?? '').toLowerCase() === 'completed'
+                  return (
+                    <li
+                      key={s.id}
+                      className="flex items-center justify-between py-3"
+                    >
+                      <span className="text-sm text-gray-700">{dateStr}</span>
+                      <div className="flex items-center gap-2">
+                        {isCompleted && (
+                          <span className="text-xs font-medium text-green-600">
+                            Done
+                          </span>
+                        )}
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="small"
+                          onClick={() =>
+                            navigate(`/train/today?date=${dateStr}`)
+                          }
+                        >
+                          View
+                        </Button>
+                      </div>
+                    </li>
+                  )
+                })}
+              </ul>
+            </Card>
+          )}
+
+          {/* Recovery protocols (PRD 14) */}
+          <RecoverySection />
         </>
       )}
     </div>

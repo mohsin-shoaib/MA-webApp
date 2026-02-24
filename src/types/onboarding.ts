@@ -46,6 +46,10 @@ export interface CreateOnboardingDTO {
   equipment?: string[]
   eventDate?: string // Used for roadmap generation
   job?: string
+  /** PRD 4.6.2: Returning from selection/deployment → recommend Red */
+  returningFromEvent?: boolean
+  /** PRD 4.6.5: Limited time/equipment → recommend Sustainment */
+  severeConstraints?: boolean
 }
 
 export interface UpdateOnboardingDTO {

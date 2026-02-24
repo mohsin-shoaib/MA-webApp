@@ -2,12 +2,19 @@ import Login from '@/pages/auth/login'
 import Register from '@/pages/auth/register'
 import ForgotPassword from '@/pages/auth/forgot-password'
 import ResetPassword from '@/pages/auth/reset-password'
+import Subscription from '@/pages/auth/subscription'
+import RegisterMobile from '@/pages/auth/register-mobile'
 import Onboarding from '@/pages/onboarding/Onboarding'
 import Program from '@/pages/program/program'
 import AdminUserManagement from '@/pages/admin/user-management'
 import AdminGoalTypes from '@/pages/admin/goal-types'
 import AdminProgramManagement from '@/pages/admin/program-management'
 import CyclePrograms from '@/pages/admin/program-management/cycle-programs'
+import AdminAnnouncements from '@/pages/admin/announcements'
+import AdminCurriculum from '@/pages/admin/curriculum'
+import AdminRecoveryProtocols from '@/pages/admin/recovery-protocols'
+import AdminTests from '@/pages/admin/tests'
+import AdminExercises from '@/pages/admin/exercises'
 import CoachHeadUserManagement from '@/pages/coach-head/user-management'
 import CoachUserManagement from '@/pages/coach/user-management'
 import Profile from '@/pages/profile'
@@ -18,7 +25,16 @@ import ExerciseLibrary from '@/pages/train/ExerciseLibrary'
 import { ProgramBrowser } from '@/pages/train/ProgramBrowser'
 import { ProgramDetail } from '@/pages/train/ProgramDetail'
 import NutritionHub from '@/pages/train/NutritionHub'
+import RecoveryHub from '@/pages/train/RecoveryHub'
 import Dashboard from '@/pages/dashboard'
+import Goals from '@/pages/goals'
+import Progress from '@/pages/progress'
+import TestsPage from '@/pages/progress/TestsPage'
+import AnalyticsPage from '@/pages/progress/AnalyticsPage'
+import CoachAnalyticsPage from '@/pages/coach/CoachAnalyticsPage.tsx'
+import AdminAnalyticsPage from '@/pages/admin/AdminAnalyticsPage.tsx'
+import Coach from '@/pages/coach'
+import Market from '@/pages/market'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 import { AuthRedirect } from '@/components/AuthRedirect'
 import { NotFound } from '@/components/NotFound'
@@ -47,6 +63,14 @@ export const routes = [
     ),
   },
   {
+    path: '/register-mobile',
+    element: (
+      <AuthRedirect>
+        <RegisterMobile />
+      </AuthRedirect>
+    ),
+  },
+  {
     path: '/forgot-password',
     element: (
       <AuthRedirect>
@@ -60,6 +84,14 @@ export const routes = [
       <AuthRedirect>
         <ResetPassword />
       </AuthRedirect>
+    ),
+  },
+  {
+    path: '/subscription',
+    element: (
+      <ProtectedRoute allowedRoles={['ATHLETE']}>
+        <Subscription />
+      </ProtectedRoute>
     ),
   },
   {
@@ -91,6 +123,16 @@ export const routes = [
     ),
   },
   {
+    path: '/coach/analytics',
+    element: (
+      <ProtectedRoute allowedRoles={['COACH']}>
+        <AppLayout>
+          <CoachAnalyticsPage />
+        </AppLayout>
+      </ProtectedRoute>
+    ),
+  },
+  {
     path: '/admin/user-management',
     element: (
       <ProtectedRoute allowedRoles={['ADMIN']}>
@@ -116,6 +158,66 @@ export const routes = [
       <ProtectedRoute allowedRoles={['ADMIN']}>
         <AppLayout>
           <AdminProgramManagement />
+        </AppLayout>
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/admin/announcements',
+    element: (
+      <ProtectedRoute allowedRoles={['ADMIN']}>
+        <AppLayout>
+          <AdminAnnouncements />
+        </AppLayout>
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/admin/curriculum',
+    element: (
+      <ProtectedRoute allowedRoles={['ADMIN']}>
+        <AppLayout>
+          <AdminCurriculum />
+        </AppLayout>
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/admin/recovery-protocols',
+    element: (
+      <ProtectedRoute allowedRoles={['ADMIN', 'COACH']}>
+        <AppLayout>
+          <AdminRecoveryProtocols />
+        </AppLayout>
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/admin/tests',
+    element: (
+      <ProtectedRoute allowedRoles={['ADMIN']}>
+        <AppLayout>
+          <AdminTests />
+        </AppLayout>
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/admin/exercises',
+    element: (
+      <ProtectedRoute allowedRoles={['ADMIN']}>
+        <AppLayout>
+          <AdminExercises />
+        </AppLayout>
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/admin/analytics',
+    element: (
+      <ProtectedRoute allowedRoles={['ADMIN']}>
+        <AppLayout>
+          <AdminAnalyticsPage />
         </AppLayout>
       </ProtectedRoute>
     ),
@@ -156,6 +258,66 @@ export const routes = [
       <ProtectedRoute allowedRoles={['ATHLETE']}>
         <AppLayout>
           <Dashboard />
+        </AppLayout>
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/goals',
+    element: (
+      <ProtectedRoute allowedRoles={['ATHLETE']}>
+        <AppLayout>
+          <Goals />
+        </AppLayout>
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/progress',
+    element: (
+      <ProtectedRoute allowedRoles={['ATHLETE']}>
+        <AppLayout>
+          <Progress />
+        </AppLayout>
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/progress/tests',
+    element: (
+      <ProtectedRoute allowedRoles={['ATHLETE']}>
+        <AppLayout>
+          <TestsPage />
+        </AppLayout>
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/progress/analytics',
+    element: (
+      <ProtectedRoute allowedRoles={['ATHLETE']}>
+        <AppLayout>
+          <AnalyticsPage />
+        </AppLayout>
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/coach',
+    element: (
+      <ProtectedRoute allowedRoles={['ATHLETE']}>
+        <AppLayout>
+          <Coach />
+        </AppLayout>
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/market',
+    element: (
+      <ProtectedRoute allowedRoles={['ATHLETE']}>
+        <AppLayout>
+          <Market />
         </AppLayout>
       </ProtectedRoute>
     ),
@@ -226,6 +388,16 @@ export const routes = [
       <ProtectedRoute allowedRoles={['ATHLETE']}>
         <AppLayout>
           <NutritionHub />
+        </AppLayout>
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/train/recovery',
+    element: (
+      <ProtectedRoute allowedRoles={['ATHLETE']}>
+        <AppLayout>
+          <RecoveryHub />
         </AppLayout>
       </ProtectedRoute>
     ),

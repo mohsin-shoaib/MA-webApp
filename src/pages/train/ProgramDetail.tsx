@@ -14,8 +14,8 @@ import { isRealTimelineWeek } from '@/types/roadmap'
 import type { AxiosError } from 'axios'
 import { useSnackbar } from '@/components/Snackbar/useSnackbar'
 
-/** Set to true to show the "Enroll in this program" button. */
-const SHOW_ENROLL_BUTTON = false
+/** Enroll button always shown so users can freely enroll (PRD 10.5.4). */
+const SHOW_ENROLL_BUTTON = true
 
 function renderDaySummary(day: RoadmapDayExercise) {
   const exercises = day.exercises ?? []
@@ -42,6 +42,9 @@ export function ProgramDetail() {
   const navigate = useNavigate()
   const { showSuccess, showError } = useSnackbar()
   const [program, setProgram] = useState<ProgramWithCycle | null>(null)
+  const [currentProgramName, setCurrentProgramName] = useState<string | null>(
+    null
+  )
   const [loading, setLoading] = useState(true)
   const [enrollLoading, setEnrollLoading] = useState(false)
   const [enrollWarning, setEnrollWarning] = useState<string | null>(null)
@@ -74,13 +77,18 @@ export function ProgramDetail() {
               return
             }
             setProgram(programData)
+            setCurrentProgramName(
+              current?.program?.name ?? (null as string | null)
+            )
           } else {
             setProgram(null)
+            setCurrentProgramName(null)
           }
         })
         .catch(() => {
           if (!cancelled.current) {
             setProgram(null)
+            setCurrentProgramName(null)
             showError('Failed to load program.')
           }
         })
@@ -261,11 +269,20 @@ export function ProgramDetail() {
           <Text variant="default" className="font-semibold mb-2">
             Review roadmap & timeline
           </Text>
-          <Text variant="secondary" className="mb-4">
-            You are about to enroll in <strong>{program.name}</strong>. This
-            will set it as your active program. Review your roadmap and timeline
-            below, then confirm to proceed.
-          </Text>
+          {currentProgramName ? (
+            <Text variant="secondary" className="mb-4">
+              You are about to <strong>switch programs</strong> from{' '}
+              <strong>{currentProgramName}</strong> to{' '}
+              <strong>{program.name}</strong>. This will replace your current
+              program. No change is made until you confirm.
+            </Text>
+          ) : (
+            <Text variant="secondary" className="mb-4">
+              You are about to enroll in <strong>{program.name}</strong>. This
+              will set it as your active program. Review your roadmap and
+              timeline below, then confirm to proceed.
+            </Text>
+          )}
           {roadmapLoading && (
             <div className="flex items-center gap-2 py-6">
               <Spinner size="small" variant="primary" />

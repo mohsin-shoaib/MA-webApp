@@ -24,6 +24,7 @@ export function Sidebar() {
   const location = useLocation()
 
   // Define navigation items based on roles
+  // PRD 7: App Layout — Dashboard (Tab 1), Train (Tab 2), Progress (Tab 3), Coach (Tab 4), Market (Tab 5)
   const navItems: NavItem[] = [
     {
       path: '/dashboard',
@@ -32,15 +33,39 @@ export function Sidebar() {
       roles: ['ATHLETE'],
     },
     {
-      path: '/profile',
-      label: 'Profile',
-      icon: 'user',
-    },
-    {
       path: '/train',
       label: 'Train',
       icon: 'dumbbell',
       roles: ['ATHLETE'],
+    },
+    {
+      path: '/progress',
+      label: 'Progress',
+      icon: 'chart-line',
+      roles: ['ATHLETE'],
+    },
+    {
+      path: '/coach',
+      label: 'Coach',
+      icon: 'comments',
+      roles: ['ATHLETE'],
+    },
+    {
+      path: '/market',
+      label: 'Market',
+      icon: 'store',
+      roles: ['ATHLETE'],
+    },
+    {
+      path: '/goals',
+      label: 'Goals',
+      icon: 'bullseye',
+      roles: ['ATHLETE'],
+    },
+    {
+      path: '/profile',
+      label: 'Profile',
+      icon: 'user',
     },
     {
       path: '/create_program',
@@ -52,6 +77,12 @@ export function Sidebar() {
       path: '/coach/user-management',
       label: 'Athlete Management',
       icon: 'users',
+      roles: ['COACH'],
+    },
+    {
+      path: '/coach/analytics',
+      label: 'Analytics',
+      icon: 'chart-line',
       roles: ['COACH'],
     },
     {
@@ -70,6 +101,42 @@ export function Sidebar() {
       path: '/admin/program-management',
       label: 'Manage Program',
       icon: 'clipboard-list',
+      roles: ['ADMIN'],
+    },
+    {
+      path: '/admin/exercises',
+      label: 'Exercise Library',
+      icon: 'dumbbell',
+      roles: ['ADMIN'],
+    },
+    {
+      path: '/admin/announcements',
+      label: 'Announcements',
+      icon: 'bullhorn',
+      roles: ['ADMIN'],
+    },
+    {
+      path: '/admin/curriculum',
+      label: '90 Unchained',
+      icon: 'book',
+      roles: ['ADMIN'],
+    },
+    {
+      path: '/admin/recovery-protocols',
+      label: 'Recovery protocols',
+      icon: 'spa',
+      roles: ['ADMIN', 'COACH'],
+    },
+    {
+      path: '/admin/tests',
+      label: 'Tests',
+      icon: 'clipboard-check',
+      roles: ['ADMIN'],
+    },
+    {
+      path: '/admin/analytics',
+      label: 'Analytics',
+      icon: 'chart-line',
       roles: ['ADMIN'],
     },
     {

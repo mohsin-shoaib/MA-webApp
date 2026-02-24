@@ -3,6 +3,10 @@ import { authService } from '@/api/auth.service'
 import { userService } from '@/api/user.service'
 import { AuthContext, type AuthContextValue } from './AuthContext'
 import { normalizeProfilePicture } from '@/utils/profilePicture'
+import {
+  registerFcmTokenIfNeeded,
+  unregisterFcmToken,
+} from '@/lib/fcm-registration'
 
 interface User {
   id: string
@@ -105,6 +109,10 @@ export function AuthProvider({
         // Update localStorage and state
         localStorage.setItem('user', JSON.stringify(completeUser))
         setUser(completeUser)
+        // PRD 16 — Register FCM token for push (athletes only)
+        if (profileUser.role === 'ATHLETE') {
+          registerFcmTokenIfNeeded().catch(() => {})
+        }
       } catch (error) {
         console.error('Failed to fetch user profile:', error)
         // Keep existing user data if fetch fails
@@ -124,11 +132,12 @@ export function AuthProvider({
   }, [])
 
   const logout = useCallback(() => {
-    authService.logout()
-    localStorage.removeItem('user')
-    setUser(null)
-    // Redirect will be handled by axios interceptor or component
-    globalThis.location.href = '/login'
+    unregisterFcmToken().finally(() => {
+      authService.logout()
+      localStorage.removeItem('user')
+      setUser(null)
+      globalThis.location.href = '/login'
+    })
   }, [])
 
   const checkAuth = useCallback(() => {

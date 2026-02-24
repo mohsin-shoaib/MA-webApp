@@ -8,6 +8,7 @@ import { trainService } from '@/api/train.service'
 import type { ExerciseDTO, AlternateExerciseDTO } from '@/types/program'
 import type { AxiosError } from 'axios'
 import { useSnackbar } from '@/components/Snackbar/useSnackbar'
+import { WorkoutTimer } from '@/components/WorkoutTimer'
 
 type TodayWorkoutData = {
   date: string
@@ -340,6 +341,8 @@ export default function TodaySession() {
             </Text>
           </div>
         </Card>
+
+        <WorkoutTimer />
 
         {isRestDay ? (
           <Card className="p-0">

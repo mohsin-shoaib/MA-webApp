@@ -28,4 +28,10 @@ export const roadmapService = {
    */
   getRoadmapByUserId: (userId: number) =>
     api.get<RoadmapResponseV2>(`athlete/roadmap/find-by-id/${userId}`),
+
+  /**
+   * Regenerate roadmap from current onboarding (PRD 6.5.4)
+   */
+  regenerateRoadmap: () =>
+    api.post<RoadmapResponseV2>('athlete/roadmap/regenerate'),
 }

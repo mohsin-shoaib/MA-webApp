@@ -77,17 +77,20 @@ export const dashboardService = {
         : null
 
     let cycleName: string | null = today?.currentCycle ?? null
-    if (
-      !cycleName &&
-      roadmapRes?.data?.statusCode === 200 &&
-      roadmapRes.data.data
-    ) {
+    let eventDate: string | undefined
+    let timelinePriorityWarning = false
+    if (roadmapRes?.data?.statusCode === 200 && roadmapRes.data.data) {
       const r = roadmapRes.data.data as {
         currentCycle?: string
         cycles?: { cycleName: string; isActive: boolean }[]
+        eventDate?: string
+        timelinePriorityWarning?: boolean
       }
-      cycleName =
-        r.currentCycle ?? r.cycles?.find(c => c.isActive)?.cycleName ?? null
+      if (!cycleName)
+        cycleName =
+          r.currentCycle ?? r.cycles?.find(c => c.isActive)?.cycleName ?? null
+      eventDate = r.eventDate
+      timelinePriorityWarning = !!r.timelinePriorityWarning
     }
 
     return {
@@ -97,6 +100,8 @@ export const dashboardService = {
       streak: 0,
       compliance: null,
       alerts: [],
+      eventDate,
+      timelinePriorityWarning,
     }
   },
 

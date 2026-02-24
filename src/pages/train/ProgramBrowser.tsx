@@ -8,23 +8,40 @@ import { programService } from '@/api/program.service'
 import { CYCLE_NAME_TO_ID } from '@/constants/onboarding'
 import type { Program } from '@/types/program'
 
-const CYCLE_NAMES = ['Red', 'Amber', 'Green'] as const
+const CYCLE_NAMES = ['Red', 'Amber', 'Green', 'Sustainment'] as const
+
+function getEmptyCycleMessage(cycleName: string): string {
+  if (cycleName === 'Amber') return 'Amber program will be added later.'
+  if (cycleName === 'Sustainment')
+    return 'No sustainment programs available yet.'
+  return 'No programs in this cycle.'
+}
+
+const INITIAL_PROGRAMS: Record<string, Program[]> = {
+  Red: [],
+  Amber: [],
+  Green: [],
+  Sustainment: [],
+}
+const INITIAL_LOADING: Record<string, boolean> = {
+  Red: false,
+  Amber: false,
+  Green: false,
+  Sustainment: false,
+}
 
 export function ProgramBrowser() {
   const navigate = useNavigate()
   const [currentProgramId, setCurrentProgramId] = useState<number | null>(null)
-  const [programsByCycle, setProgramsByCycle] = useState<
-    Record<string, Program[]>
-  >({
-    Red: [],
-    Amber: [],
-    Green: [],
-  })
-  const [loadingCycles, setLoadingCycles] = useState<Record<string, boolean>>({
-    Red: false,
-    Amber: false,
-    Green: false,
-  })
+  const [programsByCycle, setProgramsByCycle] =
+    useState<Record<string, Program[]>>(INITIAL_PROGRAMS)
+  const [loadingCycles, setLoadingCycles] =
+    useState<Record<string, boolean>>(INITIAL_LOADING)
+  const [recommended, setRecommended] = useState<{
+    program: Program | null
+    reason: string | null
+  }>({ program: null, reason: null })
+  const [recommendedLoading, setRecommendedLoading] = useState(true)
 
   useEffect(() => {
     programService
@@ -60,6 +77,23 @@ export function ProgramBrowser() {
     CYCLE_NAMES.forEach(cycleName => fetchCyclePrograms(cycleName))
   }, [fetchCyclePrograms])
 
+  useEffect(() => {
+    programService
+      .getRecommendedNext()
+      .then(res => {
+        if (res.data.statusCode === 200 && res.data.data) {
+          setRecommended({
+            program: res.data.data.program ?? null,
+            reason: res.data.data.reason ?? null,
+          })
+        } else {
+          setRecommended({ program: null, reason: null })
+        }
+      })
+      .catch(() => setRecommended({ program: null, reason: null }))
+      .finally(() => setRecommendedLoading(false))
+  }, [])
+
   const handleViewProgram = (programId: number) => {
     navigate(`/train/programs/${programId}`)
   }
@@ -68,6 +102,7 @@ export function ProgramBrowser() {
     Red: 'bg-red-50 text-red-800 border-red-200',
     Amber: 'bg-amber-50 text-amber-800 border-amber-200',
     Green: 'bg-emerald-50 text-emerald-800 border-emerald-200',
+    Sustainment: 'bg-slate-50 text-slate-800 border-slate-200',
   }
 
   return (
@@ -91,10 +126,67 @@ export function ProgramBrowser() {
             Browse by Readiness Cycle
           </Text>
           <Text variant="secondary" className="text-sm leading-relaxed">
-            Programs are grouped by Red, Amber, and Green cycles based on your
-            readiness. Open a program to view its structure and enroll.
+            Programs are grouped by Readiness Cycle (Red, Amber, Green,
+            Sustainment). Each shows focus areas and goals. Open a program to
+            view its structure and enroll.
           </Text>
         </div>
+
+        {recommendedLoading && (
+          <div className="flex gap-2 py-4 mb-6">
+            <Spinner size="small" variant="primary" />
+            <Text variant="secondary">Checking recommended program...</Text>
+          </div>
+        )}
+        {!recommendedLoading && recommended.program && (
+          <section className="pb-8 mb-8 border-b border-gray-200">
+            <Text variant="default" className="font-semibold mb-2 block">
+              Recommended for you
+            </Text>
+            <Text variant="secondary" className="text-sm mb-4">
+              {recommended.reason ?? 'Based on your timeline and goals.'} You
+              can enroll below; nothing is auto-assigned.
+            </Text>
+            <Card className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div className="min-w-0 flex-1">
+                <Text variant="default" className="font-medium">
+                  {recommended.program.name}
+                </Text>
+                {recommended.program.description && (
+                  <Text
+                    variant="secondary"
+                    className="text-sm mt-1.5 line-clamp-2 leading-relaxed"
+                  >
+                    {recommended.program.description}
+                  </Text>
+                )}
+                {recommended.program.subCategory && (
+                  <Text
+                    variant="secondary"
+                    className="text-xs mt-1.5 text-gray-600"
+                  >
+                    Focus: {recommended.program.subCategory}
+                  </Text>
+                )}
+              </div>
+              <div className="flex pt-2 gap-2 shrink-0 items-center mt-4 sm:mt-0 sm:pl-4">
+                {currentProgramId === recommended.program.id ? (
+                  <Text variant="secondary" className="text-sm font-medium">
+                    Current program
+                  </Text>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="primary"
+                    onClick={() => handleViewProgram(recommended.program!.id)}
+                  >
+                    View & Enroll
+                  </Button>
+                )}
+              </div>
+            </Card>
+          </section>
+        )}
 
         {CYCLE_NAMES.map((cycleName, index) => {
           const programs = programsByCycle[cycleName] ?? []
@@ -126,9 +218,7 @@ export function ProgramBrowser() {
               )}
               {!loading && programs.length === 0 && (
                 <Text variant="secondary" className="text-sm py-2">
-                  {cycleName === 'Amber'
-                    ? 'Amber program will be added later.'
-                    : 'No programs in this cycle.'}
+                  {getEmptyCycleMessage(cycleName)}
                 </Text>
               )}
               {!loading && programs.length > 0 && (
@@ -148,6 +238,14 @@ export function ProgramBrowser() {
                             className="text-sm mt-1.5 line-clamp-2 leading-relaxed"
                           >
                             {program.description}
+                          </Text>
+                        )}
+                        {program.subCategory && (
+                          <Text
+                            variant="secondary"
+                            className="text-xs mt-1.5 text-gray-600"
+                          >
+                            Focus: {program.subCategory}
                           </Text>
                         )}
                         <span

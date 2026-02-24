@@ -8,6 +8,7 @@ import { DataTable, type Column } from '@/components/DataTable'
 import { Modal } from '@/components/Modal'
 import { Tooltip } from '@/components/Tooltip'
 import { ProgramForm } from '@/components/Program/ProgramForm'
+import { ProgramBuilderForm } from '@/components/Program/ProgramBuilderForm'
 import { adminService } from '@/api/admin.service'
 import { programService } from '@/api/program.service'
 import { useSnackbar } from '@/components/Snackbar/useSnackbar'
@@ -29,6 +30,7 @@ const CyclePrograms = () => {
   const [cycleName, setCycleName] = useState<string>('')
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  const [useProgramBuilder, setUseProgramBuilder] = useState(false)
   const [editingProgram, setEditingProgram] = useState<Program | null>(null)
   const { showError, showSuccess } = useSnackbar()
 
@@ -254,11 +256,35 @@ const CyclePrograms = () => {
             showCloseButton={true}
           >
             <div className="p-6">
-              <ProgramForm
-                initialCycleId={cycleId ? Number(cycleId) : undefined}
-                onSuccess={handleFormSuccess}
-                onCancel={handleCloseModal}
-              />
+              <div className="flex gap-2 mb-4">
+                <Button
+                  variant={!useProgramBuilder ? 'primary' : 'secondary'}
+                  size="small"
+                  onClick={() => setUseProgramBuilder(false)}
+                >
+                  Legacy builder (daily exercises)
+                </Button>
+                <Button
+                  variant={useProgramBuilder ? 'primary' : 'secondary'}
+                  size="small"
+                  onClick={() => setUseProgramBuilder(true)}
+                >
+                  Program builder (weeks → days → sections → exercises)
+                </Button>
+              </div>
+              {useProgramBuilder ? (
+                <ProgramBuilderForm
+                  initialCycleId={cycleId ? Number(cycleId) : undefined}
+                  onSuccess={handleFormSuccess}
+                  onCancel={handleCloseModal}
+                />
+              ) : (
+                <ProgramForm
+                  initialCycleId={cycleId ? Number(cycleId) : undefined}
+                  onSuccess={handleFormSuccess}
+                  onCancel={handleCloseModal}
+                />
+              )}
             </div>
           </Modal>
         )}
@@ -273,12 +299,21 @@ const CyclePrograms = () => {
             showCloseButton={true}
           >
             <div className="p-6">
-              <ProgramForm
-                initialCycleId={cycleId ? Number(cycleId) : undefined}
-                program={editingProgram}
-                onSuccess={handleFormSuccess}
-                onCancel={handleCloseEditModal}
-              />
+              {editingProgram.programStructure?.weeks?.length ? (
+                <ProgramBuilderForm
+                  initialCycleId={cycleId ? Number(cycleId) : undefined}
+                  program={editingProgram}
+                  onSuccess={handleFormSuccess}
+                  onCancel={handleCloseEditModal}
+                />
+              ) : (
+                <ProgramForm
+                  initialCycleId={cycleId ? Number(cycleId) : undefined}
+                  program={editingProgram}
+                  onSuccess={handleFormSuccess}
+                  onCancel={handleCloseEditModal}
+                />
+              )}
             </div>
           </Modal>
         )}

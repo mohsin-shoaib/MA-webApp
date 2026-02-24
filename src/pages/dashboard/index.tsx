@@ -84,6 +84,8 @@ export default function DashboardPage() {
   const [programTotalWeeks, setProgramTotalWeeks] = useState<number | null>(
     null
   )
+  const [timelinePriorityWarning, setTimelinePriorityWarning] = useState(false)
+  const [weekStripExpanded, setWeekStripExpanded] = useState(true)
 
   const loadDashboard = useCallback(() => {
     dashboardService
@@ -125,11 +127,13 @@ export default function DashboardPage() {
           setTrimmedToEvent(!!data.trimmedToEvent)
           setProgramWeeksUsed(data.programWeeksUsed ?? null)
           setProgramTotalWeeks(data.programTotalWeeks ?? null)
+          setTimelinePriorityWarning(!!data.timelinePriorityWarning)
         } else {
           setEventDate(null)
           setWeeksToEvent(null)
           setTrimmedToEvent(false)
           setProgramWeeksUsed(null)
+          setTimelinePriorityWarning(false)
           setProgramTotalWeeks(null)
         }
       })
@@ -188,6 +192,7 @@ export default function DashboardPage() {
           setProgramWeeksUsed(roadmap.programWeeksUsed)
         if (roadmap.programTotalWeeks != null)
           setProgramTotalWeeks(roadmap.programTotalWeeks)
+        if (roadmap.timelinePriorityWarning) setTimelinePriorityWarning(true)
       })
       .catch(() => {})
     return () => {
@@ -297,6 +302,18 @@ export default function DashboardPage() {
         </div>
       )}
 
+      {timelinePriorityWarning && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          <Text variant="default" className="font-medium">
+            Timeline priority
+          </Text>
+          <Text variant="secondary" className="mt-0.5 block">
+            Your plan was adjusted to match your event date. If you have more
+            time, consider a longer build for better performance.
+          </Text>
+        </div>
+      )}
+
       {error && (
         <div className="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-lg">
           <Text variant="default">{error}</Text>
@@ -398,6 +415,14 @@ export default function DashboardPage() {
                   type="button"
                   variant="outline"
                   size="small"
+                  onClick={() => setWeekStripExpanded(!weekStripExpanded)}
+                >
+                  {weekStripExpanded ? 'Collapse' : 'Expand'}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="small"
                   onClick={() => {
                     const d = new Date(weekStart + 'T12:00:00Z')
                     d.setDate(d.getDate() - 7)
@@ -420,26 +445,28 @@ export default function DashboardPage() {
                 </Button>
               </div>
             </div>
-            <div className="grid grid-cols-7 gap-2">
-              {weekEvents.map(ev => (
-                <button
-                  key={ev.date}
-                  type="button"
-                  onClick={() => setSelectedEvent(ev)}
-                  className={[
-                    'flex flex-col items-center justify-center p-3 rounded-lg border text-sm transition',
-                    isToday(ev.date)
-                      ? 'border-primary bg-primary/5 ring-1 ring-primary/20'
-                      : 'border-gray-200 hover:bg-gray-50',
-                  ].join(' ')}
-                >
-                  <span className="text-gray-600 font-medium">
-                    {formatDayLabel(ev.date)}
-                  </span>
-                  <span className={getWeekDayIndicatorClass(ev)} />
-                </button>
-              ))}
-            </div>
+            {weekStripExpanded && (
+              <div className="grid grid-cols-7 gap-2">
+                {weekEvents.map(ev => (
+                  <button
+                    key={ev.date}
+                    type="button"
+                    onClick={() => setSelectedEvent(ev)}
+                    className={[
+                      'flex flex-col items-center justify-center p-3 rounded-lg border text-sm transition',
+                      isToday(ev.date)
+                        ? 'border-primary bg-primary/5 ring-1 ring-primary/20'
+                        : 'border-gray-200 hover:bg-gray-50',
+                    ].join(' ')}
+                  >
+                    <span className="text-gray-600 font-medium">
+                      {formatDayLabel(ev.date)}
+                    </span>
+                    <span className={getWeekDayIndicatorClass(ev)} />
+                  </button>
+                ))}
+              </div>
+            )}
           </Card>
         </>
       )}

@@ -31,6 +31,8 @@ export interface DashboardSummary {
   programWeeksUsed?: number
   /** Total program weeks (e.g. 12) when trimmed */
   programTotalWeeks?: number
+  /** PRD 4.7.1: true when timeline was prioritized; show performance warning */
+  timelinePriorityWarning?: boolean
   /** When onboarding is in progress: step to resume (2, 3, or 4). Frontend shows this step. */
   onboardingResumeStep?: 2 | 3 | 4
   /** When onboarding is in progress: saved state to restore for steps 2/3/4 */

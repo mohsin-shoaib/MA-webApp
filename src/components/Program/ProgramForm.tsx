@@ -325,7 +325,7 @@ export function ProgramForm({
   // Add exercise to a daily exercise
   const addExercise = useCallback(
     (dailyExerciseIndex: number) => {
-      const current = watch('dailyExercises')
+      const current = watch('dailyExercises') ?? []
       const updated = [...current]
       updated[dailyExerciseIndex].exercises.push({
         exercise_id: generateExerciseId(),
@@ -345,7 +345,7 @@ export function ProgramForm({
   // Remove exercise from daily exercise
   const removeExercise = useCallback(
     (dailyExerciseIndex: number, exerciseIndex: number) => {
-      const current = watch('dailyExercises')
+      const current = watch('dailyExercises') ?? []
       const updated = [...current]
       updated[dailyExerciseIndex].exercises.splice(exerciseIndex, 1)
       setValue('dailyExercises', updated)
@@ -356,7 +356,7 @@ export function ProgramForm({
   // Add alternate exercise
   const addAlternateExercise = useCallback(
     (dailyExerciseIndex: number, exerciseIndex: number) => {
-      const current = watch('dailyExercises')
+      const current = watch('dailyExercises') ?? []
       const updated = [...current]
       if (
         !updated[dailyExerciseIndex].exercises[exerciseIndex].alternate_exercise
@@ -380,7 +380,7 @@ export function ProgramForm({
   // Remove alternate exercise
   const removeAlternateExercise = useCallback(
     (dailyExerciseIndex: number, exerciseIndex: number) => {
-      const current = watch('dailyExercises')
+      const current = watch('dailyExercises') ?? []
       const updated = [...current]
       updated[dailyExerciseIndex].exercises[exerciseIndex].alternate_exercise =
         null
@@ -414,7 +414,7 @@ export function ProgramForm({
           throw new Error('No video URL returned from upload')
         }
 
-        const current = watch('dailyExercises')
+        const current = watch('dailyExercises') ?? []
         const updated = [...current]
 
         if (isAlternate) {
@@ -699,7 +699,7 @@ export function ProgramForm({
           {fields.map((field, dailyExerciseIndex) => (
             <DailyExerciseCard
               key={field.id}
-              dailyExercise={dailyExercises[dailyExerciseIndex]}
+              dailyExercise={(dailyExercises ?? [])[dailyExerciseIndex]}
               dailyExerciseIndex={dailyExerciseIndex}
               dayInputType={dayInputType}
               register={register}
