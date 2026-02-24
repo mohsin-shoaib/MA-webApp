@@ -1,5 +1,9 @@
 import api from './axios'
-import type { GetAthletesResponse, GetCoachesResponse } from '@/types/coach'
+import type {
+  GetAthletesResponse,
+  GetCoachesResponse,
+  GetMyAthletesResponse,
+} from '@/types/coach'
 
 export const coachService = {
   /**
@@ -39,4 +43,7 @@ export const coachService = {
         ...(params?.search && { search: params.search }),
       },
     }),
+
+  /** Coach's 1:1 assigned athletes (for marketplace assign, etc.). GET coach/my-athletes */
+  getMyAthletes: () => api.get<GetMyAthletesResponse>('coach/my-athletes'),
 }

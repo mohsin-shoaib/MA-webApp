@@ -26,6 +26,7 @@ export const ParentType = {
   USERS: 'users',
   PROGRAMS: 'programs',
   EXERCISES: 'exercises',
+  MARKETPLACE: 'marketplace',
 } as const
 
 /**

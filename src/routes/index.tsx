@@ -13,6 +13,7 @@ import CyclePrograms from '@/pages/admin/program-management/cycle-programs'
 import AdminAnnouncements from '@/pages/admin/announcements'
 import AdminCurriculum from '@/pages/admin/curriculum'
 import AdminRecoveryProtocols from '@/pages/admin/recovery-protocols'
+import AdminMarketplace from '@/pages/admin/marketplace'
 import AdminTests from '@/pages/admin/tests'
 import AdminExercises from '@/pages/admin/exercises'
 import CoachHeadUserManagement from '@/pages/coach-head/user-management'
@@ -32,6 +33,7 @@ import Progress from '@/pages/progress'
 import TestsPage from '@/pages/progress/TestsPage'
 import AnalyticsPage from '@/pages/progress/AnalyticsPage'
 import CoachAnalyticsPage from '@/pages/coach/CoachAnalyticsPage.tsx'
+import CoachMarketplace from '@/pages/coach/marketplace'
 import AdminAnalyticsPage from '@/pages/admin/AdminAnalyticsPage.tsx'
 import Coach from '@/pages/coach'
 import Market from '@/pages/market'
@@ -133,6 +135,16 @@ export const routes = [
     ),
   },
   {
+    path: '/coach/marketplace',
+    element: (
+      <ProtectedRoute allowedRoles={['COACH']}>
+        <AppLayout>
+          <CoachMarketplace />
+        </AppLayout>
+      </ProtectedRoute>
+    ),
+  },
+  {
     path: '/admin/user-management',
     element: (
       <ProtectedRoute allowedRoles={['ADMIN']}>
@@ -178,6 +190,16 @@ export const routes = [
       <ProtectedRoute allowedRoles={['ADMIN']}>
         <AppLayout>
           <AdminCurriculum />
+        </AppLayout>
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/admin/marketplace',
+    element: (
+      <ProtectedRoute allowedRoles={['ADMIN']}>
+        <AppLayout>
+          <AdminMarketplace />
         </AppLayout>
       </ProtectedRoute>
     ),

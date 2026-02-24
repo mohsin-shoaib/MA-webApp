@@ -86,6 +86,12 @@ export function Sidebar() {
       roles: ['COACH'],
     },
     {
+      path: '/coach/marketplace',
+      label: 'Marketplace',
+      icon: 'store',
+      roles: ['COACH'],
+    },
+    {
       path: '/admin/user-management',
       label: 'User Management',
       icon: 'users',
@@ -119,6 +125,12 @@ export function Sidebar() {
       path: '/admin/curriculum',
       label: '90 Unchained',
       icon: 'book',
+      roles: ['ADMIN'],
+    },
+    {
+      path: '/admin/marketplace',
+      label: 'Marketplace',
+      icon: 'store',
       roles: ['ADMIN'],
     },
     {
