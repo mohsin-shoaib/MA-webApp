@@ -11,6 +11,16 @@ export const marketplaceService = {
   /** Published catalog for browse. Response: data.data.items */
   catalog: () =>
     api.get<CatalogMarketplaceResponse>('athlete/marketplace/catalog'),
+
+  /**
+   * Get presigned URL for an item's file (view or download).
+   * Use for View (open in new tab) or Download (attachment).
+   */
+  getFileUrl: (itemId: number, download?: boolean) =>
+    api.get<{ statusCode: number; data: { url: string } }>(
+      `athlete/marketplace/items/${itemId}/file-url`,
+      { params: download ? { download: 'true' } : {} }
+    ),
 }
 
 export type {
