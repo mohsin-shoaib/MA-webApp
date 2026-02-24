@@ -30,7 +30,6 @@ const CyclePrograms = () => {
   const [cycleName, setCycleName] = useState<string>('')
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
-  const [useProgramBuilder, setUseProgramBuilder] = useState(false)
   const [editingProgram, setEditingProgram] = useState<Program | null>(null)
   const { showError, showSuccess } = useSnackbar()
 
@@ -256,35 +255,11 @@ const CyclePrograms = () => {
             showCloseButton={true}
           >
             <div className="p-6">
-              <div className="flex gap-2 mb-4">
-                <Button
-                  variant={!useProgramBuilder ? 'primary' : 'secondary'}
-                  size="small"
-                  onClick={() => setUseProgramBuilder(false)}
-                >
-                  Legacy builder (daily exercises)
-                </Button>
-                <Button
-                  variant={useProgramBuilder ? 'primary' : 'secondary'}
-                  size="small"
-                  onClick={() => setUseProgramBuilder(true)}
-                >
-                  Program builder (weeks → days → sections → exercises)
-                </Button>
-              </div>
-              {useProgramBuilder ? (
-                <ProgramBuilderForm
-                  initialCycleId={cycleId ? Number(cycleId) : undefined}
-                  onSuccess={handleFormSuccess}
-                  onCancel={handleCloseModal}
-                />
-              ) : (
-                <ProgramForm
-                  initialCycleId={cycleId ? Number(cycleId) : undefined}
-                  onSuccess={handleFormSuccess}
-                  onCancel={handleCloseModal}
-                />
-              )}
+              <ProgramBuilderForm
+                initialCycleId={cycleId ? Number(cycleId) : undefined}
+                onSuccess={handleFormSuccess}
+                onCancel={handleCloseModal}
+              />
             </div>
           </Modal>
         )}

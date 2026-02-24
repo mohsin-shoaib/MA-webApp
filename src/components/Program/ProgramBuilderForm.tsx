@@ -3,6 +3,7 @@ import { Text } from '@/components/Text'
 import { Button } from '@/components/Button'
 import { Input } from '@/components/Input'
 import { Dropdown } from '@/components/Dropdown'
+import { Icon } from '@/components/Icon'
 import { adminService } from '@/api/admin.service'
 import { goalTypeService } from '@/api/goal-type.service'
 import { programService } from '@/api/program.service'
@@ -14,8 +15,7 @@ import type {
   ProgramStructureSectionExercise,
 } from '@/types/program'
 import type { Cycle } from '@/types/cycle'
-import type { GoalType } from '@/types/goal-type'
-import type { Category } from '@/types/goal-type'
+import type { GoalType, Category } from '@/types/goal-type'
 import type { ExerciseListForBuilderItem } from '@/types/exercise'
 import { AxiosError } from 'axios'
 
@@ -54,7 +54,9 @@ export function ProgramBuilderForm({
   const [exerciseList, setExerciseList] = useState<
     ExerciseListForBuilderItem[]
   >([])
-  const [searchExercise, setSearchExercise] = useState('')
+  const [addExerciseValue, setAddExerciseValue] = useState<
+    Record<string, string>
+  >({})
   const [saving, setSaving] = useState(false)
   const { showError, showSuccess } = useSnackbar()
 
@@ -120,11 +122,6 @@ export function ProgramBuilderForm({
     fetchGoalTypes()
     fetchExercises()
   }, [fetchCycles, fetchGoalTypes, fetchExercises])
-
-  useEffect(() => {
-    const t = setTimeout(() => fetchExercises(searchExercise || undefined), 200)
-    return () => clearTimeout(t)
-  }, [searchExercise, fetchExercises])
 
   const cycle = cycles.find(c => c.id === cycleId)
   const showCategory = cycle?.name === 'Red' || cycle?.name === 'Green'
@@ -331,6 +328,17 @@ export function ProgramBuilderForm({
       showError('Add at least one exercise to the program')
       return
     }
+    const sectionMissingName = structure.weeks.some(w =>
+      w.days.some(
+        d =>
+          !d.isRestDay &&
+          (d.sections ?? []).some(s => !s.name || !String(s.name).trim())
+      )
+    )
+    if (sectionMissingName) {
+      showError('Every section must have a name')
+      return
+    }
     setSaving(true)
     try {
       if (program) {
@@ -446,290 +454,406 @@ export function ProgramBuilderForm({
         </label>
       </div>
 
-      <hr />
+      <hr className="border-gray-200" />
 
-      <div className="flex items-center justify-between">
-        <Text as="h2" variant="primary" className="text-lg font-semibold">
-          Program structure: Weeks → Days → Sections → Exercises
-        </Text>
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <Text as="h2" variant="primary" className="text-lg font-semibold">
+            Program structure
+          </Text>
+          <Text variant="secondary" className="text-sm mt-0.5">
+            Build your program: add weeks → days → sections → then add exercises
+            to each section
+          </Text>
+        </div>
         <Button
           type="button"
           variant="secondary"
           size="small"
           onClick={addWeek}
+          leftIcon={<Icon name="plus" family="solid" size={14} />}
         >
-          + Add week
+          Add week
         </Button>
       </div>
 
       {structure.weeks.map((week, weekIdx) => (
         <div
           key={weekIdx}
-          className="border border-gray-200 rounded-lg p-4 space-y-3"
+          className="rounded-xl border border-gray-200 bg-white overflow-hidden shadow-sm"
         >
-          <div className="flex items-center justify-between">
-            <Text variant="default" className="font-medium">
+          {/* Week header */}
+          <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-200">
+            <Text variant="default" className="font-semibold text-base">
               Week {week.weekIndex}
             </Text>
-            <div className="flex gap-2">
+            <div className="flex items-center gap-2">
               <Button
                 type="button"
-                variant="ghost"
+                variant="secondary"
                 size="small"
                 onClick={() => addDay(weekIdx)}
+                leftIcon={<Icon name="plus" family="solid" size={12} />}
               >
-                + Day
+                Add day
               </Button>
               <Button
                 type="button"
                 variant="ghost"
                 size="small"
                 onClick={() => removeWeek(weekIdx)}
+                className="text-red-600 hover:text-red-700 hover:bg-red-50"
               >
                 Remove week
               </Button>
             </div>
           </div>
-          {week.days.map((day, dayIdx) => (
-            <div
-              key={dayIdx}
-              className="pl-4 border-l-2 border-gray-100 space-y-2"
-            >
-              <div className="flex items-center gap-2 flex-wrap">
-                <input
-                  type="checkbox"
-                  id={`rest-${weekIdx}-${dayIdx}`}
-                  checked={day.isRestDay ?? false}
-                  onChange={e => setRestDay(weekIdx, dayIdx, e.target.checked)}
-                />
-                <label
-                  htmlFor={`rest-${weekIdx}-${dayIdx}`}
-                  className="text-sm"
-                >
-                  Rest day
-                </label>
-                {!(day.isRestDay ?? false) && (
-                  <>
-                    <Input
-                      className="max-w-[140px]"
-                      value={day.dayName ?? ''}
-                      onChange={e => {
-                        const weeks = [...structure.weeks]
-                        const d = {
-                          ...weeks[weekIdx].days[dayIdx],
-                          dayName: e.target.value,
-                        }
-                        weeks[weekIdx].days[dayIdx] = d
-                        setStructure({ weeks })
-                      }}
-                      placeholder="Day name"
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="small"
-                      onClick={() => addSection(weekIdx, dayIdx)}
-                    >
-                      + Section
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="small"
-                      onClick={() => removeDay(weekIdx, dayIdx)}
-                    >
-                      Remove day
-                    </Button>
-                  </>
-                )}
-              </div>
-              {!(day.isRestDay ?? false) &&
-                (day.sections ?? []).map((section, sectionIdx) => (
-                  <div
-                    key={sectionIdx}
-                    className="pl-4 space-y-2 bg-gray-50 rounded p-2"
+
+          <div className="p-4 space-y-4">
+            {week.days.map((day, dayIdx) => (
+              <div
+                key={dayIdx}
+                className="rounded-lg border border-gray-200 bg-gray-50/50 overflow-hidden"
+              >
+                {/* Day header */}
+                <div className="flex items-center gap-3 flex-wrap px-4 py-3 bg-white border-b border-gray-100">
+                  <input
+                    type="checkbox"
+                    id={`rest-${weekIdx}-${dayIdx}`}
+                    checked={day.isRestDay ?? false}
+                    onChange={e =>
+                      setRestDay(weekIdx, dayIdx, e.target.checked)
+                    }
+                    className="rounded border-gray-300"
+                  />
+                  <label
+                    htmlFor={`rest-${weekIdx}-${dayIdx}`}
+                    className="text-sm font-medium text-gray-700"
                   >
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <select
-                        className="rounded border border-gray-300 px-2 py-1 text-sm"
-                        value={section.sectionType ?? 'normal'}
-                        onChange={e => {
-                          const weeks = [...structure.weeks]
-                          const sectionType = e.target
-                            .value as ProgramStructureSection['sectionType']
-                          const s: ProgramStructureSection = {
-                            ...weeks[weekIdx].days[dayIdx].sections![
-                              sectionIdx
-                            ],
-                            sectionType,
-                          }
-                          weeks[weekIdx].days[dayIdx].sections![sectionIdx] = s
-                          setStructure({ weeks })
-                        }}
-                      >
-                        {SECTION_TYPES.map(st => (
-                          <option key={st.value} value={st.value}>
-                            {st.label}
-                          </option>
-                        ))}
-                      </select>
+                    Rest day
+                  </label>
+                  {!(day.isRestDay ?? false) && (
+                    <>
                       <Input
                         className="max-w-[160px]"
-                        value={section.name ?? ''}
+                        value={day.dayName ?? ''}
                         onChange={e => {
                           const weeks = [...structure.weeks]
-                          const s = {
-                            ...weeks[weekIdx].days[dayIdx].sections![
-                              sectionIdx
-                            ],
-                            name: e.target.value,
+                          const d = {
+                            ...weeks[weekIdx].days[dayIdx],
+                            dayName: e.target.value,
                           }
-                          weeks[weekIdx].days[dayIdx].sections![sectionIdx] = s
+                          weeks[weekIdx].days[dayIdx] = d
                           setStructure({ weeks })
                         }}
-                        placeholder="Section name"
+                        placeholder="Day name (e.g. Day 1)"
                       />
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="small"
+                        onClick={() => addSection(weekIdx, dayIdx)}
+                        leftIcon={<Icon name="plus" family="solid" size={12} />}
+                      >
+                        Add section
+                      </Button>
                       <Button
                         type="button"
                         variant="ghost"
                         size="small"
-                        onClick={() =>
-                          removeSection(weekIdx, dayIdx, sectionIdx)
-                        }
+                        onClick={() => removeDay(weekIdx, dayIdx)}
+                        className="ml-auto text-red-600 hover:text-red-700 hover:bg-red-50"
                       >
-                        Remove section
+                        Remove day
                       </Button>
-                    </div>
-                    <div className="flex gap-2 flex-wrap items-center">
-                      <Text variant="secondary" className="text-xs">
-                        Add exercise:
-                      </Text>
-                      <Input
-                        className="max-w-[180px]"
-                        placeholder="Search exercises..."
-                        value={searchExercise}
-                        onChange={e => setSearchExercise(e.target.value)}
-                      />
-                      <div className="flex flex-wrap gap-1">
-                        {exerciseList.slice(0, 8).map(ex => (
-                          <Button
-                            key={ex.id}
-                            type="button"
-                            variant="secondary"
-                            size="small"
-                            onClick={() =>
-                              addExerciseToSection(
-                                weekIdx,
-                                dayIdx,
-                                sectionIdx,
-                                ex
-                              )
-                            }
-                          >
-                            {ex.name}
-                          </Button>
-                        ))}
+                    </>
+                  )}
+                </div>
+
+                {/* Day content: sections */}
+                {!(day.isRestDay ?? false) && (
+                  <div className="p-4 space-y-4">
+                    {(day.sections ?? []).length === 0 ? (
+                      <div className="text-center py-6 rounded-lg border border-dashed border-gray-200 bg-white">
+                        <Text variant="secondary" className="text-sm">
+                          No sections yet. Click &quot;Add section&quot; above
+                          to add a workout section.
+                        </Text>
                       </div>
-                    </div>
-                    {(section.exercises ?? []).map((ex, exIdx) => (
-                      <div
-                        key={exIdx}
-                        className="flex flex-wrap items-center gap-2 text-sm"
-                      >
-                        <span className="font-medium">
-                          {getExerciseName(ex.exerciseId)}
-                        </span>
-                        <Input
-                          type="number"
-                          className="w-16"
-                          placeholder="Sets"
-                          value={ex.sets ?? ''}
-                          onChange={e =>
-                            updateSectionExercise(
-                              weekIdx,
-                              dayIdx,
-                              sectionIdx,
-                              exIdx,
-                              {
-                                sets: e.target.value
-                                  ? Number(e.target.value)
-                                  : undefined,
-                              }
-                            )
-                          }
-                        />
-                        <Input
-                          type="number"
-                          className="w-16"
-                          placeholder="Reps"
-                          value={ex.reps ?? ''}
-                          onChange={e =>
-                            updateSectionExercise(
-                              weekIdx,
-                              dayIdx,
-                              sectionIdx,
-                              exIdx,
-                              {
-                                reps: e.target.value
-                                  ? Number(e.target.value)
-                                  : undefined,
-                              }
-                            )
-                          }
-                        />
-                        <Input
-                          className="w-20"
-                          placeholder="RPE"
-                          value={ex.rpe ?? ''}
-                          onChange={e =>
-                            updateSectionExercise(
-                              weekIdx,
-                              dayIdx,
-                              sectionIdx,
-                              exIdx,
-                              {
-                                rpe: e.target.value
-                                  ? Number(e.target.value)
-                                  : undefined,
-                              }
-                            )
-                          }
-                        />
-                        <Input
-                          className="w-20"
-                          placeholder="Rest"
-                          value={ex.rest ?? ''}
-                          onChange={e =>
-                            updateSectionExercise(
-                              weekIdx,
-                              dayIdx,
-                              sectionIdx,
-                              exIdx,
-                              { rest: e.target.value }
-                            )
-                          }
-                        />
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="small"
-                          onClick={() =>
-                            removeSectionExercise(
-                              weekIdx,
-                              dayIdx,
-                              sectionIdx,
-                              exIdx
-                            )
-                          }
+                    ) : (
+                      (day.sections ?? []).map((section, sectionIdx) => (
+                        <div
+                          key={sectionIdx}
+                          className="rounded-lg border border-gray-200 bg-white p-4 space-y-4"
                         >
-                          ×
-                        </Button>
-                      </div>
-                    ))}
+                          <div className="flex items-start justify-between gap-3 flex-wrap">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <Text
+                                variant="secondary"
+                                className="text-xs font-medium uppercase tracking-wide"
+                              >
+                                Section {sectionIdx + 1}
+                              </Text>
+                              <select
+                                className="rounded-md border border-gray-300 px-2 py-1.5 text-sm bg-white"
+                                value={section.sectionType ?? 'normal'}
+                                onChange={e => {
+                                  const weeks = [...structure.weeks]
+                                  const sectionType = e.target
+                                    .value as ProgramStructureSection['sectionType']
+                                  const s: ProgramStructureSection = {
+                                    ...weeks[weekIdx].days[dayIdx].sections![
+                                      sectionIdx
+                                    ],
+                                    sectionType,
+                                  }
+                                  weeks[weekIdx].days[dayIdx].sections![
+                                    sectionIdx
+                                  ] = s
+                                  setStructure({ weeks })
+                                }}
+                              >
+                                {SECTION_TYPES.map(st => (
+                                  <option key={st.value} value={st.value}>
+                                    {st.label}
+                                  </option>
+                                ))}
+                              </select>
+                              <Input
+                                className="max-w-[180px]"
+                                value={section.name ?? ''}
+                                onChange={e => {
+                                  const weeks = [...structure.weeks]
+                                  const s = {
+                                    ...weeks[weekIdx].days[dayIdx].sections![
+                                      sectionIdx
+                                    ],
+                                    name: e.target.value,
+                                  }
+                                  weeks[weekIdx].days[dayIdx].sections![
+                                    sectionIdx
+                                  ] = s
+                                  setStructure({ weeks })
+                                }}
+                                placeholder="Section name *"
+                              />
+                            </div>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="small"
+                              onClick={() =>
+                                removeSection(weekIdx, dayIdx, sectionIdx)
+                              }
+                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                            >
+                              Remove section
+                            </Button>
+                          </div>
+
+                          {/* Exercises in this section */}
+                          <div className="space-y-3">
+                            <Text
+                              variant="default"
+                              className="text-sm font-medium block"
+                            >
+                              Exercises in this section
+                              {(section.exercises?.length ?? 0) > 0 &&
+                                ` (${section.exercises?.length})`}
+                            </Text>
+
+                            {/* Add exercise - searchable Dropdown */}
+                            <Dropdown
+                              placeholder="Search and select exercise..."
+                              searchable
+                              searchPlaceholder="Search exercises..."
+                              value={
+                                addExerciseValue[
+                                  `${weekIdx}-${dayIdx}-${sectionIdx}`
+                                ] ?? ''
+                              }
+                              onValueChange={v => {
+                                const val = Array.isArray(v)
+                                  ? (v[0] ?? '')
+                                  : (v ?? '')
+                                if (!val) return
+                                const ex = exerciseList.find(
+                                  e => String(e.id) === val
+                                )
+                                if (ex) {
+                                  addExerciseToSection(
+                                    weekIdx,
+                                    dayIdx,
+                                    sectionIdx,
+                                    ex
+                                  )
+                                  setAddExerciseValue(prev => ({
+                                    ...prev,
+                                    [`${weekIdx}-${dayIdx}-${sectionIdx}`]: '',
+                                  }))
+                                }
+                              }}
+                              options={exerciseList.map(ex => ({
+                                value: String(ex.id),
+                                label: ex.name,
+                              }))}
+                              fullWidth={false}
+                              className="max-w-[280px]"
+                            />
+
+                            {/* Listed exercises */}
+                            <div className="flex flex-col gap-4">
+                              {(section.exercises ?? []).map((ex, exIdx) => (
+                                <div
+                                  key={exIdx}
+                                  className="rounded-lg border border-gray-200 bg-gray-50/80 p-3 space-y-2"
+                                >
+                                  <div className="flex items-center justify-between gap-2">
+                                    <Text
+                                      variant="default"
+                                      className="font-medium text-sm"
+                                    >
+                                      {getExerciseName(ex.exerciseId)}
+                                    </Text>
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="small"
+                                      onClick={() =>
+                                        removeSectionExercise(
+                                          weekIdx,
+                                          dayIdx,
+                                          sectionIdx,
+                                          exIdx
+                                        )
+                                      }
+                                      className="text-red-600 hover:text-red-700 hover:bg-red-50 shrink-0"
+                                      aria-label="Remove exercise"
+                                    >
+                                      ×
+                                    </Button>
+                                  </div>
+                                  <div className="flex flex-wrap items-end gap-4">
+                                    <div className="flex flex-col gap-1">
+                                      <label
+                                        htmlFor={`sets-${weekIdx}-${dayIdx}-${sectionIdx}-${exIdx}`}
+                                        className="text-xs font-medium text-gray-600"
+                                      >
+                                        Sets
+                                      </label>
+                                      <Input
+                                        id={`sets-${weekIdx}-${dayIdx}-${sectionIdx}-${exIdx}`}
+                                        type="number"
+                                        className="w-16 text-sm"
+                                        placeholder="—"
+                                        value={ex.sets ?? ''}
+                                        onChange={e =>
+                                          updateSectionExercise(
+                                            weekIdx,
+                                            dayIdx,
+                                            sectionIdx,
+                                            exIdx,
+                                            {
+                                              sets: e.target.value
+                                                ? Number(e.target.value)
+                                                : undefined,
+                                            }
+                                          )
+                                        }
+                                      />
+                                    </div>
+                                    <div className="flex flex-col gap-1">
+                                      <label
+                                        htmlFor={`reps-${weekIdx}-${dayIdx}-${sectionIdx}-${exIdx}`}
+                                        className="text-xs font-medium text-gray-600"
+                                      >
+                                        Reps
+                                      </label>
+                                      <Input
+                                        id={`reps-${weekIdx}-${dayIdx}-${sectionIdx}-${exIdx}`}
+                                        type="number"
+                                        className="w-16 text-sm"
+                                        placeholder="—"
+                                        value={ex.reps ?? ''}
+                                        onChange={e =>
+                                          updateSectionExercise(
+                                            weekIdx,
+                                            dayIdx,
+                                            sectionIdx,
+                                            exIdx,
+                                            {
+                                              reps: e.target.value
+                                                ? Number(e.target.value)
+                                                : undefined,
+                                            }
+                                          )
+                                        }
+                                      />
+                                    </div>
+                                    <div className="flex flex-col gap-1">
+                                      <label
+                                        htmlFor={`rpe-${weekIdx}-${dayIdx}-${sectionIdx}-${exIdx}`}
+                                        className="text-xs font-medium text-gray-600"
+                                      >
+                                        RPE
+                                      </label>
+                                      <Input
+                                        id={`rpe-${weekIdx}-${dayIdx}-${sectionIdx}-${exIdx}`}
+                                        type="number"
+                                        className="w-16 text-sm"
+                                        placeholder="—"
+                                        value={ex.rpe ?? ''}
+                                        onChange={e =>
+                                          updateSectionExercise(
+                                            weekIdx,
+                                            dayIdx,
+                                            sectionIdx,
+                                            exIdx,
+                                            {
+                                              rpe: e.target.value
+                                                ? Number(e.target.value)
+                                                : undefined,
+                                            }
+                                          )
+                                        }
+                                      />
+                                    </div>
+                                    <div className="flex flex-col gap-1">
+                                      <label
+                                        htmlFor={`rest-${weekIdx}-${dayIdx}-${sectionIdx}-${exIdx}`}
+                                        className="text-xs font-medium text-gray-600"
+                                      >
+                                        Rest
+                                      </label>
+                                      <Input
+                                        id={`rest-${weekIdx}-${dayIdx}-${sectionIdx}-${exIdx}`}
+                                        className="w-20 text-sm"
+                                        placeholder="e.g. 60s"
+                                        value={ex.rest ?? ''}
+                                        onChange={e =>
+                                          updateSectionExercise(
+                                            weekIdx,
+                                            dayIdx,
+                                            sectionIdx,
+                                            exIdx,
+                                            { rest: e.target.value }
+                                          )
+                                        }
+                                      />
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    )}
                   </div>
-                ))}
-            </div>
-          ))}
+                )}
+              </div>
+            ))}
+          </div>
         </div>
       ))}
 

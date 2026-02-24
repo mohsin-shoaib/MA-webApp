@@ -44,6 +44,7 @@ export interface GetExercisesQuery {
   q?: string
   muscleGroup?: string
   equipment?: string
+  movementPattern?: string
   isActive?: boolean
 }
 

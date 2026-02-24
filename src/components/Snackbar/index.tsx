@@ -184,7 +184,7 @@ export function Snackbar({
   return (
     <div
       className={cn(
-        'fixed left-0 right-0 z-50',
+        'fixed left-0 right-0 z-[10000]',
         position === 'top' ? 'top-0' : 'bottom-0',
         'flex items-center justify-center',
         'pointer-events-none',
@@ -206,46 +206,43 @@ export function Snackbar({
         role="alert"
         aria-live="polite"
       >
-        <div className="flex flex-row items-center gap-3">
-          {/* Icon */}
-          {iconName && (
-            <Icon
-              name={iconName}
-              family={iconFamily ?? 'solid'}
-              size={20}
-              variant="white"
-              className="shrink-0"
-            />
-          )}
+        <div className="flex flex-row items-center gap-3 w-full">
+          {/* Left: icon + message + action */}
+          <div className="flex flex-1 min-w-0 items-center gap-3">
+            {iconName && (
+              <Icon
+                name={iconName}
+                family={iconFamily ?? 'solid'}
+                size={20}
+                variant="white"
+                className="shrink-0"
+              />
+            )}
+            <Text variant="white" className="text-sm flex-1 min-w-0">
+              {message}
+            </Text>
+            {actionLabel && (
+              <button
+                onClick={handleAction}
+                className={cn(
+                  'px-3 py-1.5 shrink-0',
+                  'text-white text-sm font-semibold',
+                  'bg-white/20 hover:bg-white/30',
+                  'rounded-md',
+                  'transition-colors duration-200'
+                )}
+              >
+                {actionLabel}
+              </button>
+            )}
+          </div>
 
-          {/* Message */}
-          <Text variant="white" className="text-sm flex-1 min-w-0">
-            {message}
-          </Text>
-
-          {/* Action Button */}
-          {actionLabel && (
-            <button
-              onClick={handleAction}
-              className={cn(
-                'ml-2 px-3 py-1.5',
-                'text-white text-sm font-semibold',
-                'bg-white/20 hover:bg-white/30',
-                'rounded-md',
-                'transition-colors duration-200',
-                'shrink-0'
-              )}
-            >
-              {actionLabel}
-            </button>
-          )}
-
-          {/* Close Button */}
+          {/* Close Button – fixed at far right */}
           {showCloseButton && (
             <button
               onClick={handleDismiss}
               className={cn(
-                'shrink-0 w-8 h-8',
+                'shrink-0 w-8 h-8 min-w-[2rem] min-h-[2rem]',
                 'flex items-center justify-center',
                 'rounded-md',
                 'hover:bg-white/20',
@@ -254,7 +251,15 @@ export function Snackbar({
               )}
               aria-label="Close"
             >
-              <Icon name="xmark" family="solid" size={16} variant="white" />
+              <span className="inline-flex shrink-0 items-center justify-center w-[14px] h-[14px] overflow-hidden">
+                <Icon
+                  name="xmark"
+                  family="solid"
+                  size={14}
+                  variant="white"
+                  className="shrink-0 max-w-[14px] max-h-[14px]"
+                />
+              </span>
             </button>
           )}
         </div>

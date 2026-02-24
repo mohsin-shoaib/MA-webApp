@@ -6,6 +6,7 @@ import { Card } from '@/components/Card'
 import { Spinner } from '@/components/Spinner'
 import { Modal } from '@/components/Modal'
 import { Input } from '@/components/Input'
+import { Dropdown } from '@/components/Dropdown'
 import { exerciseService } from '@/api/exercise.service'
 import { useFileUpload } from '@/hooks/useFileUpload'
 import { FileType } from '@/constants/fileTypes'
@@ -52,14 +53,43 @@ const MOVEMENT_PATTERNS = [
   'Other',
 ]
 
+const FILTER_MUSCLE_OPTIONS = [
+  { value: '', label: 'All' },
+  ...MUSCLE_GROUPS.map(g => ({ value: g, label: g })),
+]
+const FILTER_EQUIPMENT_OPTIONS = [
+  { value: '', label: 'All' },
+  ...EQUIPMENT.map(g => ({ value: g, label: g })),
+]
+const FILTER_MOVEMENT_OPTIONS = [
+  { value: '', label: 'All' },
+  ...MOVEMENT_PATTERNS.map(g => ({ value: g, label: g })),
+]
+type FilterStatusValue = 'all' | 'active' | 'inactive'
+const FILTER_STATUS_OPTIONS: { value: FilterStatusValue; label: string }[] = [
+  { value: 'all', label: 'All' },
+  { value: 'active', label: 'Active' },
+  { value: 'inactive', label: 'Inactive' },
+]
+
 export default function AdminExercises() {
   const [list, setList] = useState<Exercise[]>([])
+  const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
   const [createOpen, setCreateOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
   const [editing, setEditing] = useState<Exercise | null>(null)
-  const [deleteId, setDeleteId] = useState<number | null>(null)
   const [saving, setSaving] = useState(false)
+  const [searchQ, setSearchQ] = useState('')
+  const [searchApplied, setSearchApplied] = useState('')
+  const [filterMuscleGroup, setFilterMuscleGroup] = useState('')
+  const [filterEquipment, setFilterEquipment] = useState('')
+  const [filterMovementPattern, setFilterMovementPattern] = useState('')
+  const [filterActive, setFilterActive] = useState<
+    'all' | 'active' | 'inactive'
+  >('all')
+  const [page, setPage] = useState(1)
+  const limit = 100
   const [form, setForm] = useState<CreateExercisePayload & { tagsStr: string }>(
     {
       name: '',
@@ -101,24 +131,89 @@ export default function AdminExercises() {
   const fetchList = useCallback(async () => {
     try {
       setLoading(true)
-      const res = await exerciseService.getAll({ page: 1, limit: 500 })
+      const query: Parameters<typeof exerciseService.getAll>[0] = {
+        page,
+        limit,
+        ...(searchApplied.trim() && { q: searchApplied.trim() }),
+        ...(filterMuscleGroup && { muscleGroup: filterMuscleGroup }),
+        ...(filterEquipment && { equipment: filterEquipment }),
+        ...(filterMovementPattern && {
+          movementPattern: filterMovementPattern,
+        }),
+        ...(filterActive !== 'all' && { isActive: filterActive === 'active' }),
+      }
+      const res = await exerciseService.getAll(query)
       if (res.data?.statusCode === 200 && res.data.data?.rows) {
         setList(res.data.data.rows)
+        setTotal(res.data.data.meta?.total ?? res.data.data.rows.length)
       } else {
         setList([])
+        setTotal(0)
       }
     } catch (e) {
       const err = e as AxiosError<{ message?: string }>
       showError(err.response?.data?.message || 'Failed to load exercises')
       setList([])
+      setTotal(0)
     } finally {
       setLoading(false)
     }
-  }, [showError])
+  }, [
+    showError,
+    page,
+    searchApplied,
+    filterMuscleGroup,
+    filterEquipment,
+    filterMovementPattern,
+    filterActive,
+  ])
 
   useEffect(() => {
     fetchList()
   }, [fetchList])
+
+  // Debounced search: apply searchQ to API after user stops typing
+  useEffect(() => {
+    const t = setTimeout(() => setSearchApplied(searchQ), 400)
+    return () => clearTimeout(t)
+  }, [searchQ])
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setPage(1)
+  }, [
+    searchApplied,
+    filterMuscleGroup,
+    filterEquipment,
+    filterMovementPattern,
+    filterActive,
+  ])
+
+  const clearFilters = () => {
+    setSearchQ('')
+    setSearchApplied('')
+    setFilterMuscleGroup('')
+    setFilterEquipment('')
+    setFilterMovementPattern('')
+    setFilterActive('all')
+    setPage(1)
+  }
+
+  const hasActiveFilters =
+    searchQ.trim() !== '' ||
+    filterMuscleGroup !== '' ||
+    filterEquipment !== '' ||
+    filterMovementPattern !== '' ||
+    filterActive !== 'all'
+
+  let resultCountLabel: string
+  if (loading) {
+    resultCountLabel = 'Loading...'
+  } else if (total === 1) {
+    resultCountLabel = '1 exercise'
+  } else {
+    resultCountLabel = `${total} exercises`
+  }
 
   const openCreate = () => {
     setForm({
@@ -152,24 +247,56 @@ export default function AdminExercises() {
   }
 
   const handleCreate = async () => {
-    if (!form.name.trim()) {
+    const name = form.name.trim()
+    const description = form.description?.trim()
+    const videoUrl = form.videoUrl?.trim()
+    const muscleGroup = form.muscleGroup?.trim()
+    const equipment = form.equipment?.trim()
+    const movementPattern = form.movementPattern?.trim()
+    const tags = form.tagsStr
+      .split(',')
+      .map(t => t.trim())
+      .filter(Boolean)
+
+    if (!name) {
       showError('Name is required')
       return
     }
+    if (!description) {
+      showError('Description is required')
+      return
+    }
+    if (!videoUrl) {
+      showError('Video is required. Please upload a video.')
+      return
+    }
+    if (!muscleGroup) {
+      showError('Muscle group is required')
+      return
+    }
+    if (!equipment) {
+      showError('Equipment is required')
+      return
+    }
+    if (!movementPattern) {
+      showError('Movement pattern is required')
+      return
+    }
+    if (tags.length === 0) {
+      showError('At least one tag is required')
+      return
+    }
+
     setSaving(true)
     try {
-      const tags = form.tagsStr
-        .split(',')
-        .map(t => t.trim())
-        .filter(Boolean)
       await exerciseService.create({
-        name: form.name.trim(),
-        description: form.description?.trim() || undefined,
-        videoUrl: form.videoUrl || undefined,
-        muscleGroup: form.muscleGroup || undefined,
-        equipment: form.equipment || undefined,
-        movementPattern: form.movementPattern || undefined,
-        tags: tags.length ? tags : undefined,
+        name,
+        description,
+        videoUrl,
+        muscleGroup,
+        equipment,
+        movementPattern,
+        tags,
         substitutionIds: form.substitutionIds?.length
           ? form.substitutionIds
           : undefined,
@@ -227,21 +354,14 @@ export default function AdminExercises() {
     }
   }
 
-  const handleDelete = async () => {
-    if (deleteId == null) return
-    setSaving(true)
-    try {
-      await exerciseService.delete(deleteId)
-      showSuccess('Exercise deleted')
-      setDeleteId(null)
-      fetchList()
-    } catch (e) {
-      const err = e as AxiosError<{ message?: string }>
-      showError(err.response?.data?.message || 'Failed to delete')
-    } finally {
-      setSaving(false)
-    }
-  }
+  const isCreateFormValid =
+    form.name.trim() !== '' &&
+    (form.description?.trim() ?? '') !== '' &&
+    (form.videoUrl?.trim() ?? '') !== '' &&
+    (form.muscleGroup?.trim() ?? '') !== '' &&
+    (form.equipment?.trim() ?? '') !== '' &&
+    (form.movementPattern?.trim() ?? '') !== '' &&
+    form.tagsStr.split(',').some(t => t.trim() !== '')
 
   const toggleSubstitution = (id: number) => {
     const ids = form.substitutionIds ?? []
@@ -307,14 +427,6 @@ export default function AdminExercises() {
               >
                 Edit
               </Button>
-              <Button
-                type="button"
-                variant="secondary"
-                size="small"
-                onClick={() => setDeleteId(ex.id)}
-              >
-                Delete
-              </Button>
             </div>
           </li>
         ))}
@@ -336,7 +448,7 @@ export default function AdminExercises() {
       </div>
       <div>
         <Text variant="default" className="text-sm font-medium mb-1 block">
-          Description
+          Description *
         </Text>
         <textarea
           className="w-full min-h-[60px] rounded border border-gray-300 px-3 py-2 text-sm"
@@ -346,8 +458,8 @@ export default function AdminExercises() {
         />
       </div>
       <div>
-        <Text variant="secondary" className="text-sm font-medium mb-1 block">
-          Video Upload
+        <Text variant="default" className="text-sm font-medium mb-1 block">
+          Video Upload *
         </Text>
         <input
           type="file"
@@ -379,14 +491,14 @@ export default function AdminExercises() {
       </div>
       <div>
         <Text variant="default" className="text-sm font-medium mb-1 block">
-          Muscle group
+          Muscle group *
         </Text>
         <select
           className="w-full rounded border border-gray-300 px-3 py-2 text-sm"
           value={form.muscleGroup}
           onChange={e => setForm({ ...form, muscleGroup: e.target.value })}
         >
-          <option value="">—</option>
+          <option value="">— Select —</option>
           {MUSCLE_GROUPS.map(g => (
             <option key={g} value={g}>
               {g}
@@ -396,14 +508,14 @@ export default function AdminExercises() {
       </div>
       <div>
         <Text variant="default" className="text-sm font-medium mb-1 block">
-          Equipment
+          Equipment *
         </Text>
         <select
           className="w-full rounded border border-gray-300 px-3 py-2 text-sm"
           value={form.equipment}
           onChange={e => setForm({ ...form, equipment: e.target.value })}
         >
-          <option value="">—</option>
+          <option value="">— Select —</option>
           {EQUIPMENT.map(g => (
             <option key={g} value={g}>
               {g}
@@ -413,14 +525,14 @@ export default function AdminExercises() {
       </div>
       <div>
         <Text variant="default" className="text-sm font-medium mb-1 block">
-          Movement pattern
+          Movement pattern *
         </Text>
         <select
           className="w-full rounded border border-gray-300 px-3 py-2 text-sm"
           value={form.movementPattern}
           onChange={e => setForm({ ...form, movementPattern: e.target.value })}
         >
-          <option value="">—</option>
+          <option value="">— Select —</option>
           {MOVEMENT_PATTERNS.map(g => (
             <option key={g} value={g}>
               {g}
@@ -430,7 +542,7 @@ export default function AdminExercises() {
       </div>
       <div>
         <Text variant="default" className="text-sm font-medium mb-1 block">
-          Tags (comma-separated)
+          Tags (comma-separated) *
         </Text>
         <Input
           value={form.tagsStr}
@@ -498,6 +610,84 @@ export default function AdminExercises() {
         </Button>
       </div>
 
+      {/* Search and filters */}
+      <div className="mb-4 flex flex-wrap items-end gap-3">
+        <div className="w-40">
+          <label
+            htmlFor="ex-search"
+            className="mb-1 block text-sm font-medium text-gray-700"
+          >
+            Search
+          </label>
+          <Input
+            id="ex-search"
+            type="search"
+            value={searchQ}
+            onChange={e => setSearchQ(e.target.value)}
+            placeholder="Name or description..."
+            className="w-full"
+            size="small"
+          />
+        </div>
+        <div className="w-40">
+          <Dropdown
+            label="Muscle group"
+            placeholder="All"
+            options={FILTER_MUSCLE_OPTIONS}
+            value={filterMuscleGroup}
+            onValueChange={v => setFilterMuscleGroup((v as string) ?? '')}
+            size="small"
+            fullWidth
+          />
+        </div>
+        <div className="w-40">
+          <Dropdown
+            label="Equipment"
+            placeholder="All"
+            options={FILTER_EQUIPMENT_OPTIONS}
+            value={filterEquipment}
+            onValueChange={v => setFilterEquipment((v as string) ?? '')}
+            size="small"
+            fullWidth
+          />
+        </div>
+        <div className="w-40">
+          <Dropdown
+            label="Movement"
+            placeholder="All"
+            options={FILTER_MOVEMENT_OPTIONS}
+            value={filterMovementPattern}
+            onValueChange={v => setFilterMovementPattern((v as string) ?? '')}
+            size="small"
+            fullWidth
+          />
+        </div>
+        <div className="w-32">
+          <Dropdown
+            label="Status"
+            placeholder="All"
+            options={FILTER_STATUS_OPTIONS}
+            value={filterActive}
+            onValueChange={v =>
+              setFilterActive((v as FilterStatusValue) ?? 'all')
+            }
+            size="small"
+            fullWidth
+          />
+        </div>
+        {hasActiveFilters && (
+          <Button
+            type="button"
+            variant="outline"
+            size="small"
+            onClick={clearFilters}
+          >
+            Clear filters
+          </Button>
+        )}
+      </div>
+      <div className="mb-2 text-sm text-gray-600">{resultCountLabel}</div>
+
       <Card className="p-6">{cardContent}</Card>
 
       {createOpen && (
@@ -513,7 +703,7 @@ export default function AdminExercises() {
             onPress: () => {
               void handleCreate()
             },
-            disabled: saving || uploadingVideo,
+            disabled: saving || uploadingVideo || !isCreateFormValid,
           }}
           secondaryAction={{
             label: 'Cancel',
@@ -551,33 +741,6 @@ export default function AdminExercises() {
           }}
         >
           <div className="space-y-4">{formFields}</div>
-        </Modal>
-      )}
-
-      {deleteId != null && (
-        <Modal
-          visible={deleteId != null}
-          onClose={() => setDeleteId(null)}
-          title="Delete exercise?"
-          showCloseButton
-          closeOnBackdropPress
-          closeOnEscape
-          primaryAction={{
-            label: 'Delete',
-            onPress: () => {
-              void handleDelete()
-            },
-            disabled: saving || uploadingVideo,
-          }}
-          secondaryAction={{
-            label: 'Cancel',
-            onPress: () => setDeleteId(null),
-          }}
-        >
-          <Text variant="secondary">
-            This will remove the exercise from the library. Programs that use it
-            may need to be updated.
-          </Text>
         </Modal>
       )}
     </div>

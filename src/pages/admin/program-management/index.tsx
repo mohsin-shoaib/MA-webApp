@@ -90,11 +90,15 @@ const AdminProgramManagement = () => {
       label: 'Duration (weeks)',
       sortable: true,
       align: 'center',
-      render: value => (
-        <Text variant="default" className="text-sm">
-          {(value as number) || 0} weeks
-        </Text>
-      ),
+      render: (value, row) => {
+        const duration = (value as number) || 0
+        const isAmber = row.name === 'Amber' || duration >= 999
+        return (
+          <Text variant="default" className="text-sm">
+            {isAmber ? 'Ongoing' : `${duration} weeks`}
+          </Text>
+        )
+      },
     },
     {
       key: 'createdAt',
