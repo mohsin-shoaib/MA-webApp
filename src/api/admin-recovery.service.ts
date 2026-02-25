@@ -26,7 +26,7 @@ export const adminRecoveryService = {
     name: string
     description?: string
     type: string
-    content?: unknown
+    content?: string
     isPublished?: boolean
   }) => api.post<SingleResponse>('admin/recovery-protocol/create', body),
 
@@ -37,7 +37,7 @@ export const adminRecoveryService = {
       name?: string
       description?: string
       type?: string
-      content?: unknown
+      content?: string
       isPublished?: boolean
     }
   ) => api.patch<SingleResponse>(`admin/recovery-protocol/update/${id}`, body),

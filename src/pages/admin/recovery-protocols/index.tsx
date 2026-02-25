@@ -6,6 +6,7 @@ import { Button } from '@/components/Button'
 import { Spinner } from '@/components/Spinner'
 import { Modal } from '@/components/Modal'
 import { Input } from '@/components/Input'
+import { RichTextEditor } from '@/components/RichTextEditor'
 import { adminRecoveryService } from '@/api/admin-recovery.service'
 import type { RecoveryProtocolWithCreator } from '@/types/recovery'
 import { useSnackbar } from '@/components/Snackbar/useSnackbar'
@@ -72,13 +73,11 @@ export default function AdminRecoveryProtocols() {
 
   const openEdit = (p: RecoveryProtocolWithCreator) => {
     setEditing(p)
-    let contentStr: string
-    if (Array.isArray(p.content)) {
+    let contentStr = ''
+    if (typeof p.content === 'string') {
+      contentStr = p.content
+    } else if (p.content != null) {
       contentStr = JSON.stringify(p.content, null, 2)
-    } else if (typeof p.content === 'object' && p.content !== null) {
-      contentStr = JSON.stringify(p.content, null, 2)
-    } else {
-      contentStr = ''
     }
     setForm({
       name: p.name ?? '',
@@ -97,21 +96,11 @@ export default function AdminRecoveryProtocols() {
     }
     setSaving(true)
     try {
-      let content: unknown = null
-      if (form.content.trim()) {
-        try {
-          content = JSON.parse(form.content)
-        } catch {
-          showError('Content must be valid JSON')
-          setSaving(false)
-          return
-        }
-      }
       await adminRecoveryService.create({
         name: form.name.trim(),
         description: form.description.trim() || undefined,
         type: form.type,
-        content: content ?? undefined,
+        content: form.content.trim() || undefined,
         isPublished: isAdmin ? form.isPublished : false,
       })
       showSuccess('Recovery protocol created')
@@ -129,21 +118,11 @@ export default function AdminRecoveryProtocols() {
     if (!editing || !form.name.trim()) return
     setSaving(true)
     try {
-      let content: unknown = undefined
-      if (form.content.trim()) {
-        try {
-          content = JSON.parse(form.content)
-        } catch {
-          showError('Content must be valid JSON')
-          setSaving(false)
-          return
-        }
-      }
       await adminRecoveryService.update(editing.id, {
         name: form.name.trim(),
         description: form.description.trim() || undefined,
         type: form.type,
-        content,
+        content: form.content.trim() || undefined,
         isPublished: isAdmin ? form.isPublished : undefined,
       })
       showSuccess('Updated')
@@ -244,59 +223,77 @@ export default function AdminRecoveryProtocols() {
           visible={createOpen}
           onClose={() => setCreateOpen(false)}
           title="Create recovery protocol"
+          size="fullscreen"
+          showCloseButton
+          closeOnBackdropPress
+          closeOnEscape
+          primaryAction={{
+            label: saving ? 'Creating...' : 'Create',
+            onPress: () => void handleCreate(),
+            disabled: saving,
+          }}
+          secondaryAction={{
+            label: 'Cancel',
+            onPress: () => setCreateOpen(false),
+          }}
         >
-          <div className="space-y-3">
-            <Input
-              label="Name"
-              value={form.name}
-              onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-              placeholder="e.g. Hip mobility flow"
-            />
-            <Input
-              label="Description"
-              value={form.description}
-              onChange={e =>
-                setForm(f => ({ ...f, description: e.target.value }))
-              }
-              placeholder="Optional"
-            />
-            <div>
-              <label
-                htmlFor="create-protocol-type"
-                className="block text-sm font-medium text-gray-700 mb-1"
+          <div className="p-6 space-y-6 max-w-3xl">
+            <div className="space-y-3">
+              <Text
+                variant="default"
+                className="text-sm font-medium text-gray-700"
               >
-                Type
-              </label>
-              <select
-                id="create-protocol-type"
-                value={form.type}
-                onChange={e => setForm(f => ({ ...f, type: e.target.value }))}
-                className="border border-gray-300 rounded px-3 py-2 w-full"
-              >
-                {TYPES.map(t => (
-                  <option key={t.value} value={t.value}>
-                    {t.label}
-                  </option>
-                ))}
-              </select>
+                Basic info
+              </Text>
+              <Input
+                label="Name"
+                value={form.name}
+                onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                placeholder="e.g. Hip mobility flow"
+              />
+              <Input
+                label="Description"
+                value={form.description}
+                onChange={e =>
+                  setForm(f => ({ ...f, description: e.target.value }))
+                }
+                placeholder="Optional"
+              />
+              <div>
+                <label
+                  htmlFor="create-protocol-type"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
+                  Type
+                </label>
+                <select
+                  id="create-protocol-type"
+                  value={form.type}
+                  onChange={e => setForm(f => ({ ...f, type: e.target.value }))}
+                  className="border border-gray-300 rounded px-3 py-2 w-full"
+                >
+                  {TYPES.map(t => (
+                    <option key={t.value} value={t.value}>
+                      {t.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
-            <div>
+            <div className="space-y-3">
               <label
                 htmlFor="create-protocol-content"
-                className="block text-sm font-medium text-gray-700 mb-1"
+                className="block text-sm font-medium text-gray-700"
               >
-                {
-                  'Content (JSON, e.g. [{"title":"Step 1","body":"Instructions"}])'
-                }
+                Content
               </label>
-              <textarea
+              <RichTextEditor
                 id="create-protocol-content"
                 value={form.content}
-                onChange={e =>
-                  setForm(f => ({ ...f, content: e.target.value }))
-                }
-                className="border border-gray-300 rounded px-3 py-2 w-full h-24 font-mono text-sm"
-                placeholder="[]"
+                onChange={content => setForm(f => ({ ...f, content }))}
+                placeholder="Instructions, steps, or notes (bold, lists, links supported)"
+                minHeight="240px"
+                className="mb-2"
               />
             </div>
             {isAdmin && (
@@ -311,14 +308,6 @@ export default function AdminRecoveryProtocols() {
                 <span className="text-sm">Publish (visible to athletes)</span>
               </label>
             )}
-            <div className="flex gap-2 pt-2">
-              <Button onClick={handleCreate} disabled={saving}>
-                {saving ? 'Creating...' : 'Create'}
-              </Button>
-              <Button variant="secondary" onClick={() => setCreateOpen(false)}>
-                Cancel
-              </Button>
-            </div>
           </div>
         </Modal>
       )}
@@ -331,54 +320,78 @@ export default function AdminRecoveryProtocols() {
             setEditOpen(false)
           }}
           title="Edit recovery protocol"
+          size="fullscreen"
+          showCloseButton
+          closeOnBackdropPress
+          closeOnEscape
+          primaryAction={{
+            label: saving ? 'Saving...' : 'Save',
+            onPress: () => void handleUpdate(),
+            disabled: saving,
+          }}
+          secondaryAction={{
+            label: 'Cancel',
+            onPress: () => {
+              setEditing(null)
+              setEditOpen(false)
+            },
+          }}
         >
-          <div className="space-y-3">
-            <Input
-              label="Name"
-              value={form.name}
-              onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-            />
-            <Input
-              label="Description"
-              value={form.description}
-              onChange={e =>
-                setForm(f => ({ ...f, description: e.target.value }))
-              }
-            />
-            <div>
-              <label
-                htmlFor="edit-protocol-type"
-                className="block text-sm font-medium text-gray-700 mb-1"
+          <div className="p-6 space-y-6 max-w-3xl">
+            <div className="space-y-3">
+              <Text
+                variant="default"
+                className="text-sm font-medium text-gray-700"
               >
-                Type
-              </label>
-              <select
-                id="edit-protocol-type"
-                value={form.type}
-                onChange={e => setForm(f => ({ ...f, type: e.target.value }))}
-                className="border border-gray-300 rounded px-3 py-2 w-full"
-              >
-                {TYPES.map(t => (
-                  <option key={t.value} value={t.value}>
-                    {t.label}
-                  </option>
-                ))}
-              </select>
+                Basic info
+              </Text>
+              <Input
+                label="Name"
+                value={form.name}
+                onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+              />
+              <Input
+                label="Description"
+                value={form.description}
+                onChange={e =>
+                  setForm(f => ({ ...f, description: e.target.value }))
+                }
+              />
+              <div>
+                <label
+                  htmlFor="edit-protocol-type"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
+                  Type
+                </label>
+                <select
+                  id="edit-protocol-type"
+                  value={form.type}
+                  onChange={e => setForm(f => ({ ...f, type: e.target.value }))}
+                  className="border border-gray-300 rounded px-3 py-2 w-full"
+                >
+                  {TYPES.map(t => (
+                    <option key={t.value} value={t.value}>
+                      {t.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
-            <div>
+            <div className="space-y-3">
               <label
                 htmlFor="edit-protocol-content"
-                className="block text-sm font-medium text-gray-700 mb-1"
+                className="block text-sm font-medium text-gray-700"
               >
-                Content (JSON)
+                Content
               </label>
-              <textarea
+              <RichTextEditor
                 id="edit-protocol-content"
                 value={form.content}
-                onChange={e =>
-                  setForm(f => ({ ...f, content: e.target.value }))
-                }
-                className="border border-gray-300 rounded px-3 py-2 w-full h-24 font-mono text-sm"
+                onChange={content => setForm(f => ({ ...f, content }))}
+                placeholder="Instructions, steps, or notes"
+                minHeight="240px"
+                className="mb-2"
               />
             </div>
             {isAdmin && (
@@ -393,20 +406,6 @@ export default function AdminRecoveryProtocols() {
                 <span className="text-sm">Published</span>
               </label>
             )}
-            <div className="flex gap-2 pt-2">
-              <Button onClick={handleUpdate} disabled={saving}>
-                {saving ? 'Saving...' : 'Save'}
-              </Button>
-              <Button
-                variant="secondary"
-                onClick={() => {
-                  setEditing(null)
-                  setEditOpen(false)
-                }}
-              >
-                Cancel
-              </Button>
-            </div>
           </div>
         </Modal>
       )}

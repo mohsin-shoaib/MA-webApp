@@ -246,10 +246,6 @@ export default function AdminAnnouncements() {
           <Text as="h1" variant="primary" className="text-2xl font-bold">
             Announcements
           </Text>
-          <Text variant="secondary" className="text-sm mt-1">
-            PRD 11: Global, program-specific, cycle-specific, and
-            coach-to-athletes.
-          </Text>
         </div>
         <Button type="button" onClick={openCreate}>
           Create announcement

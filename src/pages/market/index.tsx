@@ -14,6 +14,8 @@ import type {
   MarketplaceItemAssigned,
   MarketplaceItemBase,
 } from '@/api/marketplace.service'
+import { athleteCoachService } from '@/api/athlete-coach.service'
+import { curriculumHubService } from '@/api/curriculum-hub.service'
 import { useSnackbar } from '@/components/Snackbar/useSnackbar'
 import type { AxiosError } from 'axios'
 
@@ -49,6 +51,13 @@ export default function MarketPage() {
   const [catalog, setCatalog] = useState<MarketplaceItemBase[]>([])
   const [filterType, setFilterType] = useState<string>('')
   const [loadingFileId, setLoadingFileId] = useState<number | null>(null)
+  const [requestingCoach, setRequestingCoach] = useState(false)
+  const [coachRequested, setCoachRequested] = useState(false)
+  const [unchainedEnrolled, setUnchainedEnrolled] = useState<boolean | null>(
+    null
+  )
+  const [requestingUnchained, setRequestingUnchained] = useState(false)
+  const [unchainedRequested, setUnchainedRequested] = useState(false)
   const { showError, showSuccess } = useSnackbar()
 
   const fetchData = useCallback(async () => {
@@ -81,6 +90,17 @@ export default function MarketPage() {
   useEffect(() => {
     fetchData()
   }, [fetchData])
+
+  useEffect(() => {
+    curriculumHubService
+      .getStatus()
+      .then(res => {
+        if (res.data?.statusCode === 200 && res.data.data) {
+          setUnchainedEnrolled(res.data.data.enrolled)
+        }
+      })
+      .catch(() => setUnchainedEnrolled(false))
+  }, [])
 
   const assignedIds = new Set(assigned.map(i => i.id))
   const catalogOnly = catalog.filter(i => !assignedIds.has(i.id))
@@ -136,6 +156,63 @@ export default function MarketPage() {
     }
   }
 
+  const handleRequestCoach = async () => {
+    if (requestingCoach || coachRequested) return
+    setRequestingCoach(true)
+    try {
+      const res = await athleteCoachService.requestCoach()
+      if (res.data?.statusCode === 200) {
+        setCoachRequested(true)
+        showSuccess(
+          res.data.data?.alreadyRequested
+            ? 'You already have a pending request. Admin will assign a coach soon.'
+            : 'Request sent. Admin will assign a coach to you soon.'
+        )
+      }
+    } catch (e) {
+      const err = e as AxiosError<{ message?: string }>
+      showError(err.response?.data?.message ?? 'Could not send request')
+    } finally {
+      setRequestingCoach(false)
+    }
+  }
+
+  const handleRequest90Unchained = async () => {
+    if (requestingUnchained || unchainedRequested || unchainedEnrolled) return
+    setRequestingUnchained(true)
+    try {
+      const res = await curriculumHubService.request90Unchained()
+      if (res.data?.statusCode === 200 && res.data.data) {
+        const { alreadyEnrolled, alreadyRequested } = res.data.data
+        if (alreadyEnrolled) {
+          setUnchainedEnrolled(true)
+          showSuccess('You are already enrolled in 90 Unchained.')
+        } else {
+          setUnchainedRequested(true)
+          showSuccess(
+            alreadyRequested
+              ? 'You already have a pending request. Admin will enroll you soon.'
+              : 'Request sent. Admin will add you to 90 Unchained soon.'
+          )
+        }
+      }
+    } catch (e) {
+      const err = e as AxiosError<{ message?: string }>
+      showError(err.response?.data?.message ?? 'Could not send request')
+    } finally {
+      setRequestingUnchained(false)
+    }
+  }
+
+  let requestCoachButtonLabel: string | null = null
+  if (!requestingCoach) {
+    requestCoachButtonLabel = coachRequested ? 'Request sent' : 'Request coach'
+  }
+
+  const requestUnchainedButtonLabel = unchainedRequested
+    ? 'Request sent'
+    : 'Request 90 Unchained'
+
   const isEmpty = !loading && filteredItems.length === 0
   const showList = !loading && filteredItems.length > 0
   const emptyMessage = filterType
@@ -160,6 +237,91 @@ export default function MarketPage() {
           </Text>
         </div>
       </div>
+
+      <Card className="p-4 rounded-xl border border-blue-100 bg-blue-50/50">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <Icon
+                name="user-plus"
+                family="solid"
+                size={20}
+                variant="primary"
+              />
+              <Text variant="default" className="font-semibold text-gray-800">
+                Want a 1:1 coach?
+              </Text>
+            </div>
+            <Text variant="secondary" className="text-sm">
+              Request a coach and an admin will assign one to you. You’ll get a
+              dedicated coach for programs and support.
+            </Text>
+          </div>
+          <Button
+            type="button"
+            variant="primary"
+            size="medium"
+            onClick={handleRequestCoach}
+            disabled={requestingCoach || coachRequested}
+            className="shrink-0"
+          >
+            {requestingCoach ? (
+              <span className="inline-flex items-center gap-2">
+                <Spinner size="small" variant="secondary" />
+                Sending...
+              </span>
+            ) : (
+              requestCoachButtonLabel
+            )}
+          </Button>
+        </div>
+      </Card>
+
+      <Card className="p-4 rounded-xl border border-violet-100 bg-violet-50/50">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <Icon
+                name="academic-cap"
+                family="solid"
+                size={20}
+                variant="primary"
+              />
+              <Text variant="default" className="font-semibold text-gray-800">
+                Want 90 Unchained?
+              </Text>
+            </div>
+            <Text variant="secondary" className="text-sm">
+              90 Unchained is our comprehensive 1:1 program with weekly lessons,
+              PDFs, videos, and live calls. Request access and an admin will
+              enroll you.
+            </Text>
+          </div>
+          {unchainedEnrolled ? (
+            <span className="text-sm font-medium text-green-700 shrink-0">
+              You’re in 90 Unchained
+            </span>
+          ) : (
+            <Button
+              type="button"
+              variant="primary"
+              size="medium"
+              onClick={handleRequest90Unchained}
+              disabled={requestingUnchained || unchainedRequested}
+              className="shrink-0"
+            >
+              {requestingUnchained ? (
+                <span className="inline-flex items-center gap-2">
+                  <Spinner size="small" variant="secondary" />
+                  Sending...
+                </span>
+              ) : (
+                requestUnchainedButtonLabel
+              )}
+            </Button>
+          )}
+        </div>
+      </Card>
 
       <Card className="p-4 rounded-xl border border-gray-200/80">
         <Text

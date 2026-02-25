@@ -156,7 +156,7 @@ export default function AdminTestsPage() {
     <div className="space-y-6 max-w-4xl">
       <div className="flex items-center justify-between">
         <Text variant="primary" className="text-2xl font-semibold">
-          Tests (PRD 15)
+          Tests
         </Text>
         <Button type="button" onClick={() => setCreateOpen(true)}>
           Create test

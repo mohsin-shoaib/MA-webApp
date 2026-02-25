@@ -13,12 +13,14 @@ import AdminProgramManagement from '@/pages/admin/program-management'
 import CyclePrograms from '@/pages/admin/program-management/cycle-programs'
 import AdminAnnouncements from '@/pages/admin/announcements'
 import AdminCurriculum from '@/pages/admin/curriculum'
+import AdminCoachAssignment from '@/pages/admin/coach-assignment'
 import AdminRecoveryProtocols from '@/pages/admin/recovery-protocols'
 import AdminMarketplace from '@/pages/admin/marketplace'
 import AdminTests from '@/pages/admin/tests'
 import AdminExercises from '@/pages/admin/exercises'
 import CoachHeadUserManagement from '@/pages/coach-head/user-management'
 import CoachUserManagement from '@/pages/coach/user-management'
+import CoachMyAthletes from '@/pages/coach/my-athletes'
 import Profile from '@/pages/profile'
 import Train from '@/pages/train'
 import WorkoutPlayer from '@/pages/train/WorkoutPlayer'
@@ -145,6 +147,16 @@ export const routes = [
     ),
   },
   {
+    path: '/coach/my-athletes',
+    element: (
+      <ProtectedRoute allowedRoles={['COACH']}>
+        <AppLayout>
+          <CoachMyAthletes />
+        </AppLayout>
+      </ProtectedRoute>
+    ),
+  },
+  {
     path: '/coach/analytics',
     element: (
       <ProtectedRoute allowedRoles={['COACH']}>
@@ -220,6 +232,16 @@ export const routes = [
       <ProtectedRoute allowedRoles={['ADMIN']}>
         <AppLayout>
           <AdminCurriculum />
+        </AppLayout>
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/admin/coach-assignment',
+    element: (
+      <ProtectedRoute allowedRoles={['ADMIN']}>
+        <AppLayout>
+          <AdminCoachAssignment />
         </AppLayout>
       </ProtectedRoute>
     ),

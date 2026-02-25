@@ -49,6 +49,20 @@ export interface EnrolledUser {
   }
 }
 
+export interface EnrollmentRequestItem {
+  id: number
+  userId: number
+  curriculumKey: string
+  status: string
+  createdAt: string
+  user: {
+    id: number
+    email: string
+    firstName: string | null
+    lastName: string | null
+  }
+}
+
 export const adminCurriculumService = {
   listItems: (curriculumKey?: string) =>
     api.get<{ statusCode: number; data: CurriculumItem[] }>(
@@ -80,6 +94,14 @@ export const adminCurriculumService = {
   listEnrolled: (curriculumKey?: string) =>
     api.get<{ statusCode: number; data: EnrolledUser[] }>(
       'admin/curriculum/enrolled',
+      curriculumKey ? { params: { curriculumKey } } : undefined
+    ),
+  listEnrollmentRequests: (curriculumKey?: string) =>
+    api.get<{
+      statusCode: number
+      data: { requests: EnrollmentRequestItem[] }
+    }>(
+      'admin/curriculum/enrollment-requests',
       curriculumKey ? { params: { curriculumKey } } : undefined
     ),
 }

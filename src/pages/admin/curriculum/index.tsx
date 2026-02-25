@@ -13,9 +13,17 @@ import type {
   CurriculumItemType,
   CreateCurriculumItemPayload,
   EnrolledUser,
+  EnrollmentRequestItem,
 } from '@/api/admin-curriculum.service'
+import { adminService } from '@/api/admin.service'
+import type { User } from '@/types/admin'
 import { useSnackbar } from '@/components/Snackbar/useSnackbar'
 import { AxiosError } from 'axios'
+
+function athleteLabel(u: User): string {
+  const name = [u.firstName, u.lastName].filter(Boolean).join(' ').trim()
+  return name ? `${name} (${u.email})` : u.email
+}
 
 const CURRICULUM_KEY = '90_UNCHAINED'
 const ITEM_TYPES: { value: CurriculumItemType; label: string }[] = [
@@ -34,7 +42,11 @@ export default function AdminCurriculum() {
   const [editing, setEditing] = useState<CurriculumItem | null>(null)
   const [deleteId, setDeleteId] = useState<number | null>(null)
   const [saving, setSaving] = useState(false)
-  const [enrollUserId, setEnrollUserId] = useState('')
+  const [enrollUserId, setEnrollUserId] = useState<string>('')
+  const [athletes, setAthletes] = useState<User[]>([])
+  const [enrollmentRequests, setEnrollmentRequests] = useState<
+    EnrollmentRequestItem[]
+  >([])
   const [form, setForm] = useState<CreateCurriculumItemPayload>({
     curriculumKey: CURRICULUM_KEY,
     type: 'WEEKLY_LESSON',
@@ -46,9 +58,10 @@ export default function AdminCurriculum() {
   const fetchList = useCallback(async () => {
     try {
       setLoading(true)
-      const [itemsRes, enrolledRes] = await Promise.all([
+      const [itemsRes, enrolledRes, requestsRes] = await Promise.all([
         adminCurriculumService.listItems(CURRICULUM_KEY),
         adminCurriculumService.listEnrolled(CURRICULUM_KEY),
+        adminCurriculumService.listEnrollmentRequests(CURRICULUM_KEY),
       ])
       if (
         itemsRes.data?.statusCode === 200 &&
@@ -62,6 +75,12 @@ export default function AdminCurriculum() {
       ) {
         setEnrolled(enrolledRes.data.data)
       }
+      if (
+        requestsRes.data?.statusCode === 200 &&
+        Array.isArray(requestsRes.data.data?.requests)
+      ) {
+        setEnrollmentRequests(requestsRes.data.data.requests)
+      }
     } catch (e) {
       const err = e as AxiosError<{ message?: string }>
       showError(err.response?.data?.message || 'Failed to load')
@@ -70,9 +89,25 @@ export default function AdminCurriculum() {
     }
   }, [showError])
 
+  const fetchAthletes = useCallback(async () => {
+    try {
+      const res = await adminService.getUsers()
+      const rows = res.data?.data?.rows ?? []
+      setAthletes(
+        rows.filter((u: User) => String(u.role).toUpperCase() === 'ATHLETE')
+      )
+    } catch {
+      setAthletes([])
+    }
+  }, [])
+
   useEffect(() => {
     fetchList()
   }, [fetchList])
+
+  useEffect(() => {
+    fetchAthletes()
+  }, [fetchAthletes])
 
   const openCreate = () => {
     setForm({
@@ -170,8 +205,8 @@ export default function AdminCurriculum() {
 
   const handleEnroll = async () => {
     const uid = Number(enrollUserId)
-    if (!uid || Number.isNaN(uid)) {
-      showError('Enter a valid user ID')
+    if (!enrollUserId || !uid || Number.isNaN(uid)) {
+      showError('Select an athlete')
       return
     }
     try {
@@ -187,6 +222,17 @@ export default function AdminCurriculum() {
       setSaving(false)
     }
   }
+
+  const enrollmentRequestUserLabel = (r: EnrollmentRequestItem) => {
+    const u = r.user
+    const name = [u.firstName, u.lastName].filter(Boolean).join(' ').trim()
+    return name ? `${name} (${u.email})` : u.email
+  }
+
+  const athleteOptions = athletes.map(a => ({
+    value: String(a.id),
+    label: athleteLabel(a),
+  }))
 
   let cardContent: ReactNode
   if (loading) {
@@ -266,8 +312,8 @@ export default function AdminCurriculum() {
             90 Unchained Curriculum
           </Text>
           <Text variant="secondary" className="text-sm mt-1">
-            PRD 12: Weekly lessons, PDFs, videos, live call links. Only visible
-            to enrolled athletes in Coach tab.
+            Weekly lessons, PDFs, videos, live call links. Only visible to
+            enrolled athletes in Coach tab.
           </Text>
         </div>
         <Button type="button" onClick={openCreate}>
@@ -275,23 +321,69 @@ export default function AdminCurriculum() {
         </Button>
       </div>
 
+      {enrollmentRequests.length > 0 && (
+        <Card className="p-6 mb-6 border-violet-200 bg-violet-50/50">
+          <Text variant="default" className="font-semibold mb-2 block">
+            Pending 90 Unchained requests ({enrollmentRequests.length})
+          </Text>
+          <Text variant="secondary" className="text-sm mb-4">
+            These athletes requested 90 Unchained from the Market page. Enroll
+            them below.
+          </Text>
+          <ul className="space-y-2">
+            {enrollmentRequests.map(r => (
+              <li
+                key={r.id}
+                className="flex flex-wrap items-center justify-between gap-2 py-2 border-b border-violet-100 last:border-0"
+              >
+                <div>
+                  <Text variant="default" className="text-sm font-medium">
+                    {enrollmentRequestUserLabel(r)}
+                  </Text>
+                  <Text variant="muted" className="text-xs">
+                    Requested{' '}
+                    {new Date(r.createdAt).toLocaleDateString(undefined, {
+                      dateStyle: 'short',
+                      timeStyle: 'short',
+                    })}
+                  </Text>
+                </div>
+                <Button
+                  type="button"
+                  variant="primary"
+                  size="small"
+                  onClick={() => setEnrollUserId(String(r.userId))}
+                >
+                  Enroll
+                </Button>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
+
       <Card className="p-6 mb-6">
         <Text variant="default" className="font-semibold mb-4 block">
           Enroll athlete
         </Text>
-        <div className="flex gap-2 items-center">
-          <Input
-            type="number"
-            placeholder="User ID"
-            value={enrollUserId}
-            onChange={e => setEnrollUserId(e.target.value)}
-            className="w-32"
-          />
+        <div className="flex flex-wrap gap-2 items-end">
+          <div className="min-w-[240px] max-w-md">
+            <Text variant="secondary" className="text-xs mb-1 block">
+              Athlete
+            </Text>
+            <Dropdown
+              placeholder="Select athlete"
+              value={enrollUserId}
+              onValueChange={v => setEnrollUserId((v as string) ?? '')}
+              options={athleteOptions}
+              fullWidth
+            />
+          </div>
           <Button
             type="button"
             variant="secondary"
             onClick={handleEnroll}
-            disabled={saving}
+            disabled={saving || !enrollUserId}
           >
             Enroll in 90 Unchained
           </Button>

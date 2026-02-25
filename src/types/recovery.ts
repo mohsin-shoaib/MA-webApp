@@ -18,7 +18,8 @@ export interface RecoveryProtocol {
   name: string
   description?: string | null
   type: RecoveryProtocolType
-  content?: unknown
+  /** Rich text (HTML) or legacy JSON string */
+  content?: string | null
 }
 
 export interface RecoverySession {

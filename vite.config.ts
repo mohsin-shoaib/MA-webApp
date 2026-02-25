@@ -5,6 +5,10 @@ import path from 'node:path'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  optimizeDeps: {
+    // Exclude removed packages so Vite does not try to pre-bundle them
+    exclude: ['react-quill'],
+  },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),

@@ -80,6 +80,12 @@ export function Sidebar() {
       roles: ['COACH'],
     },
     {
+      path: '/coach/my-athletes',
+      label: 'My Athletes (1:1)',
+      icon: 'user-plus',
+      roles: ['COACH'],
+    },
+    {
       path: '/coach/analytics',
       label: 'Analytics',
       icon: 'chart-line',
@@ -131,6 +137,12 @@ export function Sidebar() {
       path: '/admin/curriculum',
       label: '90 Unchained',
       icon: 'book',
+      roles: ['ADMIN'],
+    },
+    {
+      path: '/admin/coach-assignment',
+      label: 'Coach–Athlete 1:1',
+      icon: 'user-plus',
       roles: ['ADMIN'],
     },
     {

@@ -30,7 +30,25 @@ function getAnnouncementItemClass(readAt: string | null | undefined): string {
 function UnchainedCurriculumCard() {
   const [enrolled, setEnrolled] = useState<boolean | null>(null)
   const [items, setItems] = useState<CurriculumItemDto[]>([])
+  const [progress, setProgress] = useState<{
+    completed: number
+    total: number
+  } | null>(null)
   const [loading, setLoading] = useState(true)
+  const [completingId, setCompletingId] = useState<number | null>(null)
+
+  const fetchItems = useCallback(() => {
+    if (!enrolled) return
+    curriculumHubService
+      .getItems()
+      .then(res => {
+        if (res.data?.statusCode === 200 && res.data.data) {
+          setItems(res.data.data.items ?? [])
+          setProgress(res.data.data.progress ?? null)
+        }
+      })
+      .finally(() => setLoading(false))
+  }, [enrolled])
 
   useEffect(() => {
     curriculumHubService
@@ -45,13 +63,25 @@ function UnchainedCurriculumCard() {
         return null
       })
       .then(res => {
-        if (res?.data?.statusCode === 200 && res.data.data?.items) {
-          setItems(res.data.data.items)
+        if (res?.data?.statusCode === 200 && res.data.data) {
+          setItems(res.data.data.items ?? [])
+          setProgress(res.data.data.progress ?? null)
         }
       })
       .catch(() => setEnrolled(false))
       .finally(() => setLoading(false))
   }, [])
+
+  const handleComplete = useCallback(
+    (itemId: number) => {
+      setCompletingId(itemId)
+      curriculumHubService
+        .completeItem(itemId)
+        .then(() => fetchItems())
+        .finally(() => setCompletingId(null))
+    },
+    [fetchItems]
+  )
 
   const itemsByWeek = items.reduce<Record<number, CurriculumItemDto[]>>(
     (acc, i) => {
@@ -97,6 +127,11 @@ function UnchainedCurriculumCard() {
         </Text>
       ) : (
         <div className="space-y-6">
+          {progress && (
+            <Text variant="secondary" className="text-sm">
+              Progress: {progress.completed} / {progress.total} completed
+            </Text>
+          )}
           {weekNumbers.map(week => (
             <div key={week}>
               <Text
@@ -107,7 +142,10 @@ function UnchainedCurriculumCard() {
               </Text>
               <ul className="space-y-2">
                 {(itemsByWeek[week] ?? []).map(item => (
-                  <li key={item.id} className="flex items-center gap-2">
+                  <li
+                    key={item.id}
+                    className="flex items-center gap-2 flex-wrap"
+                  >
                     <span className="rounded bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
                       {item.type.replaceAll('_', ' ')}
                     </span>
@@ -133,6 +171,23 @@ function UnchainedCurriculumCard() {
                         {item.description}
                       </Text>
                     )}
+                    {enrolled &&
+                      (item.completedAt ? (
+                        <span className="text-xs text-green-600 ml-auto">
+                          Done
+                        </span>
+                      ) : (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="small"
+                          className="ml-auto text-sm"
+                          disabled={completingId === item.id}
+                          onClick={() => handleComplete(item.id)}
+                        >
+                          {completingId === item.id ? '...' : 'Mark complete'}
+                        </Button>
+                      ))}
                   </li>
                 ))}
               </ul>
