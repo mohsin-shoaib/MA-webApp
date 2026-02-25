@@ -17,12 +17,10 @@ import type { Program } from '@/types/program'
 import { AxiosError } from 'axios'
 
 /**
- * Cycle Programs Page
- *
- * Displays programs for a specific cycle.
- * Cycle ID is passed via route params.
+ * Coach Cycle Programs — same layout as Admin.
+ * Programs table for the selected cycle. Create / Update only; no Approve (admin approves).
  */
-const CyclePrograms = () => {
+const CoachCyclePrograms = () => {
   const { cycleId } = useParams<{ cycleId: string }>()
   const navigate = useNavigate()
   const [programs, setPrograms] = useState<Program[]>([])
@@ -33,42 +31,34 @@ const CyclePrograms = () => {
   const [editingProgram, setEditingProgram] = useState<Program | null>(null)
   const { showError, showSuccess } = useSnackbar()
 
-  // Fetch cycle name
   const fetchCycleName = useCallback(async () => {
     if (!cycleId) return
-
     try {
       const response = await adminService.getCycles()
       const cycles = response.data.data || []
       const cycle = cycles.find((c: Cycle) => c.id === Number(cycleId))
-      if (cycle) {
-        setCycleName(cycle.name)
-      }
-    } catch (error) {
-      // Silently fail - just won't show cycle name
-      console.error('Failed to fetch cycle name:', error)
+      if (cycle) setCycleName(cycle.name)
+    } catch {
+      // ignore
     }
   }, [cycleId])
 
-  // Fetch programs for the cycle
   const fetchPrograms = useCallback(async () => {
     if (!cycleId) {
       showError('Cycle ID is required')
-      navigate('/admin/program-management')
+      navigate('/coach/program-management')
       return
     }
-
     try {
       setLoading(true)
-      // Fetch programs for the specific cycle
       const response = await programService.getAll({ cycleId: Number(cycleId) })
       setPrograms(response.data.data.rows || [])
     } catch (error) {
       const axiosError = error as AxiosError<{ message: string }>
-      const errorMessage =
-        axiosError.response?.data?.message ||
-        'Failed to load programs. Please try again.'
-      showError(errorMessage)
+      showError(
+        axiosError.response?.data?.message ??
+          'Failed to load programs. Please try again.'
+      )
       setPrograms([])
     } finally {
       setLoading(false)
@@ -81,7 +71,7 @@ const CyclePrograms = () => {
   }, [fetchCycleName, fetchPrograms])
 
   const handleBack = () => {
-    navigate('/admin/program-management')
+    navigate('/coach/program-management')
   }
 
   const handleCreateProgram = () => {
@@ -99,15 +89,13 @@ const CyclePrograms = () => {
     showSuccess(
       editingProgram
         ? 'Program updated successfully!'
-        : 'Program created successfully!'
+        : 'Program created and submitted for admin approval.'
     )
-    // Refresh programs list
     fetchPrograms()
   }
 
   const handleEditProgram = async (program: Program) => {
     try {
-      // Fetch full program with programStructure (from normalized DB) for builder
       const response = await programService.getById(program.id)
       const fullProgram = response.data?.data ?? program
       setEditingProgram(fullProgram as Program)
@@ -125,26 +113,9 @@ const CyclePrograms = () => {
     setEditingProgram(null)
   }
 
-  const handleApproveProgram = async (program: Program) => {
-    try {
-      await programService.publish(program.id)
-      showSuccess(
-        'Program approved and published. It will now appear in the Program Browser.'
-      )
-      fetchPrograms()
-    } catch (error) {
-      const axiosError = error as AxiosError<{ message?: string }>
-      showError(
-        axiosError.response?.data?.message ?? 'Failed to approve program'
-      )
-    }
-  }
-
-  // Amber cycle (id 2) allows only one program
   const isAmberCycle = cycleId === '2'
   const isAmberLimitReached = isAmberCycle && programs.length >= 1
 
-  // Define table columns
   const columns: Column<Program>[] = [
     {
       key: 'id',
@@ -216,28 +187,16 @@ const CyclePrograms = () => {
       label: 'Actions',
       sortable: false,
       align: 'center',
-      width: '180px',
+      width: '120px',
       render: (_value, row) => (
-        <div className="flex items-center justify-center gap-1.5 flex-wrap">
-          {!row.isPublished && (
-            <Button
-              variant="primary"
-              size="small"
-              onClick={() => handleApproveProgram(row)}
-              leftIcon={<Icon name="check" family="solid" size={14} />}
-            >
-              Approve
-            </Button>
-          )}
-          <Button
-            variant="outline"
-            size="small"
-            onClick={() => handleEditProgram(row)}
-            leftIcon={<Icon name="edit" family="solid" size={14} />}
-          >
-            Update
-          </Button>
-        </div>
+        <Button
+          variant="outline"
+          size="small"
+          onClick={() => handleEditProgram(row)}
+          leftIcon={<Icon name="edit" family="solid" size={14} />}
+        >
+          Update
+        </Button>
       ),
     },
   ]
@@ -245,7 +204,6 @@ const CyclePrograms = () => {
   return (
     <div className="p-6">
       <Stack direction="vertical" spacing={6}>
-        {/* Page Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Button
@@ -288,7 +246,6 @@ const CyclePrograms = () => {
           )}
         </div>
 
-        {/* Content Area */}
         <div className="bg-white rounded-lg border border-mid-gray p-6">
           <DataTable<Program>
             data={programs}
@@ -299,7 +256,6 @@ const CyclePrograms = () => {
           />
         </div>
 
-        {/* Create Program Modal */}
         {isCreateModalOpen && (
           <Modal
             visible={isCreateModalOpen}
@@ -318,7 +274,6 @@ const CyclePrograms = () => {
           </Modal>
         )}
 
-        {/* Edit Program Modal */}
         {isEditModalOpen && editingProgram && (
           <Modal
             visible={isEditModalOpen}
@@ -351,4 +306,4 @@ const CyclePrograms = () => {
   )
 }
 
-export default CyclePrograms
+export default CoachCyclePrograms

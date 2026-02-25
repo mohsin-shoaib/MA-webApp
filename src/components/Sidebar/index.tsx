@@ -68,9 +68,9 @@ export function Sidebar() {
       icon: 'user',
     },
     {
-      path: '/create_program',
-      label: 'Create Program',
-      icon: 'plus-circle',
+      path: '/coach/program-management',
+      label: 'Manage Program',
+      icon: 'clipboard-list',
       roles: ['COACH'],
     },
     {
@@ -89,6 +89,12 @@ export function Sidebar() {
       path: '/coach/marketplace',
       label: 'Marketplace',
       icon: 'store',
+      roles: ['COACH'],
+    },
+    {
+      path: '/coach/exercises',
+      label: 'Exercise Library',
+      icon: 'dumbbell',
       roles: ['COACH'],
     },
     {

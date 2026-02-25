@@ -56,6 +56,13 @@ export const programService = {
       `admin/program/delete-by-id/${programId}`
     ),
 
+  /**
+   * Publish program (Admin only). Coach-created programs are unpublished until admin approves.
+   * PATCH /api/v1/admin/program/publish/:programId
+   */
+  publish: (programId: number) =>
+    api.patch<GetProgramResponse>(`admin/program/publish/${programId}`),
+
   // Legacy method (kept for backward compatibility)
   createProgram: (payload: CreateProgramDTO) =>
     api.post<CreateProgramResponse>('admin/program/create', payload),

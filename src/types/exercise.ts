@@ -10,6 +10,7 @@ export interface Exercise {
   tags?: string[] | null
   substitutionIds?: number[] | null
   isActive: boolean
+  isApproved?: boolean
   createdAt: string
   updatedAt: string
 }

@@ -1,164 +1,106 @@
-import { programService } from '@/api/program.service'
-import { Button } from '@/components/Button'
-import { Input } from '@/components/Input'
+import { useState, useEffect, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Text } from '@/components/Text'
-import type {
-  CreateProgramDTO,
-  DailyExerciseDTO,
-  ExerciseDTO,
-} from '@/types/program'
-import { useFieldArray, useForm } from 'react-hook-form'
+import { Button } from '@/components/Button'
+import { Dropdown } from '@/components/Dropdown'
+import { ProgramBuilderForm } from '@/components/Program/ProgramBuilderForm'
+import { adminService } from '@/api/admin.service'
+import { useSnackbar } from '@/components/Snackbar/useSnackbar'
+import type { Cycle } from '@/types/cycle'
+import { AxiosError } from 'axios'
 
+/**
+ * Coach Create Program page.
+ * Uses the same Program Builder (Weeks → Days → Sections → Exercises) as admin.
+ * Coach selects a cycle first, then creates a program (saved as unpublished until admin approves).
+ */
 const Program = () => {
-  const {
-    register,
-    handleSubmit,
-    control,
-    formState: { errors },
-  } = useForm<CreateProgramDTO>()
+  const navigate = useNavigate()
+  const { showError, showSuccess } = useSnackbar()
+  const [cycles, setCycles] = useState<Cycle[]>([])
+  const [loadingCycles, setLoadingCycles] = useState(true)
+  const [selectedCycleId, setSelectedCycleId] = useState<number | undefined>(
+    undefined
+  )
 
-  const handleProgram = async (payload: CreateProgramDTO) => {
+  const fetchCycles = useCallback(async () => {
     try {
-      const response = await programService.createProgram(payload)
-      console.log('login response::', response.data)
-
-      const { data } = response.data
-
-      console.log('Logged in user:', data)
+      setLoadingCycles(true)
+      const response = await adminService.getCycles()
+      setCycles(response.data.data || [])
     } catch (error) {
-      console.error(error)
-      // show error message / toast
-      console.log('Api error::', error)
+      const axiosError = error as AxiosError<{ message?: string }>
+      showError(axiosError.response?.data?.message ?? 'Failed to load cycles')
+      setCycles([])
+    } finally {
+      setLoadingCycles(false)
     }
+  }, [showError])
+
+  useEffect(() => {
+    fetchCycles()
+  }, [fetchCycles])
+
+  const handleSuccess = () => {
+    showSuccess(
+      'Program created and submitted for admin approval. It will appear in the Program Browser once approved.'
+    )
+    setSelectedCycleId(undefined)
   }
 
-  const {
-    fields: exerciseFields,
-    append: appendExercise,
-    remove: removeExercise,
-  } = useFieldArray({
-    control,
-    name: 'dailyExercises',
-  })
+  const handleCancel = () => {
+    setSelectedCycleId(undefined)
+  }
 
   return (
-    <div className="max-w-xl mx-auto p-6 space-y-6">
-      <div>
-        <Text as="h1">Program Creation</Text>
-      </div>
-      <form className="space-y-4" onSubmit={handleSubmit(handleProgram)}>
-        <Input
-          label="Program Name"
-          placeholder="Enter program name"
-          className="text-black"
-          error={errors.program_name?.message}
-          {...register('program_name', {
-            required: 'Program name is required',
-          })}
-        />
-
-        <Input
-          label="Description"
-          placeholder="Enter program description"
-          className="text-black"
-          error={errors.program_description?.message}
-          {...register('program_description', {
-            required: 'Description is required',
-          })}
-        />
-
-        <Input
-          label="Category"
-          placeholder="Enter category"
-          className="text-black"
-          error={errors.category?.message}
-          {...register('category', { required: 'Category is required' })}
-        />
-
-        <Input
-          label="Sub Category"
-          placeholder="Enter sub category"
-          className="text-black"
-          error={errors.subCategory?.message}
-          {...register('subCategory')}
-        />
-
-        <Input
-          label="Cycle ID"
-          placeholder="Enter cycle ID"
-          type="number"
-          className="text-black"
-          error={errors.cycleId?.message}
-          {...register('cycleId', {
-            required: 'Cycle ID is required',
-            valueAsNumber: true,
-          })}
-        />
-
-        <Text as="p" variant="primary" className="font-bold">
-          Daily Exercises
-        </Text>
-
-        {exerciseFields.map((field, index) => (
-          <div key={field.id} className="flex gap-2 items-end">
-            <Input
-              label="Day"
-              placeholder="e.g., day1, day2, or date"
-              className="text-black"
-              error={errors.dailyExercises?.[index]?.day?.message}
-              {...register(`dailyExercises.${index}.day` as const, {
-                required: 'Day is required',
-              })}
-            />
-            <Input
-              label="Exercises (comma separated)"
-              placeholder="e.g., Squat, Bench Press"
-              className="text-black"
-              error={errors.dailyExercises?.[index]?.exercises?.message}
-              {...register(`dailyExercises.${index}.exercises` as const, {
-                required: 'Exercises are required',
-                setValueAs: (value: string) =>
-                  value.split(',').map(
-                    (e, idx) =>
-                      ({
-                        exercise_id: `exercise-${index}-${idx}`,
-                        name: e.trim(),
-                      }) as ExerciseDTO
-                  ),
-              })}
-            />
-
-            {exerciseFields.length > 1 && (
-              <Button
-                type="button"
-                variant="primary"
-                onClick={() => removeExercise(index)}
-              >
-                Remove
-              </Button>
-            )}
-          </div>
-        ))}
-
+    <div className="max-w-5xl mx-auto p-6 space-y-6">
+      <div className="flex items-center gap-4">
         <Button
-          type="button"
-          variant="primary"
-          onClick={() =>
-            appendExercise({
-              day: `day${exerciseFields.length + 1}`,
-              exercise_name: '',
-              exercises: [],
-            } as DailyExerciseDTO)
-          }
+          variant="ghost"
+          size="small"
+          onClick={() => navigate(-1)}
+          leftIcon={<span className="text-lg">←</span>}
         >
-          Add Exercise
+          Back
         </Button>
+      </div>
+      <div>
+        <Text as="h1" variant="primary" className="text-2xl font-bold">
+          Create Program
+        </Text>
+        <Text variant="secondary" className="text-sm mt-1">
+          Build a program with weeks, days, sections, and exercises. Once you
+          create a program, it is sent to admin for approval. After approval, it
+          will appear in the Program Browser for athletes.
+        </Text>
+      </div>
+
+      <div className="bg-white rounded-lg border border-mid-gray p-6 space-y-6">
         <div>
-          <Button type="submit" variant="primary">
-            Create Program
-          </Button>
+          <Text variant="default" className="text-sm font-medium block mb-1">
+            Select cycle *
+          </Text>
+          <Dropdown
+            value={selectedCycleId ? String(selectedCycleId) : ''}
+            onValueChange={v => setSelectedCycleId(v ? Number(v) : undefined)}
+            options={cycles.map(c => ({ value: String(c.id), label: c.name }))}
+            placeholder={loadingCycles ? 'Loading...' : 'Select cycle'}
+            disabled={loadingCycles}
+          />
         </div>
-      </form>
+
+        {selectedCycleId ? (
+          <ProgramBuilderForm
+            initialCycleId={selectedCycleId}
+            onSuccess={handleSuccess}
+            onCancel={handleCancel}
+          />
+        ) : (
+          <div className="text-center py-8 text-gray-500 text-sm">
+            Select a cycle above to build your program.
+          </div>
+        )}
+      </div>
     </div>
   )
 }

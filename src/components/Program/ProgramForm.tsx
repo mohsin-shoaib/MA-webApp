@@ -609,6 +609,7 @@ export function ProgramForm({
                   label: cat,
                 }))}
                 error={errors.category?.message}
+                emptyMessage="please add goals first"
               />
 
               {category && (
@@ -628,6 +629,7 @@ export function ProgramForm({
                     label: subCat,
                   }))}
                   error={errors.subCategory?.message}
+                  emptyMessage="please add goals first"
                 />
               )}
             </>

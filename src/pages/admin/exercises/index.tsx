@@ -1,12 +1,12 @@
-import type { ReactNode } from 'react'
 import { useState, useEffect, useCallback } from 'react'
 import { Text } from '@/components/Text'
 import { Button } from '@/components/Button'
 import { Card } from '@/components/Card'
-import { Spinner } from '@/components/Spinner'
 import { Modal } from '@/components/Modal'
 import { Input } from '@/components/Input'
 import { Dropdown } from '@/components/Dropdown'
+import { DataTable, type Column } from '@/components/DataTable'
+import { Pagination } from '@/components/Pagination'
 import { exerciseService } from '@/api/exercise.service'
 import { useFileUpload } from '@/hooks/useFileUpload'
 import { FileType } from '@/constants/fileTypes'
@@ -72,7 +72,15 @@ const FILTER_STATUS_OPTIONS: { value: FilterStatusValue; label: string }[] = [
   { value: 'inactive', label: 'Inactive' },
 ]
 
-export default function AdminExercises() {
+export interface ExercisesPageProps {
+  /** When 'coach', title/subtitle and no Approve button */
+  role?: 'admin' | 'coach'
+}
+
+export default function AdminExercises({
+  role = 'admin',
+}: Readonly<ExercisesPageProps>) {
+  const isCoach = role === 'coach'
   const [list, setList] = useState<Exercise[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -89,7 +97,8 @@ export default function AdminExercises() {
     'all' | 'active' | 'inactive'
   >('all')
   const [page, setPage] = useState(1)
-  const limit = 100
+  const limit = 10
+  const [substitutionOptions, setSubstitutionOptions] = useState<Exercise[]>([])
   const [form, setForm] = useState<CreateExercisePayload & { tagsStr: string }>(
     {
       name: '',
@@ -206,14 +215,22 @@ export default function AdminExercises() {
     filterMovementPattern !== '' ||
     filterActive !== 'all'
 
-  let resultCountLabel: string
-  if (loading) {
-    resultCountLabel = 'Loading...'
-  } else if (total === 1) {
-    resultCountLabel = '1 exercise'
-  } else {
-    resultCountLabel = `${total} exercises`
-  }
+  const totalPages = Math.max(1, Math.ceil(total / limit))
+  const resultCountLabel = loading
+    ? 'Loading...'
+    : total === 1
+      ? '1 exercise'
+      : `${total} exercises`
+
+  const fetchSubstitutionOptions = useCallback(async () => {
+    try {
+      const res = await exerciseService.getAll({ limit: 500 })
+      const rows = res.data?.data?.rows ?? []
+      setSubstitutionOptions(rows)
+    } catch {
+      setSubstitutionOptions([])
+    }
+  }, [])
 
   const openCreate = () => {
     setForm({
@@ -228,6 +245,7 @@ export default function AdminExercises() {
       isActive: true,
     })
     setCreateOpen(true)
+    void fetchSubstitutionOptions()
   }
 
   const openEdit = (ex: Exercise) => {
@@ -244,6 +262,7 @@ export default function AdminExercises() {
       isActive: ex.isActive,
     })
     setEditOpen(true)
+    void fetchSubstitutionOptions()
   }
 
   const handleCreate = async () => {
@@ -372,67 +391,100 @@ export default function AdminExercises() {
     }
   }
 
-  let cardContent: ReactNode
-  if (loading) {
-    cardContent = (
-      <div className="flex items-center gap-2 py-8">
-        <Spinner size="small" variant="primary" />
-        <Text variant="secondary">Loading...</Text>
-      </div>
-    )
-  } else if (list.length === 0) {
-    cardContent = (
-      <Text variant="secondary">
-        No exercises yet. Create exercises here; then select them when building
-        programs.
-      </Text>
-    )
-  } else {
-    const sorted = [...list].sort((a, b) => a.name.localeCompare(b.name))
-    cardContent = (
-      <ul className="space-y-3">
-        {sorted.map(ex => (
-          <li
-            key={ex.id}
-            className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 pb-3 last:border-0"
-          >
-            <div>
-              <Text variant="default" className="font-medium text-sm">
-                {ex.name}
-              </Text>
-              <div className="flex flex-wrap gap-2 mt-1">
-                {ex.muscleGroup && (
-                  <span className="rounded bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
-                    {ex.muscleGroup}
-                  </span>
-                )}
-                {ex.equipment && (
-                  <span className="rounded bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
-                    {ex.equipment}
-                  </span>
-                )}
-                {Array.isArray(ex.tags) && ex.tags.length > 0 && (
-                  <span className="text-xs text-gray-500">
-                    {ex.tags.join(', ')}
-                  </span>
-                )}
-              </div>
-            </div>
-            <div className="flex gap-2">
-              <Button
-                type="button"
-                variant="secondary"
-                size="small"
-                onClick={() => openEdit(ex)}
-              >
-                Edit
-              </Button>
-            </div>
-          </li>
-        ))}
-      </ul>
-    )
-  }
+  const columns: Column<Exercise>[] = [
+    {
+      key: 'name',
+      label: 'Name',
+      sortable: true,
+      render: value => (
+        <Text variant="default" className="font-medium text-sm">
+          {value as string}
+        </Text>
+      ),
+    },
+    {
+      key: 'muscleGroup',
+      label: 'Muscle group',
+      sortable: true,
+      render: value => (
+        <Text variant="secondary" className="text-sm">
+          {(value as string) || '—'}
+        </Text>
+      ),
+    },
+    {
+      key: 'equipment',
+      label: 'Equipment',
+      sortable: true,
+      render: value => (
+        <Text variant="secondary" className="text-sm">
+          {(value as string) || '—'}
+        </Text>
+      ),
+    },
+    {
+      key: 'movementPattern',
+      label: 'Movement',
+      sortable: true,
+      render: value => (
+        <Text variant="secondary" className="text-sm">
+          {(value as string) || '—'}
+        </Text>
+      ),
+    },
+    {
+      key: 'isApproved',
+      label: 'Status',
+      sortable: true,
+      render: value => (
+        <Text
+          variant="secondary"
+          className={`text-sm ${value ? 'text-green-600' : 'text-amber-600'}`}
+        >
+          {value ? 'Approved' : 'Pending'}
+        </Text>
+      ),
+    },
+    {
+      key: 'id',
+      label: 'Actions',
+      sortable: false,
+      width: isCoach ? '100px' : '140px',
+      render: (_value, row) => (
+        <div className="flex items-center gap-2">
+          {!isCoach && !row.isApproved && (
+            <Button
+              type="button"
+              variant="primary"
+              size="small"
+              onClick={async () => {
+                try {
+                  await exerciseService.approve(row.id)
+                  showSuccess('Exercise approved')
+                  fetchList()
+                } catch (e) {
+                  const err = e as AxiosError<{ message?: string }>
+                  showError(err.response?.data?.message || 'Failed to approve')
+                }
+              }}
+            >
+              Approve
+            </Button>
+          )}
+          {(!isCoach || !row.isApproved) && (
+            <Button
+              type="button"
+              variant="secondary"
+              size="small"
+              onClick={() => openEdit(row)}
+            >
+              Edit
+            </Button>
+          )}
+        </div>
+      ),
+    },
+  ]
 
   const formFields = (
     <>
@@ -558,7 +610,7 @@ export default function AdminExercises() {
           Select alternative exercises from the library.
         </p>
         <div className="max-h-32 overflow-y-auto border border-gray-200 rounded p-2 space-y-1">
-          {list
+          {substitutionOptions
             .filter(ex => ex.id !== editing?.id)
             .map(ex => (
               <label
@@ -573,7 +625,8 @@ export default function AdminExercises() {
                 <span className="text-sm">{ex.name}</span>
               </label>
             ))}
-          {list.filter(ex => ex.id !== editing?.id).length === 0 && (
+          {substitutionOptions.filter(ex => ex.id !== editing?.id).length ===
+            0 && (
             <Text variant="muted" className="text-xs">
               No other exercises in library yet.
             </Text>
@@ -602,7 +655,9 @@ export default function AdminExercises() {
             Exercise Library
           </Text>
           <Text variant="secondary" className="text-sm mt-1">
-            Create and manage exercises. Use them when building programs.
+            {isCoach
+              ? 'Add exercises for programs. New exercises need admin approval before they appear in the program builder.'
+              : 'Create and manage exercises. Use them when building programs.'}
           </Text>
         </div>
         <Button type="button" onClick={openCreate}>
@@ -688,7 +743,31 @@ export default function AdminExercises() {
       </div>
       <div className="mb-2 text-sm text-gray-600">{resultCountLabel}</div>
 
-      <Card className="p-6">{cardContent}</Card>
+      <Card className="overflow-hidden" padding="none">
+        <DataTable
+          data={list}
+          columns={columns}
+          loading={loading}
+          searchable={false}
+          paginated={false}
+          rowKey="id"
+          emptyMessage="No exercises yet. Create exercises here; then select them when building programs."
+        />
+        {!loading && total > 0 && (
+          <div className="px-4 py-3 border-t border-gray-200 flex items-center justify-between flex-wrap gap-2">
+            <Text variant="secondary" className="text-sm">
+              Showing {(page - 1) * limit + 1} to{' '}
+              {Math.min(page * limit, total)} of {total} results
+            </Text>
+            <Pagination
+              currentPage={page}
+              totalPages={totalPages}
+              onPageChange={setPage}
+              size="small"
+            />
+          </div>
+        )}
+      </Card>
 
       {createOpen && (
         <Modal

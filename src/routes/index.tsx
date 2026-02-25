@@ -5,7 +5,8 @@ import ResetPassword from '@/pages/auth/reset-password'
 import Subscription from '@/pages/auth/subscription'
 import RegisterMobile from '@/pages/auth/register-mobile'
 import Onboarding from '@/pages/onboarding/Onboarding'
-import Program from '@/pages/program/program'
+import CoachProgramManagement from '@/pages/coach/program-management'
+import CoachCyclePrograms from '@/pages/coach/program-management/cycle-programs'
 import AdminUserManagement from '@/pages/admin/user-management'
 import AdminGoalTypes from '@/pages/admin/goal-types'
 import AdminProgramManagement from '@/pages/admin/program-management'
@@ -34,6 +35,7 @@ import TestsPage from '@/pages/progress/TestsPage'
 import AnalyticsPage from '@/pages/progress/AnalyticsPage'
 import CoachAnalyticsPage from '@/pages/coach/CoachAnalyticsPage.tsx'
 import CoachMarketplace from '@/pages/coach/marketplace'
+import CoachExercises from '@/pages/coach/exercises'
 import AdminAnalyticsPage from '@/pages/admin/AdminAnalyticsPage.tsx'
 import Coach from '@/pages/coach'
 import Market from '@/pages/market'
@@ -108,8 +110,26 @@ export const routes = [
     path: '/create_program',
     element: (
       <ProtectedRoute allowedRoles={['COACH']}>
+        <Navigate to="/coach/program-management" replace />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/coach/program-management',
+    element: (
+      <ProtectedRoute allowedRoles={['COACH']}>
         <AppLayout>
-          <Program />
+          <CoachProgramManagement />
+        </AppLayout>
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/coach/program-management/cycles/:cycleId/programs',
+    element: (
+      <ProtectedRoute allowedRoles={['COACH']}>
+        <AppLayout>
+          <CoachCyclePrograms />
         </AppLayout>
       </ProtectedRoute>
     ),
@@ -140,6 +160,16 @@ export const routes = [
       <ProtectedRoute allowedRoles={['COACH']}>
         <AppLayout>
           <CoachMarketplace />
+        </AppLayout>
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/coach/exercises',
+    element: (
+      <ProtectedRoute allowedRoles={['COACH']}>
+        <AppLayout>
+          <CoachExercises />
         </AppLayout>
       </ProtectedRoute>
     ),

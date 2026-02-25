@@ -101,6 +101,10 @@ export interface DropdownProps {
    * Placeholder for the search input when searchable is true
    */
   searchPlaceholder?: string
+  /**
+   * Message shown when dropdown is open and there are no options (or no match when searchable)
+   */
+  emptyMessage?: string
 }
 
 /**
@@ -165,6 +169,7 @@ export function Dropdown({
   fullWidth = true,
   searchable = false,
   searchPlaceholder = 'Search...',
+  emptyMessage,
 }: Readonly<DropdownProps>) {
   const [isOpen, setIsOpen] = useState(false)
   const [isFocused, setIsFocused] = useState(false)
@@ -236,7 +241,7 @@ export function Dropdown({
       if (!button) return
       const rect = button.getBoundingClientRect()
       const spaceBelow = window.innerHeight - rect.bottom
-      const listMaxHeight = 240
+      const listMaxHeight = 192
       setOpenAbove(spaceBelow < listMaxHeight)
     })
     return () => cancelAnimationFrame(raf)
@@ -423,7 +428,7 @@ export function Dropdown({
     'absolute z-[10002] left-0 right-0',
     openAbove ? 'bottom-full mb-1' : 'mt-1',
     'bg-white border border-mid-gray rounded-lg shadow-lg',
-    'max-h-60 overflow-auto',
+    'max-h-48 overflow-auto',
     'focus:outline-none',
     fullWidth ? 'w-full' : 'min-w-full'
   )
@@ -563,15 +568,18 @@ export function Dropdown({
                     onKeyDown={e => handleOptionKeyDown(e, option.value)}
                   />
                 ))}
-            {searchable &&
-              ((filteredGroups && filteredGroups.length === 0) ||
-                (!filteredGroups && filteredOptions.length === 0)) && (
-                <div className="px-3 py-4 text-center">
-                  <Text variant="muted" className="text-sm">
-                    No options match your search
-                  </Text>
-                </div>
-              )}
+            {((filteredGroups &&
+              filteredGroups.every(g => g.options.length === 0)) ||
+              (!filteredGroups && filteredOptions.length === 0)) && (
+              <div className="px-3 py-4 text-center">
+                <Text variant="muted" className="text-sm">
+                  {emptyMessage ||
+                    (searchable
+                      ? 'No options match your search'
+                      : 'No options')}
+                </Text>
+              </div>
+            )}
           </div>
         )}
       </div>

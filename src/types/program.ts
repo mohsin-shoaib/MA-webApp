@@ -98,6 +98,8 @@ export interface Program extends Record<string, unknown> {
   name: string
   description: string
   isActive: boolean
+  /** Coach-created programs start unpublished; admin approves (publishes) to show in Program Browser */
+  isPublished?: boolean
   category: string | null
   subCategory: string | null
   cycleId: number

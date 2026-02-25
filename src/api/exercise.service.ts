@@ -28,6 +28,10 @@ export const exerciseService = {
       `${base}/delete-by-id/${id}`
     ),
 
+  /** Approve coach-submitted exercise (admin only). */
+  approve: (id: number) =>
+    api.put<GetExerciseResponse>(`${base}/approve/${id}`),
+
   /** Lightweight list for program builder exercise picker */
   listForProgramBuilder: (q?: string) =>
     api.get<ListForProgramBuilderResponse>(

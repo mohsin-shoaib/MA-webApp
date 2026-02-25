@@ -125,6 +125,7 @@ export function ProgramBuilderForm({
 
   const cycle = cycles.find(c => c.id === cycleId)
   const showCategory = cycle?.name === 'Red' || cycle?.name === 'Green'
+  const isAmberCycle = cycle?.name === 'Amber'
   const categoryOptions = goalTypes
     .filter(g => g.category === category)
     .map(g => ({ value: g.subCategory, label: g.subCategory }))
@@ -134,6 +135,7 @@ export function ProgramBuilderForm({
 
   const addWeek = () => {
     const nextWeek = structure.weeks.length + 1
+    const defaultFirstDayName = cycle?.name === 'Amber' ? '' : 'Day 1'
     setStructure({
       weeks: [
         ...structure.weeks,
@@ -143,7 +145,7 @@ export function ProgramBuilderForm({
           days: [
             {
               dayIndex: 0,
-              dayName: 'Day 1',
+              dayName: defaultFirstDayName,
               sections: [{ sectionType: 'normal', exercises: [] }],
             },
           ],
@@ -154,11 +156,14 @@ export function ProgramBuilderForm({
 
   const addDay = (weekIdx: number) => {
     const weeks = [...structure.weeks]
-    const week = { ...weeks[weekIdx], days: [...weeks[weekIdx].days] }
+    const week = { ...weeks[weekIdx], days: [...(weeks[weekIdx].days ?? [])] }
+    if (week.days.length >= 7) return // max 7 days per week; button is disabled
     const nextDayIdx = week.days.length
+    const defaultDayName =
+      cycle?.name === 'Amber' ? '' : `Day ${nextDayIdx + 1}`
     week.days.push({
       dayIndex: nextDayIdx,
-      dayName: `Day ${nextDayIdx + 1}`,
+      dayName: defaultDayName,
       sections: [{ sectionType: 'normal', exercises: [] }],
     })
     weeks[weekIdx] = week
@@ -313,7 +318,7 @@ export function ProgramBuilderForm({
       return
     }
     if (showCategory && (!category || !subCategory)) {
-      showError('Category and goal are required for this cycle')
+      showError('Goal and Goal Type are required for this cycle')
       return
     }
     const hasContent = structure.weeks.some(w =>
@@ -395,6 +400,7 @@ export function ProgramBuilderForm({
             onValueChange={v => setCycleId(Number(v ?? 0))}
             options={cycles.map(c => ({ value: String(c.id), label: c.name }))}
             placeholder="Select cycle"
+            disabled={!program}
           />
         </div>
       </div>
@@ -413,7 +419,7 @@ export function ProgramBuilderForm({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <Text variant="default" className="text-sm font-medium mb-1 block">
-              Category
+              Goal
             </Text>
             <Dropdown
               value={category}
@@ -423,12 +429,13 @@ export function ProgramBuilderForm({
                 setSubCategory('')
               }}
               options={categoryLabels}
-              placeholder="Category"
+              placeholder="Goal"
+              emptyMessage="please add goals first"
             />
           </div>
           <div>
             <Text variant="default" className="text-sm font-medium mb-1 block">
-              Goal
+              Goal Type
             </Text>
             <Dropdown
               value={subCategory}
@@ -437,7 +444,9 @@ export function ProgramBuilderForm({
                 setSubCategory(s)
               }}
               options={categoryOptions}
-              placeholder="Goal"
+              placeholder="Goal Type"
+              emptyMessage="please add goals first"
+              disabled={!category}
             />
           </div>
         </div>
@@ -494,6 +503,12 @@ export function ProgramBuilderForm({
                 size="small"
                 onClick={() => addDay(weekIdx)}
                 leftIcon={<Icon name="plus" family="solid" size={12} />}
+                disabled={(week.days?.length ?? 0) >= 7}
+                title={
+                  (week.days?.length ?? 0) >= 7
+                    ? 'Week is full (7 days). Add a new week to add more days.'
+                    : undefined
+                }
               >
                 Add day
               </Button>
@@ -534,20 +549,52 @@ export function ProgramBuilderForm({
                   </label>
                   {!(day.isRestDay ?? false) && (
                     <>
-                      <Input
-                        className="max-w-[160px]"
-                        value={day.dayName ?? ''}
-                        onChange={e => {
-                          const weeks = [...structure.weeks]
-                          const d = {
-                            ...weeks[weekIdx].days[dayIdx],
-                            dayName: e.target.value,
-                          }
-                          weeks[weekIdx].days[dayIdx] = d
-                          setStructure({ weeks })
-                        }}
-                        placeholder="Day name (e.g. Day 1)"
-                      />
+                      {isAmberCycle ? (
+                        <div className="flex flex-col gap-1">
+                          <label
+                            htmlFor={`amber-date-${weekIdx}-${dayIdx}`}
+                            className="text-xs font-medium text-gray-600"
+                          >
+                            Date
+                          </label>
+                          <input
+                            id={`amber-date-${weekIdx}-${dayIdx}`}
+                            type="date"
+                            className="max-w-[180px] rounded border border-gray-300 px-3 py-2 text-sm"
+                            value={
+                              /^\d{4}-\d{2}-\d{2}$/.test(
+                                String(day.dayName ?? '').trim()
+                              )
+                                ? (day.dayName as string)
+                                : ''
+                            }
+                            onChange={e => {
+                              const weeks = [...structure.weeks]
+                              const d = {
+                                ...weeks[weekIdx].days[dayIdx],
+                                dayName: e.target.value || '',
+                              }
+                              weeks[weekIdx].days[dayIdx] = d
+                              setStructure({ weeks })
+                            }}
+                          />
+                        </div>
+                      ) : (
+                        <Input
+                          className="max-w-[160px]"
+                          value={day.dayName ?? ''}
+                          onChange={e => {
+                            const weeks = [...structure.weeks]
+                            const d = {
+                              ...weeks[weekIdx].days[dayIdx],
+                              dayName: e.target.value,
+                            }
+                            weeks[weekIdx].days[dayIdx] = d
+                            setStructure({ weeks })
+                          }}
+                          placeholder="Day name (e.g. Day 1)"
+                        />
+                      )}
                       <Button
                         type="button"
                         variant="secondary"
@@ -594,13 +641,15 @@ export function ProgramBuilderForm({
                               >
                                 Section {sectionIdx + 1}
                               </Text>
-                              <select
-                                className="rounded-md border border-gray-300 px-2 py-1.5 text-sm bg-white"
+                              <Dropdown
                                 value={section.sectionType ?? 'normal'}
-                                onChange={e => {
+                                onValueChange={v => {
+                                  const val = Array.isArray(v)
+                                    ? (v[0] ?? '')
+                                    : (v ?? '')
+                                  const sectionType =
+                                    val as ProgramStructureSection['sectionType']
                                   const weeks = [...structure.weeks]
-                                  const sectionType = e.target
-                                    .value as ProgramStructureSection['sectionType']
                                   const s: ProgramStructureSection = {
                                     ...weeks[weekIdx].days[dayIdx].sections![
                                       sectionIdx
@@ -612,13 +661,10 @@ export function ProgramBuilderForm({
                                   ] = s
                                   setStructure({ weeks })
                                 }}
-                              >
-                                {SECTION_TYPES.map(st => (
-                                  <option key={st.value} value={st.value}>
-                                    {st.label}
-                                  </option>
-                                ))}
-                              </select>
+                                options={SECTION_TYPES}
+                                fullWidth={false}
+                                className="max-w-[140px]"
+                              />
                               <Input
                                 className="max-w-[180px]"
                                 value={section.name ?? ''}
@@ -665,6 +711,7 @@ export function ProgramBuilderForm({
                             {/* Add exercise - searchable Dropdown */}
                             <Dropdown
                               placeholder="Search and select exercise..."
+                              emptyMessage="please add exercises first"
                               searchable
                               searchPlaceholder="Search exercises..."
                               value={
