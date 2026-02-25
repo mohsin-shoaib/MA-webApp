@@ -292,7 +292,7 @@ export default function OnboardingForm({
         error={errors.job?.message}
       />
 
-      <div className="space-y-3">
+      <div className="space-y-3 hidden">
         <Checkbox
           label="Returning from selection/deployment (recommend Red Cycle)"
           checked={returningFromEvent}
