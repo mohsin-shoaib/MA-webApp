@@ -25,6 +25,20 @@ export const nutritionService = {
     api.post<CalculatorResponse>('athlete/nutrition/calculator', body),
 
   /**
+   * Get calculator config (activity levels, goals, default multiplier). GET /athlete/nutrition/config
+   */
+  getConfig: () =>
+    api.get<{
+      statusCode: number
+      data: {
+        activityLevels: { value: number; label: string }[]
+        goals: { value: string; label: string }[]
+        defaultActivityMultiplier: number
+      }
+      message?: string
+    }>('athlete/nutrition/config'),
+
+  /**
    * Get current nutrition targets. GET /athlete/nutrition/targets
    */
   getTargets: () => api.get<GetTargetsResponse>('athlete/nutrition/targets'),

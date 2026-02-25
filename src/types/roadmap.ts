@@ -132,6 +132,35 @@ export interface Roadmap {
   eventDate?: string
   totalWeeks?: number
   currentCycle?: string
+  /** PRD 6.2: Next block name (e.g. Green) */
+  nextBlockName?: string | null
+  /** PRD 6.2: Weeks until next transition */
+  countdownWeeks?: number | null
+  /** PRD 6.1.6: When Sustainment may be recommended */
+  sustainmentNote?: string | null
+  /** PRD 6.3.3: true when current cycle is Sustainment (show as distinct overlay) */
+  isSustainmentCycle?: boolean
+  /** PRD 6.4.1: Personal records from SetLog */
+  prList?: Array<{
+    exerciseName: string
+    weight: number
+    unit: string
+    date: string
+  }>
+  /** PRD 6.4.2: Performance over time (compliance by week) */
+  complianceByWeek?: Array<{
+    weekStart: string
+    completed: number
+    total: number
+    percent: number
+  }>
+  /** PRD 6.4.3: Test results (placeholder) */
+  testResults?: Array<{
+    id: number
+    name: string
+    date: string
+    result: string
+  }>
   generatedAt?: string
   onboardingId?: number
   createdAt?: string
@@ -142,6 +171,8 @@ export interface Roadmap {
   programWeeksUsed?: number
   /** Total program weeks (e.g. 12) when trimmed */
   programTotalWeeks?: number
+  /** PRD 4.7.1: true when timeline was prioritized over ideal performance; show warning */
+  timelinePriorityWarning?: boolean
 }
 
 export interface RoadmapResponseV2 {

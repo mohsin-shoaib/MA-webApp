@@ -10,6 +10,7 @@ import { Stack } from '@/components/Stack'
 import AuthLayout from '../authLayout'
 import { useSnackbar } from '@/components/Snackbar/useSnackbar'
 import { useAuth } from '@/contexts/useAuth'
+import { registerFcmTokenIfNeeded } from '@/lib/fcm-registration'
 import type { AxiosError } from 'axios'
 
 export default function Login() {
@@ -36,6 +37,11 @@ export default function Login() {
         lastName: user.lastName,
         role: user.role,
       })
+
+      // PRD 16 — Register FCM token for push (athletes only)
+      if (user.role === 'ATHLETE') {
+        registerFcmTokenIfNeeded().catch(() => {})
+      }
 
       // Navigate based on user role
       if (user.role === 'ATHLETE') {

@@ -1,0 +1,309 @@
+import { useState, useEffect, useCallback } from 'react'
+import { useParams, useNavigate } from 'react-router-dom'
+import { Text } from '@/components/Text'
+import { Stack } from '@/components/Stack'
+import { Button } from '@/components/Button'
+import { Icon } from '@/components/Icon'
+import { DataTable, type Column } from '@/components/DataTable'
+import { Modal } from '@/components/Modal'
+import { Tooltip } from '@/components/Tooltip'
+import { ProgramForm } from '@/components/Program/ProgramForm'
+import { ProgramBuilderForm } from '@/components/Program/ProgramBuilderForm'
+import { adminService } from '@/api/admin.service'
+import { programService } from '@/api/program.service'
+import { useSnackbar } from '@/components/Snackbar/useSnackbar'
+import type { Cycle } from '@/types/cycle'
+import type { Program } from '@/types/program'
+import { AxiosError } from 'axios'
+
+/**
+ * Coach Cycle Programs — same layout as Admin.
+ * Programs table for the selected cycle. Create / Update only; no Approve (admin approves).
+ */
+const CoachCyclePrograms = () => {
+  const { cycleId } = useParams<{ cycleId: string }>()
+  const navigate = useNavigate()
+  const [programs, setPrograms] = useState<Program[]>([])
+  const [loading, setLoading] = useState(true)
+  const [cycleName, setCycleName] = useState<string>('')
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  const [editingProgram, setEditingProgram] = useState<Program | null>(null)
+  const { showError, showSuccess } = useSnackbar()
+
+  const fetchCycleName = useCallback(async () => {
+    if (!cycleId) return
+    try {
+      const response = await adminService.getCycles()
+      const cycles = response.data.data || []
+      const cycle = cycles.find((c: Cycle) => c.id === Number(cycleId))
+      if (cycle) setCycleName(cycle.name)
+    } catch {
+      // ignore
+    }
+  }, [cycleId])
+
+  const fetchPrograms = useCallback(async () => {
+    if (!cycleId) {
+      showError('Cycle ID is required')
+      navigate('/coach/program-management')
+      return
+    }
+    try {
+      setLoading(true)
+      const response = await programService.getAll({ cycleId: Number(cycleId) })
+      setPrograms(response.data.data.rows || [])
+    } catch (error) {
+      const axiosError = error as AxiosError<{ message: string }>
+      showError(
+        axiosError.response?.data?.message ??
+          'Failed to load programs. Please try again.'
+      )
+      setPrograms([])
+    } finally {
+      setLoading(false)
+    }
+  }, [cycleId, navigate, showError])
+
+  useEffect(() => {
+    fetchCycleName()
+    fetchPrograms()
+  }, [fetchCycleName, fetchPrograms])
+
+  const handleBack = () => {
+    navigate('/coach/program-management')
+  }
+
+  const handleCreateProgram = () => {
+    setIsCreateModalOpen(true)
+  }
+
+  const handleCloseModal = () => {
+    setIsCreateModalOpen(false)
+  }
+
+  const handleFormSuccess = () => {
+    setIsCreateModalOpen(false)
+    setIsEditModalOpen(false)
+    setEditingProgram(null)
+    showSuccess(
+      editingProgram
+        ? 'Program updated successfully!'
+        : 'Program created and submitted for admin approval.'
+    )
+    fetchPrograms()
+  }
+
+  const handleEditProgram = async (program: Program) => {
+    try {
+      const response = await programService.getById(program.id)
+      const fullProgram = response.data?.data ?? program
+      setEditingProgram(fullProgram as Program)
+      setIsEditModalOpen(true)
+    } catch (error) {
+      const axiosError = error as AxiosError<{ message: string }>
+      showError(
+        axiosError.response?.data?.message ?? 'Failed to load program details'
+      )
+    }
+  }
+
+  const handleCloseEditModal = () => {
+    setIsEditModalOpen(false)
+    setEditingProgram(null)
+  }
+
+  const isAmberCycle = cycleId === '2'
+  const isAmberLimitReached = isAmberCycle && programs.length >= 1
+
+  const columns: Column<Program>[] = [
+    {
+      key: 'id',
+      label: 'Sr No',
+      sortable: false,
+      width: '80px',
+      render: (_value, _row, index) => (
+        <Text variant="default" className="font-medium">
+          {index + 1}
+        </Text>
+      ),
+    },
+    {
+      key: 'name',
+      label: 'Name',
+      sortable: true,
+      render: (value, row) => (
+        <div className="flex items-center gap-1.5">
+          <Text variant="default" className="font-medium">
+            {(value as string) || '-'}
+          </Text>
+          <Tooltip content={row.description ?? 'No description'}>
+            <span className="inline-flex text-gray-500 cursor-help">
+              <Icon name="circle-info" family="solid" size={16} />
+            </span>
+          </Tooltip>
+        </div>
+      ),
+    },
+    {
+      key: 'category',
+      label: 'Goal Type',
+      sortable: true,
+      render: value => (
+        <Text variant="default" className="text-sm">
+          {(value as string) || '-'}
+        </Text>
+      ),
+    },
+    {
+      key: 'subCategory',
+      label: 'Goal',
+      sortable: true,
+      render: value => (
+        <Text variant="default" className="text-sm">
+          {(value as string) || '-'}
+        </Text>
+      ),
+    },
+    {
+      key: 'isPublished',
+      label: 'Status',
+      sortable: false,
+      width: '140px',
+      render: (_value, row) => (
+        <span
+          className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+            row.isPublished
+              ? 'bg-green-100 text-green-800'
+              : 'bg-amber-100 text-amber-800'
+          }`}
+        >
+          {row.isPublished ? 'Published' : 'Pending approval'}
+        </span>
+      ),
+    },
+    {
+      key: 'actions',
+      label: 'Actions',
+      sortable: false,
+      align: 'center',
+      width: '120px',
+      render: (_value, row) => (
+        <Button
+          variant="outline"
+          size="small"
+          onClick={() => handleEditProgram(row)}
+          leftIcon={<Icon name="edit" family="solid" size={14} />}
+        >
+          Update
+        </Button>
+      ),
+    },
+  ]
+
+  return (
+    <div className="p-6">
+      <Stack direction="vertical" spacing={6}>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Button
+              variant="ghost"
+              size="small"
+              leftIcon={<Icon name="arrow-left" family="solid" size={16} />}
+              onClick={handleBack}
+            >
+              Back
+            </Button>
+            <div>
+              <Text as="h1" variant="primary" className="text-2xl font-bold">
+                {cycleName || 'Programs'}
+              </Text>
+              <Text variant="secondary" className="text-sm mt-1">
+                View and manage programs for this cycle
+              </Text>
+            </div>
+          </div>
+          {isAmberLimitReached ? (
+            <Tooltip content="Amber program only support default program">
+              <span className="inline-block cursor-not-allowed">
+                <Button
+                  variant="primary"
+                  leftIcon={<Icon name="plus" family="solid" size={16} />}
+                  disabled
+                >
+                  Create Program
+                </Button>
+              </span>
+            </Tooltip>
+          ) : (
+            <Button
+              variant="primary"
+              leftIcon={<Icon name="plus" family="solid" size={16} />}
+              onClick={handleCreateProgram}
+            >
+              Create Program
+            </Button>
+          )}
+        </div>
+
+        <div className="bg-white rounded-lg border border-mid-gray p-6">
+          <DataTable<Program>
+            data={programs}
+            columns={columns}
+            loading={loading}
+            rowKey="id"
+            emptyMessage="No programs found for this cycle. Click 'Create Program' to add one."
+          />
+        </div>
+
+        {isCreateModalOpen && (
+          <Modal
+            visible={isCreateModalOpen}
+            onClose={handleCloseModal}
+            title="Create New Program"
+            size="fullscreen"
+            showCloseButton={true}
+          >
+            <div className="p-6">
+              <ProgramBuilderForm
+                initialCycleId={cycleId ? Number(cycleId) : undefined}
+                onSuccess={handleFormSuccess}
+                onCancel={handleCloseModal}
+              />
+            </div>
+          </Modal>
+        )}
+
+        {isEditModalOpen && editingProgram && (
+          <Modal
+            visible={isEditModalOpen}
+            onClose={handleCloseEditModal}
+            title="Update Program"
+            size="fullscreen"
+            showCloseButton={true}
+          >
+            <div className="p-6">
+              {editingProgram.programStructure?.weeks?.length ? (
+                <ProgramBuilderForm
+                  initialCycleId={cycleId ? Number(cycleId) : undefined}
+                  program={editingProgram}
+                  onSuccess={handleFormSuccess}
+                  onCancel={handleCloseEditModal}
+                />
+              ) : (
+                <ProgramForm
+                  initialCycleId={cycleId ? Number(cycleId) : undefined}
+                  program={editingProgram}
+                  onSuccess={handleFormSuccess}
+                  onCancel={handleCloseEditModal}
+                />
+              )}
+            </div>
+          </Modal>
+        )}
+      </Stack>
+    </div>
+  )
+}
+
+export default CoachCyclePrograms

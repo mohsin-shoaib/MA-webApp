@@ -160,10 +160,15 @@ const GoalTypes = () => {
 
   const columns: Column<GoalType>[] = [
     {
-      key: 'id',
-      label: 'ID',
-      sortable: true,
-      width: '80px',
+      key: 'serial',
+      label: '#',
+      sortable: false,
+      width: '64px',
+      render: (_value, _row, index) => (
+        <Text variant="default" className="text-sm">
+          {index + 1}
+        </Text>
+      ),
     },
     {
       key: 'category',
@@ -180,16 +185,6 @@ const GoalTypes = () => {
       label: 'Goal',
       sortable: true,
       render: (_value, row) => <Text variant="default">{row.subCategory}</Text>,
-    },
-    {
-      key: 'description',
-      label: 'Description',
-      sortable: false,
-      render: (_value, row) => (
-        <Text variant="muted" className="text-sm">
-          {row.description || '—'}
-        </Text>
-      ),
     },
     {
       key: 'actions',

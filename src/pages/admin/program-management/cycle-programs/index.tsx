@@ -8,6 +8,7 @@ import { DataTable, type Column } from '@/components/DataTable'
 import { Modal } from '@/components/Modal'
 import { Tooltip } from '@/components/Tooltip'
 import { ProgramForm } from '@/components/Program/ProgramForm'
+import { ProgramBuilderForm } from '@/components/Program/ProgramBuilderForm'
 import { adminService } from '@/api/admin.service'
 import { programService } from '@/api/program.service'
 import { useSnackbar } from '@/components/Snackbar/useSnackbar'
@@ -104,14 +105,39 @@ const CyclePrograms = () => {
     fetchPrograms()
   }
 
-  const handleEditProgram = (program: Program) => {
-    setEditingProgram(program)
-    setIsEditModalOpen(true)
+  const handleEditProgram = async (program: Program) => {
+    try {
+      // Fetch full program with programStructure (from normalized DB) for builder
+      const response = await programService.getById(program.id)
+      const fullProgram = response.data?.data ?? program
+      setEditingProgram(fullProgram as Program)
+      setIsEditModalOpen(true)
+    } catch (error) {
+      const axiosError = error as AxiosError<{ message: string }>
+      showError(
+        axiosError.response?.data?.message ?? 'Failed to load program details'
+      )
+    }
   }
 
   const handleCloseEditModal = () => {
     setIsEditModalOpen(false)
     setEditingProgram(null)
+  }
+
+  const handleApproveProgram = async (program: Program) => {
+    try {
+      await programService.publish(program.id)
+      showSuccess(
+        'Program approved and published. It will now appear in the Program Browser.'
+      )
+      fetchPrograms()
+    } catch (error) {
+      const axiosError = error as AxiosError<{ message?: string }>
+      showError(
+        axiosError.response?.data?.message ?? 'Failed to approve program'
+      )
+    }
   }
 
   // Amber cycle (id 2) allows only one program
@@ -169,20 +195,49 @@ const CyclePrograms = () => {
       ),
     },
     {
+      key: 'isPublished',
+      label: 'Status',
+      sortable: false,
+      width: '140px',
+      render: (_value, row) => (
+        <span
+          className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+            row.isPublished
+              ? 'bg-green-100 text-green-800'
+              : 'bg-amber-100 text-amber-800'
+          }`}
+        >
+          {row.isPublished ? 'Published' : 'Pending approval'}
+        </span>
+      ),
+    },
+    {
       key: 'actions',
       label: 'Actions',
       sortable: false,
       align: 'center',
-      width: '120px',
+      width: '180px',
       render: (_value, row) => (
-        <Button
-          variant="outline"
-          size="small"
-          onClick={() => handleEditProgram(row)}
-          leftIcon={<Icon name="edit" family="solid" size={14} />}
-        >
-          Update
-        </Button>
+        <div className="flex items-center justify-center gap-1.5 flex-wrap">
+          {!row.isPublished && (
+            <Button
+              variant="primary"
+              size="small"
+              onClick={() => handleApproveProgram(row)}
+              leftIcon={<Icon name="check" family="solid" size={14} />}
+            >
+              Approve
+            </Button>
+          )}
+          <Button
+            variant="outline"
+            size="small"
+            onClick={() => handleEditProgram(row)}
+            leftIcon={<Icon name="edit" family="solid" size={14} />}
+          >
+            Update
+          </Button>
+        </div>
       ),
     },
   ]
@@ -254,7 +309,7 @@ const CyclePrograms = () => {
             showCloseButton={true}
           >
             <div className="p-6">
-              <ProgramForm
+              <ProgramBuilderForm
                 initialCycleId={cycleId ? Number(cycleId) : undefined}
                 onSuccess={handleFormSuccess}
                 onCancel={handleCloseModal}
@@ -273,12 +328,21 @@ const CyclePrograms = () => {
             showCloseButton={true}
           >
             <div className="p-6">
-              <ProgramForm
-                initialCycleId={cycleId ? Number(cycleId) : undefined}
-                program={editingProgram}
-                onSuccess={handleFormSuccess}
-                onCancel={handleCloseEditModal}
-              />
+              {editingProgram.programStructure?.weeks?.length ? (
+                <ProgramBuilderForm
+                  initialCycleId={cycleId ? Number(cycleId) : undefined}
+                  program={editingProgram}
+                  onSuccess={handleFormSuccess}
+                  onCancel={handleCloseEditModal}
+                />
+              ) : (
+                <ProgramForm
+                  initialCycleId={cycleId ? Number(cycleId) : undefined}
+                  program={editingProgram}
+                  onSuccess={handleFormSuccess}
+                  onCancel={handleCloseEditModal}
+                />
+              )}
             </div>
           </Modal>
         )}

@@ -114,152 +114,136 @@ export function Modal({
   containerStyle,
   contentStyle,
 }: Readonly<ModalProps>) {
-  const modalRef = useRef<HTMLDialogElement>(null)
+  const overlayRef = useRef<HTMLDivElement>(null)
+  const contentRef = useRef<HTMLDivElement>(null)
   const modalStyles = getModalStyles(size)
 
-  // Handle dialog open/close
+  // Escape key
   useEffect(() => {
-    const dialog = modalRef.current
-    if (!dialog) return
-
-    if (visible) {
-      dialog.showModal()
-    } else {
-      dialog.close()
-    }
-  }, [visible])
-
-  // Handle escape key and backdrop clicks
-  useEffect(() => {
-    if (!visible) return
-
-    const dialog = modalRef.current
-    if (!dialog) return
-
-    const handleCancel = (e: Event) => {
-      // Cancel event is triggered by:
-      // 1. Escape key (if closeOnEscape is true)
-      // 2. Backdrop click (if closeOnBackdropPress is true)
-
-      // For escape key
-      if (!closeOnEscape) {
+    if (!visible || !closeOnEscape) return
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
         e.preventDefault()
-        return
+        onClose()
       }
-
-      // For backdrop click, check if closeOnBackdropPress is enabled
-      // Note: We can't distinguish between escape and backdrop click in the cancel event
-      // So we'll allow both if either is enabled, or prevent if both are disabled
-      if (!closeOnBackdropPress && !closeOnEscape) {
-        e.preventDefault()
-        return
-      }
-
-      onClose()
     }
+    globalThis.addEventListener('keydown', handleKeyDown)
+    return () => globalThis.removeEventListener('keydown', handleKeyDown)
+  }, [visible, closeOnEscape, onClose])
 
-    dialog.addEventListener('cancel', handleCancel)
-    return () => {
-      dialog.removeEventListener('cancel', handleCancel)
-    }
-  }, [visible, closeOnEscape, closeOnBackdropPress, onClose])
+  // Backdrop click
+  const handleBackdropClick = (e: React.MouseEvent) => {
+    if (!closeOnBackdropPress) return
+    if (e.target === overlayRef.current) onClose()
+  }
 
   // Focus management
   useEffect(() => {
-    if (visible && modalRef.current) {
-      const firstFocusable = modalRef.current.querySelector(
+    if (visible && contentRef.current) {
+      const firstFocusable = contentRef.current.querySelector(
         'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
       ) as HTMLElement
       firstFocusable?.focus()
     }
   }, [visible])
 
+  if (!visible) return null
+
   return (
-    <dialog
-      ref={modalRef}
-      className={cn(
-        'bg-white rounded-xl shadow-lg',
-        'flex flex-col',
-        'max-w-full max-h-[90vh]',
-        'overflow-hidden',
-        'p-0',
-        'backdrop:bg-black/50',
-        modalStyles.containerWidth,
-        className
-      )}
-      style={{
-        ...containerStyle,
-        // Reset dialog default styles
-        margin: 'auto',
-        border: 'none',
-      }}
+    <div
+      ref={overlayRef}
+      role="dialog"
+      aria-modal="true"
       aria-labelledby={title ? 'modal-title' : undefined}
+      className="fixed inset-0 z-[1000] flex items-center justify-center p-4"
+      onClick={handleBackdropClick}
+      onKeyDown={e => {
+        if (closeOnEscape && e.key === 'Escape') {
+          e.preventDefault()
+          onClose()
+        }
+      }}
     >
-      {/* Header */}
-      {(title || showCloseButton) && (
-        <div
-          className={cn(
-            'flex items-center justify-between',
-            modalStyles.header
-          )}
-        >
-          {title && (
-            <Text
-              id="modal-title"
-              variant="default"
-              className="text-xl font-semibold flex-1"
-            >
-              {title}
-            </Text>
-          )}
-          {showCloseButton && (
-            <IconButton
-              icon="times"
-              variant="ghost"
-              size="small"
-              onClick={onClose}
-              aria-label="Close"
-            />
-          )}
-        </div>
-      )}
-
-      {/* Body */}
+      {/* Backdrop */}
+      <div className="absolute inset-0 bg-black/50" aria-hidden="true" />
+      {/* Modal content */}
       <div
-        className={cn('shrink overflow-y-auto', modalStyles.body)}
-        style={contentStyle}
+        ref={contentRef}
+        className={cn(
+          'relative bg-white rounded-xl shadow-lg',
+          'flex flex-col max-w-full max-h-[90vh] overflow-hidden p-0',
+          modalStyles.containerWidth,
+          className
+        )}
+        style={{ ...containerStyle, margin: 'auto', border: 'none' }}
+        onClick={e => e.stopPropagation()}
       >
-        {children}
-      </div>
+        {/* Header */}
+        {(title || showCloseButton) && (
+          <div
+            className={cn(
+              'flex items-center justify-between',
+              modalStyles.header
+            )}
+          >
+            {title && (
+              <Text
+                id="modal-title"
+                variant="default"
+                className="text-xl font-semibold flex-1"
+              >
+                {title}
+              </Text>
+            )}
+            {showCloseButton && (
+              <IconButton
+                icon="times"
+                variant="ghost"
+                size="small"
+                onClick={onClose}
+                aria-label="Close"
+              />
+            )}
+          </div>
+        )}
 
-      {/* Footer */}
-      {(primaryAction || secondaryAction) && (
-        <div className={modalStyles.footer}>
-          <Stack direction="horizontal" spacing={12} justify="end">
-            {secondaryAction && (
-              <Button
-                variant="outline"
-                onClick={secondaryAction.onPress}
-                loading={secondaryAction.loading}
-                disabled={secondaryAction.disabled}
-              >
-                {secondaryAction.label}
-              </Button>
-            )}
-            {primaryAction && (
-              <Button
-                variant="primary"
-                onClick={primaryAction.onPress}
-                loading={primaryAction.loading}
-                disabled={primaryAction.disabled}
-              >
-                {primaryAction.label}
-              </Button>
-            )}
-          </Stack>
+        {/* Body */}
+        <div
+          className={cn('shrink overflow-y-auto', modalStyles.body)}
+          style={contentStyle}
+        >
+          {children}
         </div>
-      )}
-    </dialog>
+
+        {/* Footer */}
+        {(primaryAction || secondaryAction) && (
+          <div className={modalStyles.footer}>
+            <Stack direction="horizontal" spacing={12} justify="end">
+              {secondaryAction && (
+                <Button
+                  variant="outline"
+                  onClick={secondaryAction.onPress}
+                  loading={secondaryAction.loading}
+                  disabled={secondaryAction.disabled}
+                >
+                  {secondaryAction.label}
+                </Button>
+              )}
+              {primaryAction && (
+                <Button
+                  variant="primary"
+                  onClick={primaryAction.onPress}
+                  loading={primaryAction.loading}
+                  disabled={primaryAction.disabled}
+                >
+                  {primaryAction.label}
+                </Button>
+              )}
+            </Stack>
+          </div>
+        )}
+      </div>
+    </div>
   )
 }
 

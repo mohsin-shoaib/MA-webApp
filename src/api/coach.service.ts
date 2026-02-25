@@ -1,5 +1,9 @@
 import api from './axios'
-import type { GetAthletesResponse, GetCoachesResponse } from '@/types/coach'
+import type {
+  GetAthletesResponse,
+  GetCoachesResponse,
+  GetMyAthletesResponse,
+} from '@/types/coach'
 
 export const coachService = {
   /**
@@ -39,4 +43,25 @@ export const coachService = {
         ...(params?.search && { search: params.search }),
       },
     }),
+
+  /** Coach's 1:1 assigned athletes (for marketplace assign, etc.). GET coach/my-athletes */
+  getMyAthletes: () => api.get<GetMyAthletesResponse>('coach/my-athletes'),
+
+  /** 90 Unchained: Assign custom program to an assigned athlete with date range. POST coach/user-program/assign */
+  assignCustomProgram: (body: {
+    athleteId: number
+    programId: number
+    startDate: string
+    endDate: string
+  }) =>
+    api.post<{ statusCode: number; data: unknown }>(
+      'coach/user-program/assign',
+      body
+    ),
+
+  /** List active 1:1 program assignments for coach's athletes. GET coach/user-program/active-1to1 */
+  listActive1to1: () =>
+    api.get<{ statusCode: number; data: { assignments: unknown[] } }>(
+      'coach/user-program/active-1to1'
+    ),
 }

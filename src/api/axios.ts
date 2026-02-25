@@ -4,6 +4,8 @@ const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
+    // PRD 8.2 / 8.3: Web app identifies as web so backend allows registration and Admin login. Mobile app must send X-Platform: mobile.
+    'X-Platform': 'web',
   },
 })
 

@@ -9,19 +9,12 @@ import type { User } from '@/types/admin'
 import { AxiosError } from 'axios'
 import { Avatar } from '@/components/Avatar'
 import { Badge } from '@/components/Badge'
-import { Button } from '@/components/Button'
-import { Icon } from '@/components/Icon'
-import { useAuth } from '@/contexts/useAuth'
 
 const UserManagement = () => {
   const [activeTab, setActiveTab] = useState('all')
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
-  const [updatingRoles, setUpdatingRoles] = useState<
-    Record<string | number, boolean>
-  >({})
-  const { showError, showSuccess } = useSnackbar()
-  const { user: currentUser } = useAuth()
+  const { showError } = useSnackbar()
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -47,27 +40,6 @@ const UserManagement = () => {
     fetchUsers()
   }, [showError])
 
-  const handlePromoteToCoachHead = async (userId: string | number) => {
-    try {
-      setUpdatingRoles(prev => ({ ...prev, [userId]: true }))
-      await adminService.updateUserRole(userId, { role: 'COACH_HEAD' })
-      showSuccess('User role updated to Coach Head successfully')
-
-      // Refresh the user list
-      const response = await adminService.getUsers()
-      const usersData = response.data.data?.rows || []
-      setUsers(usersData)
-    } catch (error) {
-      const axiosError = error as AxiosError<{ message: string }>
-      const errorMessage =
-        axiosError.response?.data?.message ||
-        'Failed to update user role. Please try again.'
-      showError(errorMessage)
-    } finally {
-      setUpdatingRoles(prev => ({ ...prev, [userId]: false }))
-    }
-  }
-
   // Filter users by role based on active tab
   const filteredUsers = useMemo(() => {
     if (activeTab === 'all') return users
@@ -78,8 +50,6 @@ const UserManagement = () => {
           return role === 'ATHLETE'
         case 'coaches':
           return role === 'COACH'
-        case 'coach_heads':
-          return role === 'COACH_HEAD'
         case 'admins':
           return role === 'ADMIN'
         default:
@@ -94,8 +64,6 @@ const UserManagement = () => {
       all: users.length,
       athletes: users.filter(u => u.role?.toUpperCase() === 'ATHLETE').length,
       coaches: users.filter(u => u.role?.toUpperCase() === 'COACH').length,
-      coach_heads: users.filter(u => u.role?.toUpperCase() === 'COACH_HEAD')
-        .length,
       admins: users.filter(u => u.role?.toUpperCase() === 'ADMIN').length,
     }
   }, [users])
@@ -154,7 +122,6 @@ const UserManagement = () => {
           ADMIN: 'primary',
           COACH: 'success',
           ATHLETE: 'secondary',
-          COACH_HEAD: 'warning',
         }
         return (
           <Badge variant={roleColors[role.toUpperCase()] || 'secondary'}>
@@ -205,29 +172,7 @@ const UserManagement = () => {
       sortable: false,
       align: 'right',
       width: '150px',
-      render: (_value, row) => {
-        // Only show promote button for COACH users and only if current user is ADMIN
-        const isCoach = row.role === 'COACH'
-        const isAdmin = currentUser?.role === 'ADMIN'
-        const isUpdating = updatingRoles[row.id] || false
-
-        if (!isCoach || !isAdmin) {
-          return <Text variant="muted">—</Text>
-        }
-
-        return (
-          <Button
-            variant="outline"
-            size="small"
-            onClick={() => handlePromoteToCoachHead(row.id)}
-            loading={isUpdating}
-            disabled={isUpdating}
-            leftIcon={<Icon name="arrow-up" family="solid" size={14} />}
-          >
-            Promote
-          </Button>
-        )
-      },
+      render: () => <Text variant="muted">—</Text>,
     },
   ]
 
@@ -306,17 +251,6 @@ const UserManagement = () => {
       icon: 'user',
       content: renderTable(filteredUsers, 'Coaches', roleCounts.coaches),
       badge: roleCounts.coaches > 0 ? roleCounts.coaches : undefined,
-    },
-    {
-      id: 'coach_heads',
-      label: 'Coach Heads',
-      icon: 'shield',
-      content: renderTable(
-        filteredUsers,
-        'Coach Heads',
-        roleCounts.coach_heads
-      ),
-      badge: roleCounts.coach_heads > 0 ? roleCounts.coach_heads : undefined,
     },
     {
       id: 'admins',

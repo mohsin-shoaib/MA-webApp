@@ -12,6 +12,7 @@ import type {
   ProgramWithCycle,
   EnrollProgramResponse,
   CurrentProgramResponse,
+  RecommendedNextResponse,
 } from '@/types/program'
 
 export const programService = {
@@ -54,6 +55,13 @@ export const programService = {
     api.delete<{ statusCode: number; status: string; message: string }>(
       `admin/program/delete-by-id/${programId}`
     ),
+
+  /**
+   * Publish program (Admin only). Coach-created programs are unpublished until admin approves.
+   * PATCH /api/v1/admin/program/publish/:programId
+   */
+  publish: (programId: number) =>
+    api.patch<GetProgramResponse>(`admin/program/publish/${programId}`),
 
   // Legacy method (kept for backward compatibility)
   createProgram: (payload: CreateProgramDTO) =>
@@ -105,6 +113,13 @@ export const programService = {
    */
   getCurrentProgram: () =>
     api.get<CurrentProgramResponse>('athlete/program/current'),
+
+  /**
+   * Get recommended next program (PRD 10.7). User must confirm; no auto-assign.
+   * GET /api/v1/athlete/program/recommended-next
+   */
+  getRecommendedNext: () =>
+    api.get<RecommendedNextResponse>('athlete/program/recommended-next'),
 
   /**
    * Upload video to S3

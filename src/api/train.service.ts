@@ -64,7 +64,7 @@ export const trainService = {
     api.get<WorkoutSessionResponse>(`athlete/train/sessions/${sessionId}`),
 
   /**
-   * Get workout history.
+   * Get workout history (sessions in date range).
    * GET /athlete/train/sessions?from=&to=
    */
   getSessions: (from?: string, to?: string) => {
@@ -75,6 +75,50 @@ export const trainService = {
       params,
     })
   },
+
+  /**
+   * Get day history (workout/rest/none per day in range). PRD 9.3.4.
+   * GET /athlete/train/history?from=&to=
+   */
+  getDayHistory: (from?: string, to?: string) => {
+    const params: Record<string, string> = {}
+    if (from) params.from = from
+    if (to) params.to = to
+    return api.get<{
+      statusCode: number
+      data: {
+        days: Array<{
+          date: string
+          type: string
+          daySummary?: string
+          session?: unknown
+        }>
+      }
+    }>('athlete/train/history', { params })
+  },
+
+  /**
+   * Get exercise library with optional filters (PRD 9.2).
+   * GET /athlete/train/exercises?search=&muscleGroup=&equipment=&cycleSafe=
+   */
+  getExerciseLibrary: (params?: {
+    search?: string
+    muscleGroup?: string
+    equipment?: string
+    cycleSafe?: string
+  }) =>
+    api.get<{
+      statusCode: number
+      data: Array<{
+        name: string
+        description?: string
+        video?: string
+        exercise_id?: string
+        muscle_group?: string
+        equipment?: string
+        cycleName?: string
+      }>
+    }>('athlete/train/exercises', { params: params ?? {} }),
 
   /**
    * Log a set for a session.

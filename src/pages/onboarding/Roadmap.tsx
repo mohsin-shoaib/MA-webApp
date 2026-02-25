@@ -6,6 +6,7 @@ import { Button } from '@/components/Button'
 import { Spinner } from '@/components/Spinner'
 import { Accordion } from '@/components/Accordion'
 import { roadmapService } from '@/api/roadmap.service'
+import { dashboardService } from '@/api/dashboard.service'
 import type {
   RoadmapProps,
   RoadmapResponse,
@@ -120,6 +121,12 @@ export default function RoadmapStep({
     null
   )
   const [fetched, setFetched] = useState(false)
+  const [expandedView, setExpandedView] = useState(false)
+  const [regenerating, setRegenerating] = useState(false)
+  const [streak, setStreak] = useState<number | null>(null)
+  const [compliancePercent, setCompliancePercent] = useState<number | null>(
+    null
+  )
 
   useEffect(() => {
     if (fetched) return
@@ -179,6 +186,35 @@ export default function RoadmapStep({
     fetchRoadmap()
   }, [payload, fetched, setError, setLoading])
 
+  const handleUpdateRoadmap = async () => {
+    setRegenerating(true)
+    setError(null)
+    try {
+      const res = await roadmapService.regenerateRoadmap()
+      if (res.data?.statusCode === 200 && res.data.data) {
+        setRoadmap(res.data.data)
+      } else {
+        throw new Error(res.data?.message ?? 'Update failed')
+      }
+    } catch (err) {
+      const e = err as AxiosError<{ message?: string }>
+      setError(e.response?.data?.message ?? 'Failed to update roadmap')
+    } finally {
+      setRegenerating(false)
+    }
+  }
+
+  useEffect(() => {
+    if (!roadmap) return
+    dashboardService
+      .getDashboard()
+      .then(d => {
+        setStreak(d.streak ?? null)
+        setCompliancePercent(d.compliance?.compliancePercent ?? null)
+      })
+      .catch(() => {})
+  }, [roadmap])
+
   if (loading && !fetched) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -206,10 +242,20 @@ export default function RoadmapStep({
       <div className="space-y-6">
         {/* Summary card — aligned with other onboarding steps */}
         <Card className="p-6 sm:p-8 rounded-xl shadow-md border border-gray-200/80 bg-white">
-          <h2 className="text-xl sm:text-2xl font-semibold text-gray-800 mb-1">
-            Your Training Roadmap
-          </h2>
-          <Text variant="secondary" className="text-sm mb-6">
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+            <h2 className="text-xl sm:text-2xl font-semibold text-gray-800">
+              Your Training Roadmap
+            </h2>
+            <Button
+              variant="secondary"
+              size="small"
+              onClick={handleUpdateRoadmap}
+              loading={regenerating}
+            >
+              Update roadmap
+            </Button>
+          </div>
+          <Text variant="secondary" className="text-sm mb-4 block">
             Overview of your plan and current phase.
           </Text>
           <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
@@ -246,23 +292,86 @@ export default function RoadmapStep({
             {roadmap.currentCycle && (
               <div>
                 <dt className="text-xs font-medium text-gray-500 uppercase tracking-wide">
-                  Current cycle
+                  Current block
                 </dt>
                 <dd className="mt-0.5 font-medium text-gray-900">
                   {roadmap.currentCycle}
                 </dd>
               </div>
             )}
+            {roadmap.nextBlockName && (
+              <div>
+                <dt className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                  Next block
+                </dt>
+                <dd className="mt-0.5 font-medium text-gray-900">
+                  {roadmap.nextBlockName}
+                </dd>
+              </div>
+            )}
+            {roadmap.countdownWeeks != null && roadmap.countdownWeeks >= 0 && (
+              <div>
+                <dt className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                  Countdown to next transition
+                </dt>
+                <dd className="mt-0.5 font-medium text-gray-900">
+                  {roadmap.countdownWeeks === 0
+                    ? 'This week'
+                    : `${roadmap.countdownWeeks} week${roadmap.countdownWeeks === 1 ? '' : 's'}`}
+                </dd>
+              </div>
+            )}
           </dl>
+          {roadmap.sustainmentNote && (
+            <p className="text-xs text-gray-600 mt-4 pt-4 border-t border-gray-100 bg-blue-50/50 rounded p-3">
+              {roadmap.sustainmentNote}
+            </p>
+          )}
           {roadmap.cycles?.some(c => c.cycleName === 'Amber') && (
             <p className="text-xs text-gray-500 mt-4 pt-4 border-t border-gray-100">
               Amber workouts are set by your coach by date; you’ll see each
               day’s workout on the day.
             </p>
           )}
+          {(streak != null || compliancePercent != null) && (
+            <div className="mt-4 pt-4 border-t border-gray-100 flex flex-wrap gap-4 text-sm">
+              {streak != null && (
+                <span className="text-gray-700">
+                  <strong>Streak:</strong> {streak} day{streak === 1 ? '' : 's'}
+                </span>
+              )}
+              {compliancePercent != null && (
+                <span className="text-gray-700">
+                  <strong>Compliance:</strong> {Math.round(compliancePercent)}%
+                </span>
+              )}
+            </div>
+          )}
+          <Button
+            variant="secondary"
+            className="mt-4"
+            onClick={() => setExpandedView(!expandedView)}
+          >
+            {expandedView ? 'Hide full timeline' : 'Show full timeline'}
+          </Button>
         </Card>
 
-        {roadmap.cycles && roadmap.cycles.length > 0 && (
+        {expandedView &&
+          (roadmap.isSustainmentCycle ||
+            roadmap.currentCycle === 'Sustainment') && (
+            <Card className="p-6 rounded-xl border-2 border-dashed border-slate-400 bg-slate-50/80">
+              <h3 className="text-lg font-semibold text-slate-800">
+                Sustainment
+              </h3>
+              <Text variant="secondary" className="text-sm mt-1">
+                You are in a Sustainment block — limited time or equipment. This
+                is not part of the main Red → Amber → Green progression. Switch
+                to a main cycle when ready from Goals or cycle transition.
+              </Text>
+            </Card>
+          )}
+
+        {expandedView && roadmap.cycles && roadmap.cycles.length > 0 && (
           <div className="space-y-5">
             {roadmap.cycles.map((cycle, index) => {
               const timelineData = (
@@ -417,7 +526,8 @@ export default function RoadmapStep({
         )}
 
         {/* Display timeline if cycles not available but timeline exists */}
-        {(!roadmap.cycles || roadmap.cycles.length === 0) &&
+        {expandedView &&
+          (!roadmap.cycles || roadmap.cycles.length === 0) &&
           roadmap.timeline &&
           typeof roadmap.timeline === 'object' && (
             <Card className="p-6 sm:p-8 rounded-xl shadow-md border border-gray-200/80">
@@ -530,6 +640,103 @@ export default function RoadmapStep({
               </div>
             </Card>
           )}
+
+        {expandedView && (
+          <Card className="p-6 rounded-xl border border-gray-200/80 bg-white">
+            <h3 className="text-lg font-semibold text-gray-800 mb-4">
+              Performance
+            </h3>
+            <div className="mb-4">
+              <Text
+                variant="default"
+                className="font-medium text-gray-800 block mb-2"
+              >
+                PR list
+              </Text>
+              {roadmap.prList && roadmap.prList.length > 0 ? (
+                <>
+                  <ul className="list-none space-y-1 text-sm">
+                    {roadmap.prList.slice(0, 10).map((pr, i) => (
+                      <li
+                        key={i}
+                        className="flex justify-between py-1 border-b border-gray-100 last:border-0"
+                      >
+                        <span className="text-gray-900">{pr.exerciseName}</span>
+                        <span className="text-gray-600">
+                          {pr.weight} {pr.unit}
+                          {pr.date ? ` (${pr.date})` : ''}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                  {roadmap.prList.length > 10 && (
+                    <Text variant="secondary" className="text-xs mt-1">
+                      {roadmap.prList.length - 10} more
+                    </Text>
+                  )}
+                </>
+              ) : (
+                <Text variant="secondary" className="text-sm">
+                  No PRs recorded yet.
+                </Text>
+              )}
+            </div>
+            <div className="mb-4">
+              <Text
+                variant="default"
+                className="font-medium text-gray-800 block mb-2"
+              >
+                Compliance by week
+              </Text>
+              {roadmap.complianceByWeek &&
+              roadmap.complianceByWeek.length > 0 ? (
+                <ul className="list-none space-y-1 text-sm">
+                  {roadmap.complianceByWeek.slice(-8).map((w, i) => (
+                    <li
+                      key={i}
+                      className="flex justify-between py-1 border-b border-gray-100 last:border-0"
+                    >
+                      <span className="text-gray-700">
+                        Week of {w.weekStart}
+                      </span>
+                      <span className="text-gray-600">
+                        {w.completed}/{w.total} ({w.percent}%)
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <Text variant="secondary" className="text-sm">
+                  No compliance data yet.
+                </Text>
+              )}
+            </div>
+            <div>
+              <Text
+                variant="default"
+                className="font-medium text-gray-800 block mb-2"
+              >
+                Test results
+              </Text>
+              {roadmap.testResults && roadmap.testResults.length > 0 ? (
+                <ul className="list-none space-y-1 text-sm">
+                  {roadmap.testResults.map((t, i) => (
+                    <li
+                      key={t.id ?? i}
+                      className="py-1 border-b border-gray-100"
+                    >
+                      {t.name}: {t.result} ({t.date})
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <Text variant="secondary" className="text-sm">
+                  No test results recorded yet.
+                </Text>
+              )}
+            </div>
+          </Card>
+        )}
 
         {onComplete && (
           <Card className="p-6 sm:p-8 rounded-xl shadow-md border border-gray-200/80">

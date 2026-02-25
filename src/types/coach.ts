@@ -29,3 +29,13 @@ export interface GetCoachesResponse {
   }
   message: string
 }
+
+export interface GetMyAthletesResponse {
+  statusCode: number
+  status: string
+  data: {
+    athletes: User[]
+    total: number
+  }
+  message: string
+}

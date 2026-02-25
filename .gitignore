@@ -12,6 +12,10 @@ dist
 dist-ssr
 *.local
 
+# Generated from template; contains Firebase config from .env (do not commit)
+public/firebase-messaging-sw.js
+.env
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

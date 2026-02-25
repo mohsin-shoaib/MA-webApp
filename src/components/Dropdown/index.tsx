@@ -3,6 +3,7 @@ import { useThemeColor } from '@/hooks/use-theme-color'
 import { BrandColors } from '@/constants/theme'
 import { Text } from '@/components/Text'
 import { Icon } from '@/components/Icon'
+import { Input } from '@/components/Input'
 import { cn } from '@/utils/cn'
 
 export type DropdownSize = 'small' | 'medium' | 'large'
@@ -91,6 +92,19 @@ export interface DropdownProps {
    * @default true
    */
   fullWidth?: boolean
+  /**
+   * When true, shows a search input inside the dropdown to filter options
+   * @default false
+   */
+  searchable?: boolean
+  /**
+   * Placeholder for the search input when searchable is true
+   */
+  searchPlaceholder?: string
+  /**
+   * Message shown when dropdown is open and there are no options (or no match when searchable)
+   */
+  emptyMessage?: string
 }
 
 /**
@@ -153,9 +167,14 @@ export function Dropdown({
   className,
   containerStyle,
   fullWidth = true,
+  searchable = false,
+  searchPlaceholder = 'Search...',
+  emptyMessage,
 }: Readonly<DropdownProps>) {
   const [isOpen, setIsOpen] = useState(false)
   const [isFocused, setIsFocused] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [openAbove, setOpenAbove] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const buttonRef = useRef<HTMLButtonElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
@@ -175,6 +194,27 @@ export function Dropdown({
     return options || []
   }, [options, groups])
 
+  // Filter options/groups by search query when searchable
+  const filteredOptions = React.useMemo(() => {
+    if (!searchable || !searchQuery.trim()) return options || []
+    const q = searchQuery.toLowerCase().trim()
+    return (options || []).filter(opt => opt.label.toLowerCase().includes(q))
+  }, [options, searchable, searchQuery])
+
+  const filteredGroups = React.useMemo(() => {
+    if (!searchable || !searchQuery.trim()) return groups
+    if (!groups) return undefined
+    const q = searchQuery.toLowerCase().trim()
+    return groups
+      .map(group => ({
+        ...group,
+        options: group.options.filter(opt =>
+          opt.label.toLowerCase().includes(q)
+        ),
+      }))
+      .filter(g => g.options.length > 0)
+  }, [groups, searchable, searchQuery])
+
   // Get selected option labels
   const getSelectedLabel = useCallback(() => {
     if (multiple) {
@@ -190,6 +230,23 @@ export function Dropdown({
     }
   }, [value, multiple, allOptions, placeholder])
 
+  // When dropdown opens, measure space below and open upward if insufficient
+  useEffect(() => {
+    const raf = requestAnimationFrame(() => {
+      if (!isOpen) {
+        setOpenAbove(false)
+        return
+      }
+      const button = buttonRef.current
+      if (!button) return
+      const rect = button.getBoundingClientRect()
+      const spaceBelow = window.innerHeight - rect.bottom
+      const listMaxHeight = 192
+      setOpenAbove(spaceBelow < listMaxHeight)
+    })
+    return () => cancelAnimationFrame(raf)
+  }, [isOpen])
+
   // Handle click outside to close dropdown
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -199,6 +256,7 @@ export function Dropdown({
       ) {
         setIsOpen(false)
         setIsFocused(false)
+        setSearchQuery('')
       }
     }
 
@@ -216,6 +274,7 @@ export function Dropdown({
       if (e.key === 'Escape' && isOpen) {
         setIsOpen(false)
         setIsFocused(false)
+        setSearchQuery('')
         buttonRef.current?.focus()
       }
     }
@@ -228,16 +287,20 @@ export function Dropdown({
     }
   }, [isOpen])
 
-  // Focus management
+  // Focus management: focus search input when searchable, else first option
   useEffect(() => {
     if (isOpen && listRef.current) {
-      // Focus first option or selected option
-      const firstOption = listRef.current.querySelector<HTMLElement>(
-        '[data-value]:not([aria-disabled="true"])'
-      )
-      firstOption?.focus()
+      if (searchable) {
+        const input = listRef.current.querySelector('input')
+        ;(input as HTMLInputElement)?.focus()
+      } else {
+        const firstOption = listRef.current.querySelector<HTMLElement>(
+          '[data-value]:not([aria-disabled="true"])'
+        )
+        firstOption?.focus()
+      }
     }
-  }, [isOpen])
+  }, [isOpen, searchable])
 
   const handleToggle = useCallback(() => {
     if (!disabled) {
@@ -252,6 +315,7 @@ export function Dropdown({
       onValueChange?.(newValue)
       setIsOpen(false)
       setIsFocused(false)
+      setSearchQuery('')
     },
     [onValueChange]
   )
@@ -361,9 +425,10 @@ export function Dropdown({
   )
 
   const listClasses = cn(
-    'absolute z-50 mt-1',
+    'absolute z-[10002] left-0 right-0',
+    openAbove ? 'bottom-full mb-1' : 'mt-1',
     'bg-white border border-mid-gray rounded-lg shadow-lg',
-    'max-h-60 overflow-auto',
+    'max-h-48 overflow-auto',
     'focus:outline-none',
     fullWidth ? 'w-full' : 'min-w-full'
   )
@@ -439,8 +504,33 @@ export function Dropdown({
             className={listClasses}
             aria-hidden="true"
           >
-            {groups
-              ? groups.map((group, groupIndex) => (
+            {searchable && (
+              <div
+                className="sticky top-0 z-10 p-2 bg-white border-b border-mid-gray rounded-t-lg"
+                onMouseDown={e => e.preventDefault()}
+              >
+                <Input
+                  type="text"
+                  placeholder={searchPlaceholder}
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'ArrowDown' || e.key === 'Enter') {
+                      e.preventDefault()
+                      const firstOption =
+                        listRef.current?.querySelector<HTMLElement>(
+                          '[data-value]:not([aria-disabled="true"])'
+                        )
+                      firstOption?.focus()
+                    }
+                  }}
+                  size="small"
+                  className="border-mid-gray"
+                />
+              </div>
+            )}
+            {filteredGroups
+              ? filteredGroups.map((group, groupIndex) => (
                   <div key={groupIndex}>
                     {group.label && (
                       <div className="px-3 py-2 bg-light-gray border-b border-mid-gray">
@@ -466,7 +556,7 @@ export function Dropdown({
                     ))}
                   </div>
                 ))
-              : options?.map(option => (
+              : filteredOptions.map(option => (
                   <DropdownOption
                     key={option.value}
                     option={option}
@@ -478,6 +568,18 @@ export function Dropdown({
                     onKeyDown={e => handleOptionKeyDown(e, option.value)}
                   />
                 ))}
+            {((filteredGroups &&
+              filteredGroups.every(g => g.options.length === 0)) ||
+              (!filteredGroups && filteredOptions.length === 0)) && (
+              <div className="px-3 py-4 text-center">
+                <Text variant="muted" className="text-sm">
+                  {emptyMessage ||
+                    (searchable
+                      ? 'No options match your search'
+                      : 'No options')}
+                </Text>
+              </div>
+            )}
           </div>
         )}
       </div>

@@ -6,10 +6,16 @@ import { Button } from '@/components/Button'
 import { Avatar } from '@/components/Avatar'
 import { Icon } from '@/components/Icon'
 import { ProgressBar } from '@/components/ProgressBar'
+import { Switch } from '@/components/Switch'
 import { useAuth } from '@/contexts/useAuth'
 import { useForm, Controller } from 'react-hook-form'
 import { authService } from '@/api/auth.service'
 import { userService } from '@/api/user.service'
+import {
+  notificationsService,
+  NOTIFICATION_TYPE_LABELS,
+  type NotificationTypeKey,
+} from '@/api/notifications.service'
 import { useSnackbar } from '@/components/Snackbar/useSnackbar'
 import { useProfilePictureUpload } from '@/hooks/useProfilePictureUpload'
 import { getProfilePicture } from '@/utils/profilePicture'
@@ -26,6 +32,12 @@ const Profile = () => {
   const [updateLoading, setUpdateLoading] = useState(false)
   const [previewImage, setPreviewImage] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [notificationPrefs, setNotificationPrefs] = useState<
+    Record<string, boolean>
+  >({})
+  const [notificationPrefsLoading, setNotificationPrefsLoading] =
+    useState(false)
+  const [notificationPrefsSaving, setNotificationPrefsSaving] = useState(false)
 
   // Initialize preview image from user's profile picture
   useEffect(() => {
@@ -124,6 +136,34 @@ const Profile = () => {
   }, [user, resetProfile])
 
   const newPassword = watch('newPassword')
+
+  // Load notification preferences (athletes only)
+  useEffect(() => {
+    if (user?.role !== 'ATHLETE') return
+    setNotificationPrefsLoading(true)
+    notificationsService
+      .getPreferences()
+      .then(res => {
+        const prefs = res.data?.data?.preferences ?? {}
+        setNotificationPrefs(prefs)
+      })
+      .catch(() => {})
+      .finally(() => setNotificationPrefsLoading(false))
+  }, [user?.role])
+
+  const handleNotificationPrefChange = (
+    type: NotificationTypeKey,
+    enabled: boolean
+  ) => {
+    const next = { ...notificationPrefs, [type]: enabled }
+    setNotificationPrefs(next)
+    setNotificationPrefsSaving(true)
+    notificationsService
+      .updatePreferences(next)
+      .then(() => showSuccess('Notification preferences saved.'))
+      .catch(() => showError('Failed to save preferences.'))
+      .finally(() => setNotificationPrefsSaving(false))
+  }
 
   const onSubmitChangePassword = async (data: ChangePasswordProps) => {
     setLoading(true)
@@ -471,6 +511,45 @@ const Profile = () => {
     </Stack>
   )
 
+  const notificationTypes = notificationsService.getNotificationTypes()
+  const notificationsTabContent = (
+    <Stack direction="vertical" spacing={24} className="max-w-2xl">
+      <div>
+        <Text
+          as="h2"
+          variant="secondary"
+          className="text-xl font-semibold mb-4"
+        >
+          Push notifications
+        </Text>
+        <Text variant="muted" className="mb-4 block">
+          Choose which notifications you want to receive on this device.
+        </Text>
+        {notificationPrefsLoading ? (
+          <Text variant="muted">Loading...</Text>
+        ) : (
+          <Stack direction="vertical" spacing={12}>
+            {notificationTypes.map(type => (
+              <div
+                key={type}
+                className="flex items-center justify-between py-2 border-b border-gray-200 last:border-0"
+              >
+                <Text variant="secondary" className="text-sm">
+                  {NOTIFICATION_TYPE_LABELS[type]}
+                </Text>
+                <Switch
+                  value={notificationPrefs[type] !== false}
+                  onValueChange={v => handleNotificationPrefChange(type, v)}
+                  disabled={notificationPrefsSaving}
+                />
+              </div>
+            ))}
+          </Stack>
+        )}
+      </div>
+    </Stack>
+  )
+
   const tabItems = [
     {
       id: 'general',
@@ -484,6 +563,16 @@ const Profile = () => {
       icon: 'lock',
       content: changePasswordTabContent,
     },
+    ...(user?.role === 'ATHLETE'
+      ? [
+          {
+            id: 'notifications',
+            label: 'Notifications',
+            icon: 'bell' as const,
+            content: notificationsTabContent,
+          },
+        ]
+      : []),
   ]
 
   return (
