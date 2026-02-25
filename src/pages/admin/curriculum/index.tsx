@@ -342,7 +342,7 @@ export default function AdminCurriculum() {
                   </Text>
                   <Text variant="muted" className="text-xs">
                     Requested{' '}
-                    {new Date(r.createdAt).toLocaleDateString(undefined, {
+                    {new Date(r.createdAt).toLocaleString(undefined, {
                       dateStyle: 'short',
                       timeStyle: 'short',
                     })}

@@ -46,7 +46,7 @@ function getWeekStart(date: Date): Date {
 
 function formatDayLabel(dateStr: string): string {
   const d = new Date(dateStr + 'T12:00:00Z')
-  return d.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric' })
+  return d.toLocaleString('en-US', { weekday: 'short', day: 'numeric' })
 }
 
 function isToday(dateStr: string): boolean {

@@ -12,7 +12,7 @@ import type { CurriculumItemDto } from '@/api/curriculum-hub.service'
 
 function formatDate(iso: string) {
   try {
-    return new Date(iso).toLocaleDateString(undefined, {
+    return new Date(iso).toLocaleString(undefined, {
       dateStyle: 'short',
       timeStyle: 'short',
     })

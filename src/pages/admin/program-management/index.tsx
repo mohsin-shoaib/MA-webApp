@@ -108,7 +108,7 @@ const AdminProgramManagement = () => {
         const date = new Date(value as string)
         return (
           <Text variant="secondary" className="text-sm">
-            {date.toLocaleDateString('en-US', {
+            {date.toLocaleString('en-US', {
               year: 'numeric',
               month: 'short',
               day: 'numeric',

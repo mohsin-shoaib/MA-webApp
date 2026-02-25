@@ -154,7 +154,7 @@ const UserManagement = () => {
           const date = new Date(value as string)
           return (
             <Text variant="default" className="text-sm">
-              {date.toLocaleDateString('en-US', {
+              {date.toLocaleString('en-US', {
                 year: 'numeric',
                 month: 'short',
                 day: 'numeric',

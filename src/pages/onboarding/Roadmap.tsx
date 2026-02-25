@@ -275,7 +275,7 @@ export default function RoadmapStep({
                   Event date
                 </dt>
                 <dd className="mt-0.5 font-medium text-gray-900">
-                  {new Date(roadmap.eventDate).toLocaleDateString()}
+                  {new Date(roadmap.eventDate).toLocaleString()}
                 </dd>
               </div>
             )}
