@@ -203,9 +203,7 @@ export interface DataTableProps<T = unknown> {
  * />
  * ```
  */
-export function DataTable<
-  T extends Record<string, unknown> = Record<string, unknown>,
->({
+export function DataTable<T extends object = Record<string, unknown>>({
   data,
   columns,
   loading = false,

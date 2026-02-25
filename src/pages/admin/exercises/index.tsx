@@ -744,7 +744,7 @@ export default function AdminExercises({
       <div className="mb-2 text-sm text-gray-600">{resultCountLabel}</div>
 
       <Card className="overflow-hidden" padding="none">
-        <DataTable
+        <DataTable<Exercise>
           data={list}
           columns={columns}
           loading={loading}
