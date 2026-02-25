@@ -300,7 +300,7 @@ export function ProgramDetail() {
               {roadmap.eventDate && (
                 <p className="text-sm">
                   <span className="font-medium">Event date:</span>{' '}
-                  {new Date(roadmap.eventDate).toLocaleDateString()}
+                  {new Date(roadmap.eventDate).toLocaleString()}
                 </p>
               )}
               {roadmap.currentCycle && (

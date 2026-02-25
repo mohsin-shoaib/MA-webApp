@@ -141,7 +141,7 @@ export default function GoalsPage() {
   }
 
   const formatDate = (d: string | null) =>
-    d ? new Date(d).toLocaleDateString(undefined, { dateStyle: 'medium' }) : '—'
+    d ? new Date(d).toLocaleString(undefined, { dateStyle: 'medium' }) : '—'
 
   let cardContent: React.ReactNode
   if (loading) {

@@ -1,4 +1,11 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react'
+import React, {
+  useState,
+  useRef,
+  useEffect,
+  useLayoutEffect,
+  useCallback,
+} from 'react'
+import { createPortal } from 'react-dom'
 import { useThemeColor } from '@/hooks/use-theme-color'
 import { BrandColors } from '@/constants/theme'
 import { Text } from '@/components/Text'
@@ -175,6 +182,12 @@ export function Dropdown({
   const [isFocused, setIsFocused] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [openAbove, setOpenAbove] = useState(false)
+  const [listPosition, setListPosition] = useState<{
+    top: number
+    left: number
+    width: number
+    openAbove: boolean
+  } | null>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const buttonRef = useRef<HTMLButtonElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
@@ -247,13 +260,37 @@ export function Dropdown({
     return () => cancelAnimationFrame(raf)
   }, [isOpen])
 
-  // Handle click outside to close dropdown
+  // Position portaled list from trigger and update on scroll/resize
+  useLayoutEffect(() => {
+    if (!isOpen) return
+    const updatePosition = () => {
+      const button = buttonRef.current
+      if (!button) return
+      const rect = button.getBoundingClientRect()
+      setListPosition({
+        top: rect.top,
+        left: rect.left,
+        width: rect.width,
+        openAbove,
+      })
+    }
+    const rafId = requestAnimationFrame(updatePosition)
+    document.addEventListener('scroll', updatePosition, true)
+    window.addEventListener('resize', updatePosition)
+    return () => {
+      cancelAnimationFrame(rafId)
+      document.removeEventListener('scroll', updatePosition, true)
+      window.removeEventListener('resize', updatePosition)
+    }
+  }, [isOpen, openAbove])
+
+  // Handle click outside to close dropdown (include portaled list so clicks inside it don't close)
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(e.target as Node)
-      ) {
+      const target = e.target as Node
+      const inDropdown = dropdownRef.current?.contains(target)
+      const inList = listRef.current?.contains(target)
+      if (!inDropdown && !inList) {
         setIsOpen(false)
         setIsFocused(false)
         setSearchQuery('')
@@ -433,6 +470,91 @@ export function Dropdown({
     fullWidth ? 'w-full' : 'min-w-full'
   )
 
+  const portalListClasses = cn(
+    'z-[10002]',
+    'bg-white border border-mid-gray rounded-lg shadow-lg',
+    'max-h-48 overflow-auto',
+    'focus:outline-none',
+    'box-border'
+  )
+
+  const listContent = (
+    <>
+      {searchable && (
+        <div
+          className="sticky top-0 z-10 p-2 bg-white border-b border-mid-gray rounded-t-lg"
+          onMouseDown={e => e.preventDefault()}
+        >
+          <Input
+            type="text"
+            placeholder={searchPlaceholder}
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'ArrowDown' || e.key === 'Enter') {
+                e.preventDefault()
+                const firstOption = listRef.current?.querySelector<HTMLElement>(
+                  '[data-value]:not([aria-disabled="true"])'
+                )
+                firstOption?.focus()
+              }
+            }}
+            size="small"
+            className="border-mid-gray"
+          />
+        </div>
+      )}
+      {filteredGroups
+        ? filteredGroups.map((group, groupIndex) => (
+            <div key={groupIndex}>
+              {group.label && (
+                <div className="px-3 py-2 bg-light-gray border-b border-mid-gray">
+                  <Text
+                    variant="secondary"
+                    className="text-xs font-semibold uppercase tracking-wide"
+                  >
+                    {group.label}
+                  </Text>
+                </div>
+              )}
+              {group.options.map(option => (
+                <DropdownOption
+                  key={option.value}
+                  option={option}
+                  selected={isOptionSelected(option.value)}
+                  multiple={multiple}
+                  size={size}
+                  iconSize={iconSize}
+                  onClick={() => handleOptionClick(option.value)}
+                  onKeyDown={e => handleOptionKeyDown(e, option.value)}
+                />
+              ))}
+            </div>
+          ))
+        : filteredOptions.map(option => (
+            <DropdownOption
+              key={option.value}
+              option={option}
+              selected={isOptionSelected(option.value)}
+              multiple={multiple}
+              size={size}
+              iconSize={iconSize}
+              onClick={() => handleOptionClick(option.value)}
+              onKeyDown={e => handleOptionKeyDown(e, option.value)}
+            />
+          ))}
+      {((filteredGroups && filteredGroups.every(g => g.options.length === 0)) ||
+        (!filteredGroups && filteredOptions.length === 0)) && (
+        <div className="px-3 py-4 text-center">
+          <Text variant="muted" className="text-sm">
+            {emptyMessage ||
+              (searchable ? 'No options match your search' : 'No options')}
+          </Text>
+        </div>
+      )}
+    </>
+  )
+
   return (
     <div
       className={cn(fullWidth && 'w-full', className)}
@@ -497,89 +619,59 @@ export function Dropdown({
           />
         </button>
 
-        {isOpen && (
+        {isOpen &&
+          listPosition &&
+          (() => {
+            const win =
+              globalThis.window === undefined ? null : globalThis.window
+            const vw = win ? win.innerWidth : 0
+            let left = listPosition.left
+            let width = listPosition.width
+            if (vw > 0) {
+              if (left < 0) {
+                width = width + left
+                left = 0
+              }
+              if (left + width > vw) {
+                width = Math.max(0, vw - left)
+              }
+              width = Math.min(width, vw)
+            }
+            return createPortal(
+              <div
+                ref={listRef}
+                id={listboxId}
+                className={portalListClasses}
+                style={{
+                  position: 'fixed',
+                  ...(listPosition.openAbove
+                    ? {
+                        bottom: win ? win.innerHeight - listPosition.top : 0,
+                        left,
+                        width,
+                        marginBottom: 4,
+                      }
+                    : {
+                        top: listPosition.top + 4,
+                        left,
+                        width,
+                      }),
+                }}
+                aria-hidden="true"
+              >
+                {listContent}
+              </div>,
+              document.body
+            )
+          })()}
+        {isOpen && !listPosition && (
           <div
             ref={listRef}
             id={listboxId}
             className={listClasses}
             aria-hidden="true"
           >
-            {searchable && (
-              <div
-                className="sticky top-0 z-10 p-2 bg-white border-b border-mid-gray rounded-t-lg"
-                onMouseDown={e => e.preventDefault()}
-              >
-                <Input
-                  type="text"
-                  placeholder={searchPlaceholder}
-                  value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
-                  onKeyDown={e => {
-                    if (e.key === 'ArrowDown' || e.key === 'Enter') {
-                      e.preventDefault()
-                      const firstOption =
-                        listRef.current?.querySelector<HTMLElement>(
-                          '[data-value]:not([aria-disabled="true"])'
-                        )
-                      firstOption?.focus()
-                    }
-                  }}
-                  size="small"
-                  className="border-mid-gray"
-                />
-              </div>
-            )}
-            {filteredGroups
-              ? filteredGroups.map((group, groupIndex) => (
-                  <div key={groupIndex}>
-                    {group.label && (
-                      <div className="px-3 py-2 bg-light-gray border-b border-mid-gray">
-                        <Text
-                          variant="secondary"
-                          className="text-xs font-semibold uppercase tracking-wide"
-                        >
-                          {group.label}
-                        </Text>
-                      </div>
-                    )}
-                    {group.options.map(option => (
-                      <DropdownOption
-                        key={option.value}
-                        option={option}
-                        selected={isOptionSelected(option.value)}
-                        multiple={multiple}
-                        size={size}
-                        iconSize={iconSize}
-                        onClick={() => handleOptionClick(option.value)}
-                        onKeyDown={e => handleOptionKeyDown(e, option.value)}
-                      />
-                    ))}
-                  </div>
-                ))
-              : filteredOptions.map(option => (
-                  <DropdownOption
-                    key={option.value}
-                    option={option}
-                    selected={isOptionSelected(option.value)}
-                    multiple={multiple}
-                    size={size}
-                    iconSize={iconSize}
-                    onClick={() => handleOptionClick(option.value)}
-                    onKeyDown={e => handleOptionKeyDown(e, option.value)}
-                  />
-                ))}
-            {((filteredGroups &&
-              filteredGroups.every(g => g.options.length === 0)) ||
-              (!filteredGroups && filteredOptions.length === 0)) && (
-              <div className="px-3 py-4 text-center">
-                <Text variant="muted" className="text-sm">
-                  {emptyMessage ||
-                    (searchable
-                      ? 'No options match your search'
-                      : 'No options')}
-                </Text>
-              </div>
-            )}
+            {listContent}
           </div>
         )}
       </div>

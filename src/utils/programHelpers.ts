@@ -51,7 +51,7 @@ export const formatDay = (day: string, cycleName: string): string => {
       if (isNaN(date.getTime())) {
         return day // Return original if invalid date
       }
-      return date.toLocaleDateString()
+      return date.toLocaleString()
     } catch {
       return day // Return original on error
     }
