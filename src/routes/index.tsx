@@ -2,6 +2,7 @@ import Login from '@/pages/auth/login'
 import Register from '@/pages/auth/register'
 import ForgotPassword from '@/pages/auth/forgot-password'
 import ResetPassword from '@/pages/auth/reset-password'
+import AcceptInvite from '@/pages/auth/accept-invite'
 import Subscription from '@/pages/auth/subscription'
 import RegisterMobile from '@/pages/auth/register-mobile'
 import Onboarding from '@/pages/onboarding/Onboarding'
@@ -92,6 +93,10 @@ export const routes = [
         <ResetPassword />
       </AuthRedirect>
     ),
+  },
+  {
+    path: '/accept-invite',
+    element: <AcceptInvite />,
   },
   {
     path: '/subscription',

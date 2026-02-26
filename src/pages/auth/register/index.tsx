@@ -1,8 +1,7 @@
 import { Button } from '@/components/Button'
 import { Input } from '@/components/Input'
 import { Text } from '@/components/Text'
-import { Radio } from '@/components/Radio'
-import { useForm, useWatch } from 'react-hook-form'
+import { useForm } from 'react-hook-form'
 import type { RegisterProps } from '@/types/auth'
 import { authService } from '@/api/auth.service'
 import AuthLayout from '../authLayout'
@@ -26,31 +25,22 @@ const Register = () => {
     handleSubmit,
     formState: { errors },
     getValues,
-    control,
-    setValue,
   } = useForm<FormValues>({
     defaultValues: {
-      role: 'ATHLETE', // Default role
+      role: 'ATHLETE',
     },
-  })
-
-  const selectedRole = useWatch({
-    control,
-    name: 'role',
-    defaultValue: 'ATHLETE',
   })
 
   const handleRegister = async (data: FormValues) => {
     try {
-      // Ensure role is included in payload
-      // confirmPassword is excluded as it's only for frontend validation
+      // Coach accounts are created via admin invite only; public register is athletes only
       const registerPayload: RegisterProps = {
         firstName: data.firstName,
         lastName: data.lastName,
         email: data.email,
         password: data.password,
-        role: data.role || 'ATHLETE',
-        rememberMe: false, // Add default value for rememberMe
+        role: 'ATHLETE',
+        rememberMe: false,
       }
       const response = await authService.register(registerPayload)
       console.log('login response::', response.data.data)
@@ -76,12 +66,6 @@ const Register = () => {
       // Navigate based on user role (PRD 8.1.3: athlete proceeds to subscription then onboarding)
       if (user.role === 'ATHLETE') {
         navigate('/subscription')
-      } else if (user.role === 'COACH') {
-        navigate('/create_program')
-      } else if (user.role === 'ADMIN') {
-        navigate('/admin/user-management')
-      } else if (user.role === 'COACH_HEAD') {
-        navigate('/coach-head/user-management')
       } else {
         navigate('/')
       }
@@ -156,49 +140,6 @@ const Register = () => {
             {...register('confirmPassword', {
               validate: value =>
                 value === getValues('password') || 'Passwords do not match',
-            })}
-          />
-
-          {/* Role Selection */}
-          <Stack direction="vertical" spacing={8}>
-            <Text as="label" variant="default" className="text-sm font-medium">
-              Role <span className="text-error">*</span>
-            </Text>
-            <Stack direction="horizontal" spacing={16} className="flex-wrap">
-              <Radio
-                selected={selectedRole === 'ATHLETE'}
-                onPress={() =>
-                  setValue('role', 'ATHLETE', { shouldValidate: true })
-                }
-                label="Athlete"
-                value="ATHLETE"
-                name="role"
-              />
-              <Radio
-                selected={selectedRole === 'COACH'}
-                onPress={() =>
-                  setValue('role', 'COACH', { shouldValidate: true })
-                }
-                label="Coach"
-                value="COACH"
-                name="role"
-              />
-            </Stack>
-            {errors.role && (
-              <Text variant="error" className="text-sm">
-                {errors.role.message}
-              </Text>
-            )}
-          </Stack>
-          {/* Hidden input for form validation */}
-          <input
-            type="hidden"
-            {...register('role', {
-              required: 'Please select a role',
-              validate: value =>
-                value === 'ATHLETE' ||
-                value === 'COACH' ||
-                'Please select a valid role',
             })}
           />
 

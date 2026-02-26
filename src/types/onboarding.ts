@@ -34,6 +34,26 @@ export interface OnboardingResponse {
   }
 }
 
+/** Job role options (PDF onboarding step 5) */
+export const JOB_ROLE_OPTIONS = [
+  { label: 'Active-Duty Military', value: 'ACTIVE_DUTY_MILITARY' },
+  { label: 'National Guard / Reserve', value: 'NATIONAL_GUARD_RESERVE' },
+  { label: 'Law Enforcement', value: 'LAW_ENFORCEMENT' },
+  { label: 'Firefighter', value: 'FIREFIGHTER' },
+  { label: 'First Responder', value: 'FIRST_RESPONDER' },
+  { label: 'Federal / Government', value: 'FEDERAL_GOVERNMENT' },
+  { label: 'Civilian', value: 'CIVILIAN' },
+  { label: 'Student', value: 'STUDENT' },
+] as const
+
+/** Equipment access (PDF onboarding step 6) - single select */
+export const EQUIPMENT_ACCESS_OPTIONS = [
+  { label: 'Full Gym', value: 'FULL_GYM' },
+  { label: 'Limited Equipment (Dumbbells / Kettlebells)', value: 'LIMITED' },
+  { label: 'Minimal Equipment (Bodyweight / Bands)', value: 'MINIMAL' },
+  { label: 'Deployed / Field Conditions', value: 'DEPLOYED' },
+] as const
+
 // New types for recommendation flow
 export interface CreateOnboardingDTO {
   height: number
@@ -41,10 +61,16 @@ export interface CreateOnboardingDTO {
   age: number
   gender: string
   trainingExperience: 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED'
+  /** 4-question flow: 120+ day break → Red */
+  trainingBreak120Days?: boolean
   primaryGoal: string
-  secondaryGoal: string
+  /** Category for event date visibility (e.g. Improve Operational Readiness = no event) */
+  primaryGoalCategory?: string
+  secondaryGoal?: string
   equipment?: string[]
-  eventDate?: string // Used for roadmap generation
+  /** Single select per PDF */
+  equipmentAccess?: 'FULL_GYM' | 'LIMITED' | 'MINIMAL' | 'DEPLOYED'
+  eventDate?: string // Used for roadmap generation; required when goal requires event
   job?: string
   /** PRD 4.6.2: Returning from selection/deployment → recommend Red */
   returningFromEvent?: boolean

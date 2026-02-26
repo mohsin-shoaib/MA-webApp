@@ -7,6 +7,7 @@ import { Button } from '@/components/Button'
 import { DatePicker } from '@/components/DatePicker'
 import { Checkbox } from '@/components/Checkbox'
 import type { OnboardingProps, CreateOnboardingDTO } from '@/types/onboarding'
+import { JOB_ROLE_OPTIONS, EQUIPMENT_ACCESS_OPTIONS } from '@/types/onboarding'
 import type { ReadinessRecommendation } from '@/types/readiness'
 import { readinessService } from '@/api/readiness.service'
 import { goalTypeService } from '@/api/goal-type.service'
@@ -36,8 +37,13 @@ export default function OnboardingForm({
   const [trainingExp, setTrainingExp] = useState<string>(
     initialValues?.trainingExperience || ''
   )
-  const [equipment, setEquipment] = useState<string[]>(
-    initialValues?.equipment || []
+  const [trainingBreak120, setTrainingBreak120] = useState<boolean>(
+    (initialValues as Partial<CreateOnboardingDTO>)?.trainingBreak120Days ??
+      false
+  )
+  const [equipment] = useState<string[]>(initialValues?.equipment || [])
+  const [equipmentAccess, setEquipmentAccess] = useState<string>(
+    (initialValues as Partial<CreateOnboardingDTO>)?.equipmentAccess || ''
   )
   const [eventDate, setEventDate] = useState<string>(
     (initialValues as Partial<OnboardingProps & { eventDate?: string }>)
@@ -46,13 +52,24 @@ export default function OnboardingForm({
   const [primaryGoal, setPrimaryGoal] = useState<string>(
     initialValues?.primaryGoal || ''
   )
-  const [secondaryGoal, setSecondaryGoal] = useState<string>(
-    initialValues?.secondaryGoal || ''
+  const [primaryGoalCategory, setPrimaryGoalCategory] = useState<string>(
+    (initialValues as Partial<CreateOnboardingDTO>)?.primaryGoalCategory || ''
+  )
+  const [job, setJob] = useState<string>(
+    (initialValues as Partial<CreateOnboardingDTO>)?.job || ''
   )
   const [returningFromEvent, setReturningFromEvent] = useState(false)
   const [severeConstraints, setSevereConstraints] = useState(false)
   const [goalTypes, setGoalTypes] = useState<GoalType[]>([])
   const [loadingGoals, setLoadingGoals] = useState(false)
+
+  // Event date only for Tactical Selection/School and Competition/Performance (doc §2.4, §2.5)
+  const eventDateRequired =
+    primaryGoal !== 'Improve Operational Readiness' &&
+    (primaryGoalCategory === 'Selection' ||
+      primaryGoalCategory === 'School' ||
+      primaryGoalCategory === 'Competition' ||
+      /tactical|competition|performance/i.test(primaryGoalCategory))
 
   const {
     register,
@@ -63,18 +80,27 @@ export default function OnboardingForm({
     defaultValues: {
       ...(initialValues as Partial<CreateOnboardingDTO>),
       primaryGoal: initialValues?.primaryGoal || '',
-      secondaryGoal: initialValues?.secondaryGoal || '',
       eventDate:
         (initialValues as Partial<CreateOnboardingDTO>)?.eventDate || '',
     },
   })
 
-  // Register primary goal, optional secondary goal, and required event date for validation
+  // Register primary goal, event date (required only when eventDateRequired)
   useEffect(() => {
     register('primaryGoal', { required: 'Primary goal is required' })
-    register('secondaryGoal')
-    register('eventDate', { required: 'Event date is required' })
-  }, [register])
+    register('eventDate', {
+      required: eventDateRequired
+        ? 'Event date is required for your goal'
+        : false,
+    })
+  }, [register, eventDateRequired])
+
+  // Sync primaryGoalCategory from selected goal (for event date visibility)
+  useEffect(() => {
+    if (!primaryGoal || goalTypes.length === 0) return
+    const gt = goalTypes.find(g => g.subCategory === primaryGoal)
+    if (gt?.category) setPrimaryGoalCategory(gt.category)
+  }, [primaryGoal, goalTypes])
 
   // Fetch goal types on mount
   useEffect(() => {
@@ -111,8 +137,8 @@ export default function OnboardingForm({
       return
     }
 
-    if (!eventDate) {
-      setError('Please select an event date')
+    if (eventDateRequired && !eventDate) {
+      setError('Please select an event date (required for your goal)')
       setLoading(false)
       setValue('eventDate', '', { shouldValidate: true })
       return
@@ -126,8 +152,13 @@ export default function OnboardingForm({
           | 'BEGINNER'
           | 'INTERMEDIATE'
           | 'ADVANCED',
+        trainingBreak120Days: trainingBreak120,
         primaryGoal: primaryGoal,
-        secondaryGoal: secondaryGoal || '',
+        primaryGoalCategory: primaryGoalCategory || undefined,
+        job: job || undefined,
+        equipmentAccess: equipmentAccess
+          ? (equipmentAccess as CreateOnboardingDTO['equipmentAccess'])
+          : undefined,
         equipment: equipment.length > 0 ? equipment : undefined,
         eventDate: eventDate || undefined,
         returningFromEvent: returningFromEvent || undefined,
@@ -138,7 +169,9 @@ export default function OnboardingForm({
       const axiosResponse = await readinessService.evaluateReadiness({
         trainingExperience: payload.trainingExperience,
         primaryGoal: payload.primaryGoal,
+        primaryGoalCategory: payload.primaryGoalCategory,
         eventDate: payload.eventDate,
+        trainingBreak120Days: payload.trainingBreak120Days,
         returningFromEvent: payload.returningFromEvent,
         severeConstraints: payload.severeConstraints,
       })
@@ -171,13 +204,6 @@ export default function OnboardingForm({
     { label: 'ADVANCED', value: 'ADVANCED' },
   ]
 
-  const equipmentOptions = [
-    { label: 'Dumbbells', value: 'dumbbells' },
-    { label: 'Barbell', value: 'barbell' },
-    { label: 'Kettlebell', value: 'kettlebell' },
-    { label: 'Resistance Bands', value: 'resistance_bands' },
-  ]
-
   return (
     <form onSubmit={handleSubmit(submitHandler)} className="space-y-4">
       <Input
@@ -191,7 +217,7 @@ export default function OnboardingForm({
       />
 
       <Input
-        label="Weight (in kg)"
+        label="Weight (in pounds)"
         type="number"
         {...register('weight', {
           required: 'Weight is required',
@@ -251,44 +277,39 @@ export default function OnboardingForm({
       />
 
       <Dropdown
-        label="Secondary Goal"
-        value={secondaryGoal}
-        onValueChange={v => {
-          const value = v as string
-          setSecondaryGoal(value)
-          setValue('secondaryGoal', value, { shouldValidate: true })
-        }}
-        options={goalTypes.map(gt => {
-          const categoryLabel = gt.category ? ` (${gt.category})` : ''
-          return {
-            label: `${gt.subCategory}${categoryLabel}`,
-            value: gt.subCategory,
-          }
-        })}
-        fullWidth
-        disabled={loadingGoals}
-        placeholder={
-          loadingGoals ? 'Loading goals...' : 'Select secondary goal'
-        }
-        error={errors.secondaryGoal?.message}
-      />
-
-      <DatePicker
-        label="Event Date"
-        value={eventDate}
-        onChange={date => {
-          setEventDate(date ?? '')
-          setValue('eventDate', date ?? '', { shouldValidate: true })
-        }}
-        helperText="Primary event date for training timeline and roadmap generation"
-        error={errors.eventDate?.message}
+        label="Training break 120+ days"
+        value={trainingBreak120 ? 'yes' : 'no'}
+        onValueChange={v => setTrainingBreak120(v === 'yes')}
+        options={[
+          { label: 'No', value: 'no' },
+          { label: 'Yes', value: 'yes' },
+        ]}
         required
+        fullWidth
       />
 
-      <Input
-        label="Job/Role"
-        {...register('job')}
-        placeholder="e.g., Soldier"
+      {eventDateRequired && (
+        <DatePicker
+          label="Event Date"
+          value={eventDate}
+          onChange={date => {
+            setEventDate(date ?? '')
+            setValue('eventDate', date ?? '', { shouldValidate: true })
+          }}
+          helperText="Primary event date for training timeline and roadmap generation"
+          error={errors.eventDate?.message}
+          required
+        />
+      )}
+
+      <Dropdown
+        label="Job / Role"
+        value={job}
+        onValueChange={v => setJob(v as string)}
+        options={[...JOB_ROLE_OPTIONS]}
+        required
+        fullWidth
+        placeholder="Select your job or role"
         error={errors.job?.message}
       />
 
@@ -306,12 +327,14 @@ export default function OnboardingForm({
       </div>
 
       <Dropdown
-        label="Equipments"
-        multiple
-        value={equipment}
-        onValueChange={v => setEquipment(v as string[])}
-        options={equipmentOptions}
+        label="Equipment access"
+        value={equipmentAccess}
+        onValueChange={v => setEquipmentAccess(v as string)}
+        options={[...EQUIPMENT_ACCESS_OPTIONS]}
+        required
         fullWidth
+        placeholder="Select equipment access"
+        error={errors.equipmentAccess?.message}
       />
 
       <Button type="submit" loading={loading}>

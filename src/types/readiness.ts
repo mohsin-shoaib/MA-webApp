@@ -51,7 +51,10 @@ export interface SelectionProps {
 export interface EvaluateReadinessDTO {
   trainingExperience: 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED'
   primaryGoal: string
+  primaryGoalCategory?: string
   eventDate?: string
+  /** 4-question flow: 120+ day break → Red */
+  trainingBreak120Days?: boolean
   /** PRD 4.6.2: Returning from selection/deployment → recommend Red */
   returningFromEvent?: boolean
   /** PRD 4.6.5: Limited time/equipment → recommend Sustainment */
@@ -71,6 +74,8 @@ export interface ReadinessRecommendation {
   reasonCodes: string[]
   weeksToEvent: number
   eventDate?: string
+  /** When Amber now + Green scheduled 12 weeks before event */
+  scheduledTransitionAt?: string | null
   status: 'PENDING' | 'CONFIRMED' | 'DECLINED'
   recommendedCycleRef?: {
     id: number
