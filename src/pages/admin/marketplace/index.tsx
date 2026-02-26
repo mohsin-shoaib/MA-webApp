@@ -42,9 +42,8 @@ const TYPE_ICON: Record<string, string> = {
   MASTERCLASS: 'graduation-cap',
 }
 
-/** Map file MIME to upload FileType for marketplace (PDF, video, image). */
+/** Map file MIME to upload FileType for marketplace (PDF and image only; no video upload). */
 function getFileTypeForMarketplace(file: File): FileType {
-  if (file.type.startsWith('video/')) return FileType.PROGRAM_VIDEO
   if (file.type.startsWith('image/')) return FileType.PROGRAM_IMAGE
   if (
     file.type === 'application/pdf' ||
@@ -57,9 +56,11 @@ function getFileTypeForMarketplace(file: File): FileType {
   return FileType.DOCUMENT
 }
 
+/** PDF and image only; videos use external link (type VIDEO). */
 const MARKETPLACE_ACCEPT =
-  'application/pdf,.pdf,video/mp4,video/webm,video/quicktime,video/*,image/jpeg,image/png,image/webp'
-const MARKETPLACE_MAX_SIZE = 100 * 1024 * 1024 // 100MB (same as video)
+  'application/pdf,.pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/jpeg,image/png,image/webp'
+const MARKETPLACE_PDF_MAX_SIZE = 100 * 1024 * 1024 // 100MB
+const MARKETPLACE_MAX_SIZE = MARKETPLACE_PDF_MAX_SIZE // dropzone max; images validated at 10MB in uploadService
 
 export default function AdminMarketplace() {
   const [list, setList] = useState<MarketplaceItemWithCreator[]>([])
@@ -113,6 +114,7 @@ export default function AdminMarketplace() {
     fetchList()
   }, [fetchList])
 
+  const isVideoType = form.type === 'VIDEO'
   const openCreate = () => {
     setForm({ title: '', description: '', type: 'PDF', filePath: '' })
     setCreateOpen(true)
@@ -458,13 +460,24 @@ export default function AdminMarketplace() {
                 variant="default"
                 className="block text-sm font-medium text-gray-700 mb-1"
               >
-                File
+                {isVideoType ? 'Video link' : 'File'}
               </Text>
               <p className="text-sm text-gray-500 mb-2">
-                Upload a PDF, video, or image. The file will be stored securely
-                and its URL saved with the item.
+                {isVideoType
+                  ? 'Paste a link (e.g. YouTube, Vimeo). Do not upload video files.'
+                  : 'PDFs up to 100MB, images up to 10MB. Upload a PDF or image.'}
               </p>
-              {form.filePath ? (
+              {isVideoType ? (
+                <Input
+                  value={form.filePath}
+                  onChange={e =>
+                    setForm(f => ({ ...f, filePath: e.target.value }))
+                  }
+                  placeholder="https://www.youtube.com/watch?v=... or https://vimeo.com/..."
+                  className="mt-1"
+                  size="small"
+                />
+              ) : form.filePath ? (
                 <div className="space-y-2">
                   <a
                     href={form.filePath}
@@ -502,7 +515,9 @@ export default function AdminMarketplace() {
             </div>
             {!form.filePath?.trim() && (
               <p className="text-sm text-amber-600">
-                Upload a file to enable Create.
+                {isVideoType
+                  ? 'Enter a video link to enable Create.'
+                  : 'Upload a file to enable Create.'}
               </p>
             )}
             <div className="flex gap-2 pt-2">
@@ -559,12 +574,24 @@ export default function AdminMarketplace() {
                 variant="default"
                 className="block text-sm font-medium text-gray-700 mb-1"
               >
-                File
+                {isVideoType ? 'Video link' : 'File'}
               </Text>
               <p className="text-sm text-gray-500 mb-2">
-                Upload a PDF, video, or image to replace the current file.
+                {isVideoType
+                  ? 'Paste a link (e.g. YouTube, Vimeo). Do not upload video files.'
+                  : 'PDFs up to 100MB, images up to 10MB. Upload a PDF or image to replace.'}
               </p>
-              {form.filePath ? (
+              {isVideoType ? (
+                <Input
+                  value={form.filePath}
+                  onChange={e =>
+                    setForm(f => ({ ...f, filePath: e.target.value }))
+                  }
+                  placeholder="https://www.youtube.com/watch?v=... or https://vimeo.com/..."
+                  className="mt-1"
+                  size="small"
+                />
+              ) : form.filePath ? (
                 <div className="space-y-2">
                   <a
                     href={form.filePath}

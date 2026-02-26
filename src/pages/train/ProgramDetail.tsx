@@ -243,12 +243,21 @@ export function ProgramDetail() {
               Focus: {program.subCategory}
             </p>
           )}
-          {Array.isArray(program.dailyExercise) &&
-            program.dailyExercise.length > 0 && (
+          {(() => {
+            const dayCount = program.programStructure?.weeks
+              ? program.programStructure.weeks.reduce(
+                  (acc, w) => acc + (w.days?.length ?? 0),
+                  0
+                )
+              : Array.isArray(program.dailyExercise)
+                ? program.dailyExercise.length
+                : 0
+            return dayCount > 0 ? (
               <p className="text-sm text-gray-600">
-                {program.dailyExercise.length} day(s) in program
+                {dayCount} day(s) in program
               </p>
-            )}
+            ) : null
+          })()}
         </div>
         {SHOW_ENROLL_BUTTON && (
           <div className="mt-6">

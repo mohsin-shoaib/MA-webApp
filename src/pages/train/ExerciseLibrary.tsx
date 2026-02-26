@@ -11,14 +11,16 @@ import type {
   DailyExerciseDTO,
   ExerciseDTO,
   AlternateExerciseDTO,
+  ProgramStructure,
 } from '@/types/program'
 import type { AxiosError } from 'axios'
 import { useSnackbar } from '@/components/Snackbar/useSnackbar'
 
 /** Normalise dailyExercise (array or object keyed by day) to ordered array. */
 function normalizeDailyExercise(
-  raw: DailyExerciseDTO[] | Record<string, DailyExerciseDTO>
+  raw: DailyExerciseDTO[] | Record<string, DailyExerciseDTO> | undefined
 ): DailyExerciseDTO[] {
+  if (!raw) return []
   const list = Array.isArray(raw)
     ? raw
     : Object.entries(raw).map(([day, d]) => ({ ...d, day }))
@@ -27,6 +29,60 @@ function normalizeDailyExercise(
     const numB = Number.parseInt(b.day.replaceAll(/\D/g, '') || '0', 10)
     return numA - numB
   })
+}
+
+/** Build day list from programStructure (relational) for Exercise Library. */
+function daysFromProgramStructure(
+  structure: ProgramStructure
+): DailyExerciseDTO[] {
+  const days: DailyExerciseDTO[] = []
+  let dayNumber = 1
+  for (const week of structure.weeks ?? []) {
+    for (const day of week.days ?? []) {
+      const dayLabel = `day${dayNumber}`
+      if (day.isRestDay) {
+        days.push({
+          day: dayLabel,
+          isRestDay: true,
+          exercise_name: 'Rest Day',
+          exercises: [],
+        })
+        dayNumber++
+        continue
+      }
+      const exercises: ExerciseDTO[] = []
+      for (const section of day.sections ?? []) {
+        for (const se of section.exercises ?? []) {
+          const ex = (
+            se as {
+              exercise?: {
+                id: number
+                name: string
+                description?: string
+                videoUrl?: string
+              }
+            }
+          ).exercise
+          exercises.push({
+            exercise_id: ex ? String(ex.id) : String(se.exerciseId),
+            name: ex?.name ?? '',
+            description: ex?.description ?? undefined,
+            video: ex?.videoUrl ?? undefined,
+            sets: se.sets,
+            total_reps: se.reps,
+          })
+        }
+      }
+      days.push({
+        day: dayLabel,
+        isRestDay: false,
+        exercise_name: day.dayName ?? `Day ${dayNumber}`,
+        exercises,
+      })
+      dayNumber++
+    }
+  }
+  return days
 }
 
 /** Add days to an ISO date string; returns YYYY-MM-DD. */
@@ -481,7 +537,12 @@ export default function ExerciseLibrary() {
 
   const onProgramLoaded = useCallback((data: UserProgram) => {
     setUserProgram(data)
-    setDays(normalizeDailyExercise(data.program.dailyExercise))
+    const program = data.program
+    if (program.programStructure?.weeks?.length) {
+      setDays(daysFromProgramStructure(program.programStructure))
+    } else {
+      setDays(normalizeDailyExercise(program.dailyExercise))
+    }
   }, [])
 
   const clearProgram = useCallback(() => {
