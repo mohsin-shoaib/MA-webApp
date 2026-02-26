@@ -8,63 +8,21 @@ import { Dropdown } from '@/components/Dropdown'
 import { DataTable, type Column } from '@/components/DataTable'
 import { Pagination } from '@/components/Pagination'
 import { exerciseService } from '@/api/exercise.service'
+import {
+  exerciseOptionService,
+  type ExerciseOption,
+} from '@/api/exercise-option.service'
 import { useFileUpload } from '@/hooks/useFileUpload'
 import { FileType } from '@/constants/fileTypes'
 import type { Exercise, CreateExercisePayload } from '@/types/exercise'
 import { useSnackbar } from '@/components/Snackbar/useSnackbar'
 import { AxiosError } from 'axios'
 
-const MUSCLE_GROUPS = [
-  'Chest',
-  'Back',
-  'Shoulders',
-  'Quadriceps',
-  'Hamstrings',
-  'Glutes',
-  'Calves',
-  'Biceps',
-  'Triceps',
-  'Core',
-  'Full body',
-  'Other',
-]
-
-const EQUIPMENT = [
-  'Barbell',
-  'Dumbbell',
-  'Kettlebell',
-  'Bodyweight',
-  'Bands',
-  'Cable',
-  'Machine',
-  'Medicine ball',
-  'TRX',
-  'Other',
-]
-
-const MOVEMENT_PATTERNS = [
-  'Squat',
-  'Hinge',
-  'Push',
-  'Pull',
-  'Lunge',
-  'Carry',
-  'Core',
-  'Other',
-]
-
-const FILTER_MUSCLE_OPTIONS = [
-  { value: '', label: 'All' },
-  ...MUSCLE_GROUPS.map(g => ({ value: g, label: g })),
-]
-const FILTER_EQUIPMENT_OPTIONS = [
-  { value: '', label: 'All' },
-  ...EQUIPMENT.map(g => ({ value: g, label: g })),
-]
-const FILTER_MOVEMENT_OPTIONS = [
-  { value: '', label: 'All' },
-  ...MOVEMENT_PATTERNS.map(g => ({ value: g, label: g })),
-]
+function optionsFromRows(
+  rows: ExerciseOption[]
+): { value: string; label: string }[] {
+  return rows.map(r => ({ value: r.name, label: r.name }))
+}
 type FilterStatusValue = 'all' | 'active' | 'inactive'
 const FILTER_STATUS_OPTIONS: { value: FilterStatusValue; label: string }[] = [
   { value: 'all', label: 'All' },
@@ -99,6 +57,13 @@ export default function AdminExercises({
   const [page, setPage] = useState(1)
   const limit = 10
   const [substitutionOptions, setSubstitutionOptions] = useState<Exercise[]>([])
+  const [muscleGroupOptions, setMuscleGroupOptions] = useState<
+    ExerciseOption[]
+  >([])
+  const [equipmentOptions, setEquipmentOptions] = useState<ExerciseOption[]>([])
+  const [movementPatternOptions, setMovementPatternOptions] = useState<
+    ExerciseOption[]
+  >([])
   const [form, setForm] = useState<CreateExercisePayload & { tagsStr: string }>(
     {
       name: '',
@@ -113,6 +78,19 @@ export default function AdminExercises({
     }
   )
   const { showError, showSuccess } = useSnackbar()
+
+  const FILTER_MUSCLE_OPTIONS = [
+    { value: '', label: 'All' },
+    ...optionsFromRows(muscleGroupOptions),
+  ]
+  const FILTER_EQUIPMENT_OPTIONS = [
+    { value: '', label: 'All' },
+    ...optionsFromRows(equipmentOptions),
+  ]
+  const FILTER_MOVEMENT_OPTIONS = [
+    { value: '', label: 'All' },
+    ...optionsFromRows(movementPatternOptions),
+  ]
 
   const { upload: uploadVideo, uploading: uploadingVideo } = useFileUpload({
     fileType: FileType.PROGRAM_VIDEO,
@@ -181,6 +159,27 @@ export default function AdminExercises({
     fetchList()
   }, [fetchList])
 
+  const fetchExerciseOptions = useCallback(async () => {
+    try {
+      const [muscleRes, equipmentRes, movementRes] = await Promise.all([
+        exerciseOptionService.list('muscle_group'),
+        exerciseOptionService.list('equipment'),
+        exerciseOptionService.list('movement_pattern'),
+      ])
+      setMuscleGroupOptions(muscleRes.data?.data?.rows ?? [])
+      setEquipmentOptions(equipmentRes.data?.data?.rows ?? [])
+      setMovementPatternOptions(movementRes.data?.data?.rows ?? [])
+    } catch {
+      setMuscleGroupOptions([])
+      setEquipmentOptions([])
+      setMovementPatternOptions([])
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchExerciseOptions()
+  }, [fetchExerciseOptions])
+
   // Debounced search: apply searchQ to API after user stops typing
   useEffect(() => {
     const t = setTimeout(() => setSearchApplied(searchQ), 400)
@@ -246,6 +245,7 @@ export default function AdminExercises({
     })
     setCreateOpen(true)
     void fetchSubstitutionOptions()
+    void fetchExerciseOptions()
   }
 
   const openEdit = (ex: Exercise) => {
@@ -263,59 +263,25 @@ export default function AdminExercises({
     })
     setEditOpen(true)
     void fetchSubstitutionOptions()
+    void fetchExerciseOptions()
   }
 
   const handleCreate = async () => {
-    const name = form.name.trim()
-    const description = form.description?.trim()
-    const videoUrl = form.videoUrl?.trim()
-    const muscleGroup = form.muscleGroup?.trim()
-    const equipment = form.equipment?.trim()
-    const movementPattern = form.movementPattern?.trim()
     const tags = form.tagsStr
       .split(',')
       .map(t => t.trim())
       .filter(Boolean)
 
-    if (!name) {
-      showError('Name is required')
-      return
-    }
-    if (!description) {
-      showError('Description is required')
-      return
-    }
-    if (!videoUrl) {
-      showError('Video is required. Please upload a video.')
-      return
-    }
-    if (!muscleGroup) {
-      showError('Muscle group is required')
-      return
-    }
-    if (!equipment) {
-      showError('Equipment is required')
-      return
-    }
-    if (!movementPattern) {
-      showError('Movement pattern is required')
-      return
-    }
-    if (tags.length === 0) {
-      showError('At least one tag is required')
-      return
-    }
-
     setSaving(true)
     try {
       await exerciseService.create({
-        name,
-        description,
-        videoUrl,
-        muscleGroup,
-        equipment,
-        movementPattern,
-        tags,
+        name: form.name?.trim() || undefined,
+        description: form.description?.trim() || undefined,
+        videoUrl: form.videoUrl?.trim() || undefined,
+        muscleGroup: form.muscleGroup?.trim() || undefined,
+        equipment: form.equipment?.trim() || undefined,
+        movementPattern: form.movementPattern?.trim() || undefined,
+        tags: tags.length ? tags : undefined,
         substitutionIds: form.substitutionIds?.length
           ? form.substitutionIds
           : undefined,
@@ -340,10 +306,7 @@ export default function AdminExercises({
   }
 
   const handleUpdate = async () => {
-    if (!editing || !form.name.trim()) {
-      showError('Name is required')
-      return
-    }
+    if (!editing) return
     setSaving(true)
     try {
       const tags = form.tagsStr
@@ -351,7 +314,7 @@ export default function AdminExercises({
         .map(t => t.trim())
         .filter(Boolean)
       await exerciseService.update(editing.id, {
-        name: form.name.trim(),
+        name: form.name?.trim() || undefined,
         description: form.description?.trim() || undefined,
         videoUrl: form.videoUrl || undefined,
         muscleGroup: form.muscleGroup || undefined,
@@ -372,15 +335,6 @@ export default function AdminExercises({
       setSaving(false)
     }
   }
-
-  const isCreateFormValid =
-    form.name.trim() !== '' &&
-    (form.description?.trim() ?? '') !== '' &&
-    (form.videoUrl?.trim() ?? '') !== '' &&
-    (form.muscleGroup?.trim() ?? '') !== '' &&
-    (form.equipment?.trim() ?? '') !== '' &&
-    (form.movementPattern?.trim() ?? '') !== '' &&
-    form.tagsStr.split(',').some(t => t.trim() !== '')
 
   const toggleSubstitution = (id: number) => {
     const ids = form.substitutionIds ?? []
@@ -490,7 +444,7 @@ export default function AdminExercises({
     <>
       <div>
         <Text variant="default" className="text-sm font-medium mb-1 block">
-          Name *
+          Name
         </Text>
         <Input
           value={form.name}
@@ -500,7 +454,7 @@ export default function AdminExercises({
       </div>
       <div>
         <Text variant="default" className="text-sm font-medium mb-1 block">
-          Description *
+          Description
         </Text>
         <textarea
           className="w-full min-h-[60px] rounded border border-gray-300 px-3 py-2 text-sm"
@@ -511,29 +465,64 @@ export default function AdminExercises({
       </div>
       <div>
         <Text variant="default" className="text-sm font-medium mb-1 block">
-          Video Upload *
+          Video (upload or link)
         </Text>
+        <Input
+          value={form.videoUrl}
+          onChange={e => setForm({ ...form, videoUrl: e.target.value })}
+          placeholder="e.g. https://www.youtube.com/watch?v=..."
+          className="mb-2"
+          size="small"
+        />
         <input
           type="file"
           accept="video/*"
           onChange={e => {
             const file = e.target.files?.[0]
-            if (file) {
-              handleVideoUpload(file)
-            }
+            if (file) handleVideoUpload(file)
           }}
           className="w-full p-2 border border-mid-gray rounded-lg text-sm"
           disabled={uploadingVideo}
         />
         {form.videoUrl && (
-          <a
-            href={form.videoUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-primary text-xs mt-1 block"
-          >
-            View Video
-          </a>
+          <div className="mt-2">
+            {(() => {
+              const url = form.videoUrl.trim()
+              let embedId: string | null = null
+              if (url.includes('youtu.be/')) {
+                embedId = url.split('youtu.be/')[1]?.split('?')[0] ?? null
+              } else if (url.includes('youtube.com')) {
+                try {
+                  embedId = new URL(url).searchParams.get('v')
+                } catch {
+                  embedId = null
+                }
+              }
+              if (embedId) {
+                return (
+                  <div className="rounded-lg overflow-hidden bg-black aspect-video max-w-md">
+                    <iframe
+                      title="Video"
+                      src={`https://www.youtube.com/embed/${embedId}`}
+                      className="w-full h-full"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                    />
+                  </div>
+                )
+              }
+              return (
+                <a
+                  href={url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary text-xs"
+                >
+                  View video
+                </a>
+              )
+            })()}
+          </div>
         )}
         {uploadingVideo && (
           <Text variant="muted" className="text-xs mt-1">
@@ -543,58 +532,55 @@ export default function AdminExercises({
       </div>
       <div>
         <Text variant="default" className="text-sm font-medium mb-1 block">
-          Muscle group *
+          Muscle group
         </Text>
-        <select
-          className="w-full rounded border border-gray-300 px-3 py-2 text-sm"
-          value={form.muscleGroup}
-          onChange={e => setForm({ ...form, muscleGroup: e.target.value })}
-        >
-          <option value="">— Select —</option>
-          {MUSCLE_GROUPS.map(g => (
-            <option key={g} value={g}>
-              {g}
-            </option>
-          ))}
-        </select>
+        <Dropdown
+          placeholder="— Select —"
+          options={optionsFromRows(muscleGroupOptions)}
+          value={form.muscleGroup || undefined}
+          onValueChange={v =>
+            setForm({ ...form, muscleGroup: (v as string) ?? '' })
+          }
+          fullWidth
+          size="small"
+          emptyMessage="No muscle groups added yet. Add options in Admin → Exercise options."
+        />
       </div>
       <div>
         <Text variant="default" className="text-sm font-medium mb-1 block">
-          Equipment *
+          Equipment
         </Text>
-        <select
-          className="w-full rounded border border-gray-300 px-3 py-2 text-sm"
-          value={form.equipment}
-          onChange={e => setForm({ ...form, equipment: e.target.value })}
-        >
-          <option value="">— Select —</option>
-          {EQUIPMENT.map(g => (
-            <option key={g} value={g}>
-              {g}
-            </option>
-          ))}
-        </select>
+        <Dropdown
+          placeholder="— Select —"
+          options={optionsFromRows(equipmentOptions)}
+          value={form.equipment || undefined}
+          onValueChange={v =>
+            setForm({ ...form, equipment: (v as string) ?? '' })
+          }
+          fullWidth
+          size="small"
+          emptyMessage="No equipment added yet. Add options in Admin → Exercise options."
+        />
       </div>
       <div>
         <Text variant="default" className="text-sm font-medium mb-1 block">
-          Movement pattern *
+          Movement pattern
         </Text>
-        <select
-          className="w-full rounded border border-gray-300 px-3 py-2 text-sm"
-          value={form.movementPattern}
-          onChange={e => setForm({ ...form, movementPattern: e.target.value })}
-        >
-          <option value="">— Select —</option>
-          {MOVEMENT_PATTERNS.map(g => (
-            <option key={g} value={g}>
-              {g}
-            </option>
-          ))}
-        </select>
+        <Dropdown
+          placeholder="— Select —"
+          options={optionsFromRows(movementPatternOptions)}
+          value={form.movementPattern || undefined}
+          onValueChange={v =>
+            setForm({ ...form, movementPattern: (v as string) ?? '' })
+          }
+          fullWidth
+          size="small"
+          emptyMessage="No movement patterns added yet. Add options in Admin → Exercise options."
+        />
       </div>
       <div>
         <Text variant="default" className="text-sm font-medium mb-1 block">
-          Tags (comma-separated) *
+          Tags (comma-separated)
         </Text>
         <Input
           value={form.tagsStr}
@@ -782,7 +768,7 @@ export default function AdminExercises({
             onPress: () => {
               void handleCreate()
             },
-            disabled: saving || uploadingVideo || !isCreateFormValid,
+            disabled: saving || uploadingVideo,
           }}
           secondaryAction={{
             label: 'Cancel',

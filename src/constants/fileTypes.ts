@@ -65,7 +65,7 @@ export const FILE_TYPE_CONFIG: Record<FileType, FileTypeConfig> = {
   },
   [FileType.DOCUMENT]: {
     allowedMimeTypes: ['application/pdf', 'application/msword'],
-    maxSize: 20 * 1024 * 1024, // 20MB
+    maxSize: 100 * 1024 * 1024, // 100MB (Marketplace resources: PDFs, documents)
     parent: ParentType.PROGRAMS,
   },
 } as const

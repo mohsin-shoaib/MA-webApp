@@ -16,7 +16,7 @@ export interface Exercise {
 }
 
 export interface CreateExercisePayload {
-  name: string
+  name?: string
   description?: string
   videoUrl?: string
   muscleGroup?: string
