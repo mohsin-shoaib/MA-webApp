@@ -2,6 +2,7 @@ import Login from '@/pages/auth/login'
 import Register from '@/pages/auth/register'
 import ForgotPassword from '@/pages/auth/forgot-password'
 import ResetPassword from '@/pages/auth/reset-password'
+import AcceptInvite from '@/pages/auth/accept-invite'
 import Subscription from '@/pages/auth/subscription'
 import RegisterMobile from '@/pages/auth/register-mobile'
 import Onboarding from '@/pages/onboarding/Onboarding'
@@ -18,6 +19,7 @@ import AdminRecoveryProtocols from '@/pages/admin/recovery-protocols'
 import AdminMarketplace from '@/pages/admin/marketplace'
 import AdminTests from '@/pages/admin/tests'
 import AdminExercises from '@/pages/admin/exercises'
+import AdminExerciseOptions from '@/pages/admin/exercise-options'
 import CoachHeadUserManagement from '@/pages/coach-head/user-management'
 import CoachUserManagement from '@/pages/coach/user-management'
 import CoachMyAthletes from '@/pages/coach/my-athletes'
@@ -91,6 +93,10 @@ export const routes = [
         <ResetPassword />
       </AuthRedirect>
     ),
+  },
+  {
+    path: '/accept-invite',
+    element: <AcceptInvite />,
   },
   {
     path: '/subscription',
@@ -282,6 +288,16 @@ export const routes = [
       <ProtectedRoute allowedRoles={['ADMIN']}>
         <AppLayout>
           <AdminExercises />
+        </AppLayout>
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/admin/exercise-options',
+    element: (
+      <ProtectedRoute allowedRoles={['ADMIN']}>
+        <AppLayout>
+          <AdminExerciseOptions />
         </AppLayout>
       </ProtectedRoute>
     ),

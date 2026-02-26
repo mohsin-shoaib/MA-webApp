@@ -1,9 +1,13 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { Text } from '@/components/Text'
 import { Stack } from '@/components/Stack'
 import { DataTable, type Column } from '@/components/DataTable'
 import { Tabs } from '@/components/Tabs'
+import { Button } from '@/components/Button'
+import { Input } from '@/components/Input'
+import { Modal } from '@/components/Modal'
 import { adminService } from '@/api/admin.service'
+import { coachInviteService } from '@/api/coach-invite.service'
 import { useSnackbar } from '@/components/Snackbar/useSnackbar'
 import type { User } from '@/types/admin'
 import { AxiosError } from 'axios'
@@ -14,31 +18,64 @@ const UserManagement = () => {
   const [activeTab, setActiveTab] = useState('all')
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
-  const { showError } = useSnackbar()
+  const [inviteModalOpen, setInviteModalOpen] = useState(false)
+  const [inviteLoading, setInviteLoading] = useState(false)
+  const [inviteEmail, setInviteEmail] = useState('')
+  const [inviteFirstName, setInviteFirstName] = useState('')
+  const [inviteLastName, setInviteLastName] = useState('')
+  const [inviteError, setInviteError] = useState<string | null>(null)
+  const { showError, showSuccess } = useSnackbar()
+
+  const fetchUsers = useCallback(async () => {
+    try {
+      setLoading(true)
+      const response = await adminService.getUsers()
+      const usersData = response.data.data?.rows || []
+      setUsers(usersData)
+    } catch (error) {
+      const axiosError = error as AxiosError<{ message: string }>
+      showError(
+        axiosError.response?.data?.message ||
+          'Failed to load users. Please try again.'
+      )
+      setUsers([])
+    } finally {
+      setLoading(false)
+    }
+  }, [showError])
 
   useEffect(() => {
-    const fetchUsers = async () => {
-      try {
-        setLoading(true)
-        const response = await adminService.getUsers()
-
-        // Extract users from response.data.data.rows
-        const usersData = response.data.data?.rows || []
-        setUsers(usersData)
-      } catch (error) {
-        const axiosError = error as AxiosError<{ message: string }>
-        const errorMessage =
-          axiosError.response?.data?.message ||
-          'Failed to load users. Please try again.'
-        showError(errorMessage)
-        setUsers([])
-      } finally {
-        setLoading(false)
-      }
-    }
-
     fetchUsers()
-  }, [showError])
+  }, [fetchUsers])
+
+  const handleInviteCoach = async () => {
+    if (!inviteEmail.trim()) {
+      setInviteError('Email is required')
+      return
+    }
+    setInviteError(null)
+    setInviteLoading(true)
+    try {
+      await coachInviteService.inviteCoach({
+        email: inviteEmail.trim(),
+        firstName: inviteFirstName.trim() || undefined,
+        lastName: inviteLastName.trim() || undefined,
+      })
+      showSuccess(`Invite sent to ${inviteEmail}`)
+      setInviteModalOpen(false)
+      setInviteEmail('')
+      setInviteFirstName('')
+      setInviteLastName('')
+      fetchUsers()
+    } catch (err) {
+      const axiosError = err as AxiosError<{ message: string }>
+      setInviteError(
+        axiosError.response?.data?.message || 'Failed to send invite.'
+      )
+    } finally {
+      setInviteLoading(false)
+    }
+  }
 
   // Filter users by role based on active tab
   const filteredUsers = useMemo(() => {
@@ -263,14 +300,70 @@ const UserManagement = () => {
 
   return (
     <Stack direction="vertical" spacing={16}>
-      <div>
-        <Text as="h1" variant="secondary" className="text-3xl font-bold">
-          User Management
-        </Text>
-        <Text as="p" variant="muted" className="mt-2">
-          Manage and view all users in the system
-        </Text>
+      <div className="flex items-center justify-between flex-wrap gap-4">
+        <div>
+          <Text as="h1" variant="secondary" className="text-3xl font-bold">
+            User Management
+          </Text>
+          <Text as="p" variant="muted" className="mt-2">
+            Manage and view all users in the system
+          </Text>
+        </div>
+        <Button
+          variant="primary"
+          onClick={() => {
+            setInviteError(null)
+            setInviteModalOpen(true)
+          }}
+        >
+          Invite coach
+        </Button>
       </div>
+
+      <Modal
+        visible={inviteModalOpen}
+        onClose={() => setInviteModalOpen(false)}
+        title="Invite coach"
+        size="small"
+        primaryAction={{
+          label: 'Send invite',
+          onPress: () => void handleInviteCoach(),
+          loading: inviteLoading,
+        }}
+        secondaryAction={{
+          label: 'Cancel',
+          onPress: () => setInviteModalOpen(false),
+        }}
+      >
+        <Stack direction="vertical" spacing={12}>
+          {inviteError && (
+            <Text variant="error" className="text-sm">
+              {inviteError}
+            </Text>
+          )}
+          <Input
+            label="Email"
+            type="email"
+            placeholder="coach@example.com"
+            value={inviteEmail}
+            onChange={e => setInviteEmail(e.target.value)}
+            required
+          />
+          <Input
+            label="First name (optional)"
+            placeholder="First name"
+            value={inviteFirstName}
+            onChange={e => setInviteFirstName(e.target.value)}
+          />
+          <Input
+            label="Last name (optional)"
+            placeholder="Last name"
+            value={inviteLastName}
+            onChange={e => setInviteLastName(e.target.value)}
+          />
+        </Stack>
+      </Modal>
+
       <Tabs
         items={tabs}
         activeTab={activeTab}

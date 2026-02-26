@@ -92,7 +92,7 @@ export interface UpdateProgramDTO {
   programStructure?: ProgramStructure
 }
 
-// Program response from API
+// Program response from API (relational: programStructure is source of truth; dailyExercise deprecated)
 export interface Program extends Record<string, unknown> {
   id: number
   name: string
@@ -103,8 +103,9 @@ export interface Program extends Record<string, unknown> {
   category: string | null
   subCategory: string | null
   cycleId: number
-  dailyExercise: DailyExerciseDTO[]
-  alternateExercise: Record<string, unknown>
+  /** @deprecated Use programStructure for program content */
+  dailyExercise?: DailyExerciseDTO[]
+  alternateExercise?: Record<string, unknown>
   programStructure?: ProgramStructure | null
   createdAt: string
   updatedAt: string
@@ -148,6 +149,18 @@ export interface ProgramListByCycleResponse {
   statusCode: number
   data: Program[] | { rows: Program[] }
   message?: string
+}
+
+/** Section exercise with embedded exercise (from API when using relational) */
+export interface ProgramStructureSectionExerciseWithExercise extends ProgramStructureSectionExercise {
+  exercise?: {
+    id: number
+    name: string
+    description?: string | null
+    videoUrl?: string | null
+    muscleGroup?: string | null
+    equipment?: string | null
+  }
 }
 
 /** Program with cycle relation (athlete GET /athlete/program/:id) */
@@ -208,7 +221,7 @@ export interface RecommendedNextResponse {
   message?: string
 }
 
-/** Current enrolled program (GET /athlete/program/current). dailyExercise may be array or object keyed by day. */
+/** Current enrolled program (GET /athlete/program/current). Use program.programStructure for days/exercises. */
 export interface UserProgram {
   id: number
   userId: number
@@ -217,7 +230,9 @@ export interface UserProgram {
   startDate: string
   endDate: string | null
   program: Program & {
-    dailyExercise: DailyExerciseDTO[] | Record<string, DailyExerciseDTO>
+    /** @deprecated Use programStructure */
+    dailyExercise?: DailyExerciseDTO[] | Record<string, DailyExerciseDTO>
+    programStructure?: ProgramStructure | null
     cycle?: {
       id: number
       name: string

@@ -117,7 +117,8 @@ export interface ProgramFormProps {
     subCategory: string | null
     cycleId: number
     isActive: boolean
-    dailyExercise: DailyExerciseDTO[]
+    /** Optional; use programStructure for program content when available */
+    dailyExercise?: DailyExerciseDTO[]
   }
   /**
    * Callback when form is submitted successfully
