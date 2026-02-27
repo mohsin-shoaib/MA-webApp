@@ -72,10 +72,8 @@ export interface CreateOnboardingDTO {
   equipmentAccess?: 'FULL_GYM' | 'LIMITED' | 'MINIMAL' | 'DEPLOYED'
   eventDate?: string // Used for roadmap generation; required when goal requires event
   job?: string
-  /** PRD 4.6.2: Returning from selection/deployment → recommend Red */
-  returningFromEvent?: boolean
-  /** PRD 4.6.5: Limited time/equipment → recommend Sustainment */
-  severeConstraints?: boolean
+  /** When true: user selected "Other" for Primary Goal and chose closest option; flag for admin review */
+  goalFlaggedForReview?: boolean
 }
 
 export interface UpdateOnboardingDTO {
