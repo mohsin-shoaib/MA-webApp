@@ -1,6 +1,6 @@
 import type { DailyExerciseDTO, ExerciseDTO } from '@/types/program'
 
-/** One day's exercise block (matches program dailyExercise element). Reused for roadmap timeline/dailyExercise. */
+/** One day's exercise block (matches program dailyExercise element). Used for roadmap timeline. */
 export type RoadmapDayExercise = DailyExerciseDTO
 
 /** Single exercise item within a day (name, video, reps, sets, etc.). */
@@ -19,13 +19,6 @@ export interface RoadmapTimelineReal {
   Green?: TimelinePhase
 }
 
-/** Real dailyExercise: phase -> day key -> day object. */
-export interface RoadmapDailyExerciseReal {
-  Red?: Record<string, RoadmapDayExercise>
-  Amber?: Record<string, RoadmapDayExercise>
-  Green?: Record<string, RoadmapDayExercise>
-}
-
 /** Type guard: value is array of day objects (real) not strings (legacy). */
 export function isRealTimelineWeek(
   value: unknown
@@ -39,33 +32,11 @@ export function isRealTimelineWeek(
   )
 }
 
-/** Type guard: dailyExercise is real shape (phase -> day -> object). */
-export function isRealDailyExerciseByPhase(
-  value: unknown
-): value is RoadmapDailyExerciseReal {
-  if (typeof value !== 'object' || value === null) return false
-  const o = value as Record<string, unknown>
-  const phase = o.Red ?? o.Amber ?? o.Green
-  if (!phase || typeof phase !== 'object') return false
-  const firstDay = Object.values(phase as Record<string, unknown>)[0]
-  return (
-    firstDay !== undefined &&
-    typeof firstDay === 'object' &&
-    firstDay !== null &&
-    'exercise_name' in firstDay
-  )
-}
-
 // Legacy types (kept for backward compatibility)
 export interface RoadmapTimeline {
   [week: string]: string[]
 }
 
-export interface RoadmapDailyExercise {
-  [day: string]: string[]
-}
-
-// Legacy types - kept for backward compatibility
 // Main Roadmap Create Payload
 export interface RoadmapProps {
   currentCycleId: number
@@ -76,7 +47,6 @@ export interface RoadmapProps {
   sustainmentStart: string // ISO date string
 
   timeline: RoadmapTimeline
-  dailyExercise: RoadmapDailyExercise
 }
 
 export interface RoadmapResponse {
@@ -86,7 +56,6 @@ export interface RoadmapResponse {
   currentCycleId: number
 
   timeline: RoadmapTimeline
-  dailyExercise: RoadmapDailyExercise
 
   primaryGoalStart: string | null
   primaryGoalEnd: string | null
@@ -125,8 +94,6 @@ export interface Roadmap {
   primaryGoalStart?: string | null
   primaryGoalEnd?: string | null
   sustainmentStart?: string | null
-  /** Real: phase -> day -> day object. Legacy: flat day -> string[]. */
-  dailyExercise: RoadmapDailyExerciseReal | Record<string, unknown>
   cycles?: RoadmapCycle[]
   primaryGoal?: string
   eventDate?: string

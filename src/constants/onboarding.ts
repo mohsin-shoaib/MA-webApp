@@ -9,5 +9,8 @@ export const CYCLE_NAME_TO_ID: Record<string, number> = {
   Sustainment: 4,
 }
 
-/** Cycles that require a program when choosing manually (Sustainment program is optional). */
+/**
+ * Cycles that require a program when choosing manually (Sustainment program is optional).
+ * Amber is not listed: V1 has one default Amber program (Warfighter); backend assigns it automatically on confirm.
+ */
 export const CYCLES_REQUIRING_PROGRAM = ['Red', 'Green']
