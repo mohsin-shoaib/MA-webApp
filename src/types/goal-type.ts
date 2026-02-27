@@ -3,6 +3,7 @@ export const Category = {
   School: 'School',
   Competition: 'Competition',
   Personal: 'Personal',
+  OperationalReadiness: 'OperationalReadiness'
 } as const
 
 export type Category = (typeof Category)[keyof typeof Category]

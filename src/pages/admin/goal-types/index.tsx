@@ -156,6 +156,8 @@ const GoalTypes = () => {
     { value: Category.School, label: 'School' },
     { value: Category.Competition, label: 'Competition' },
     { value: Category.Personal, label: 'Personal' },
+    { value: Category.OperationalReadiness, label: 'OperationalReadiness' },
+
   ]
 
   const columns: Column<GoalType>[] = [
@@ -296,8 +298,7 @@ const GoalTypes = () => {
               required
               fullWidth
             />
-
-            <Input
+             <Input
               label="Goal"
               placeholder="Enter your goal (subcategory)"
               value={goalInput}
