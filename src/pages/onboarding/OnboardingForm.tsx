@@ -5,7 +5,6 @@ import { Input } from '@/components/Input'
 import { Dropdown } from '@/components/Dropdown'
 import { Button } from '@/components/Button'
 import { DatePicker } from '@/components/DatePicker'
-import { Checkbox } from '@/components/Checkbox'
 import type { OnboardingProps, CreateOnboardingDTO } from '@/types/onboarding'
 import { JOB_ROLE_OPTIONS, EQUIPMENT_ACCESS_OPTIONS } from '@/types/onboarding'
 import type { ReadinessRecommendation } from '@/types/readiness'
@@ -52,20 +51,52 @@ export default function OnboardingForm({
   const [primaryGoal, setPrimaryGoal] = useState<string>(
     initialValues?.primaryGoal || ''
   )
+  const [primaryGoalIsOther, setPrimaryGoalIsOther] = useState(
+    !!(
+      initialValues as Partial<CreateOnboardingDTO> & {
+        goalFlaggedForReview?: boolean
+      }
+    )?.goalFlaggedForReview
+  )
+  const [primaryGoalClosestOption, setPrimaryGoalClosestOption] =
+    useState<string>(
+      (
+        initialValues as Partial<CreateOnboardingDTO> & {
+          goalFlaggedForReview?: boolean
+        }
+      )?.goalFlaggedForReview
+        ? initialValues?.primaryGoal || ''
+        : ''
+    )
   const [primaryGoalCategory, setPrimaryGoalCategory] = useState<string>(
     (initialValues as Partial<CreateOnboardingDTO>)?.primaryGoalCategory || ''
   )
   const [job, setJob] = useState<string>(
     (initialValues as Partial<CreateOnboardingDTO>)?.job || ''
   )
-  const [returningFromEvent, setReturningFromEvent] = useState(false)
-  const [severeConstraints, setSevereConstraints] = useState(false)
   const [goalTypes, setGoalTypes] = useState<GoalType[]>([])
   const [loadingGoals, setLoadingGoals] = useState(false)
 
+  // Effective goal for validation: when "Other" selected, use closest option
+  const effectivePrimaryGoalForCategory = primaryGoalIsOther
+    ? primaryGoalClosestOption
+    : primaryGoal
+
+  // Sync primaryGoalCategory when "Other" + closest option (so event date visibility is correct)
+  useEffect(() => {
+    if (
+      !primaryGoalIsOther ||
+      !primaryGoalClosestOption ||
+      goalTypes.length === 0
+    )
+      return
+    const gt = goalTypes.find(g => g.subCategory === primaryGoalClosestOption)
+    if (gt?.category) setPrimaryGoalCategory(gt.category)
+  }, [primaryGoalIsOther, primaryGoalClosestOption, goalTypes])
+
   // Event date only for Tactical Selection/School and Competition/Performance (doc §2.4, §2.5)
   const eventDateRequired =
-    primaryGoal !== 'Improve Operational Readiness' &&
+    effectivePrimaryGoalForCategory !== 'Improve Operational Readiness' &&
     (primaryGoalCategory === 'Selection' ||
       primaryGoalCategory === 'School' ||
       primaryGoalCategory === 'Competition' ||
@@ -129,9 +160,17 @@ export default function OnboardingForm({
     setError(null)
     setLoading(true)
 
-    // Validate goals and event date
-    if (!primaryGoal) {
-      setError('Please select a primary goal')
+    // Resolve effective primary goal (when "Other", use closest option)
+    const effectivePrimaryGoal = primaryGoalIsOther
+      ? primaryGoalClosestOption
+      : primaryGoal
+
+    if (!effectivePrimaryGoal) {
+      setError(
+        primaryGoalIsOther
+          ? 'Please select the closest option for your goal'
+          : 'Please select a primary goal'
+      )
       setLoading(false)
       setValue('primaryGoal', '', { shouldValidate: true })
       return
@@ -153,7 +192,7 @@ export default function OnboardingForm({
           | 'INTERMEDIATE'
           | 'ADVANCED',
         trainingBreak120Days: trainingBreak120,
-        primaryGoal: primaryGoal,
+        primaryGoal: effectivePrimaryGoal,
         primaryGoalCategory: primaryGoalCategory || undefined,
         job: job || undefined,
         equipmentAccess: equipmentAccess
@@ -161,8 +200,7 @@ export default function OnboardingForm({
           : undefined,
         equipment: equipment.length > 0 ? equipment : undefined,
         eventDate: eventDate || undefined,
-        returningFromEvent: returningFromEvent || undefined,
-        severeConstraints: severeConstraints || undefined,
+        goalFlaggedForReview: primaryGoalIsOther || undefined,
       }
 
       // Defer-save: evaluate only (no create). Store recommendation + form data for Step 3 confirm.
@@ -172,8 +210,6 @@ export default function OnboardingForm({
         primaryGoalCategory: payload.primaryGoalCategory,
         eventDate: payload.eventDate,
         trainingBreak120Days: payload.trainingBreak120Days,
-        returningFromEvent: payload.returningFromEvent,
-        severeConstraints: payload.severeConstraints,
       })
       const apiResponse = axiosResponse.data
       if (apiResponse.statusCode !== 200 || !apiResponse.data) {
@@ -199,9 +235,18 @@ export default function OnboardingForm({
   ]
 
   const trainingExpOptions = [
-    { label: 'BEGINNER', value: 'BEGINNER' },
-    { label: 'INTERMEDIATE', value: 'INTERMEDIATE' },
-    { label: 'ADVANCED', value: 'ADVANCED' },
+    {
+      label: 'Beginner (less than 1 year structured barbell training)',
+      value: 'BEGINNER',
+    },
+    {
+      label: 'Intermediate (1–3 years structured barbell training)',
+      value: 'INTERMEDIATE',
+    },
+    {
+      label: 'Advanced (3+ years structured barbell training)',
+      value: 'ADVANCED',
+    },
   ]
 
   return (
@@ -256,25 +301,61 @@ export default function OnboardingForm({
 
       <Dropdown
         label="Primary Goal"
-        value={primaryGoal}
+        value={primaryGoalIsOther ? 'Other' : primaryGoal}
         onValueChange={v => {
           const value = v as string
-          setPrimaryGoal(value)
-          setValue('primaryGoal', value, { shouldValidate: true })
-        }}
-        options={goalTypes.map(gt => {
-          const categoryLabel = gt.category ? ` (${gt.category})` : ''
-          return {
-            label: `${gt.subCategory}${categoryLabel}`,
-            value: gt.subCategory,
+          if (value === 'Other') {
+            setPrimaryGoalIsOther(true)
+            setPrimaryGoal('')
+            setPrimaryGoalClosestOption('')
+            setValue('primaryGoal', '', { shouldValidate: true })
+          } else {
+            setPrimaryGoalIsOther(false)
+            setPrimaryGoal(value)
+            setPrimaryGoalClosestOption('')
+            setValue('primaryGoal', value, { shouldValidate: true })
           }
-        })}
+        }}
+        options={[
+          ...goalTypes.map(gt => {
+            const categoryLabel = gt.category ? ` (${gt.category})` : ''
+            return {
+              label: `${gt.subCategory}${categoryLabel}`,
+              value: gt.subCategory,
+            }
+          }),
+          { label: 'Other (choose closest option below)', value: 'Other' },
+        ]}
         required
         fullWidth
         disabled={loadingGoals}
         placeholder={loadingGoals ? 'Loading goals...' : 'Select primary goal'}
         error={errors.primaryGoal?.message}
       />
+
+      {primaryGoalIsOther && (
+        <Dropdown
+          label="Choose the closest option (for admin review)"
+          value={primaryGoalClosestOption}
+          onValueChange={v => {
+            const value = v as string
+            setPrimaryGoalClosestOption(value)
+            setValue('primaryGoal', value, { shouldValidate: true })
+          }}
+          options={goalTypes
+            .filter(gt => gt.subCategory !== 'Other')
+            .map(gt => {
+              const categoryLabel = gt.category ? ` (${gt.category})` : ''
+              return {
+                label: `${gt.subCategory}${categoryLabel}`,
+                value: gt.subCategory,
+              }
+            })}
+          required
+          fullWidth
+          placeholder="Select closest option"
+        />
+      )}
 
       <Dropdown
         label="Training break 120+ days"
@@ -312,19 +393,6 @@ export default function OnboardingForm({
         placeholder="Select your job or role"
         error={errors.job?.message}
       />
-
-      <div className="space-y-3 hidden">
-        <Checkbox
-          label="Returning from selection/deployment (recommend Red Cycle)"
-          checked={returningFromEvent}
-          onValueChange={v => setReturningFromEvent(v)}
-        />
-        <Checkbox
-          label="Limited time or equipment — recommend Sustainment programs"
-          checked={severeConstraints}
-          onValueChange={v => setSevereConstraints(v)}
-        />
-      </div>
 
       <Dropdown
         label="Equipment access"

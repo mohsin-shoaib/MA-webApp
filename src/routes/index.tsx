@@ -41,6 +41,7 @@ import CoachAnalyticsPage from '@/pages/coach/CoachAnalyticsPage.tsx'
 import CoachMarketplace from '@/pages/coach/marketplace'
 import CoachExercises from '@/pages/coach/exercises'
 import AdminAnalyticsPage from '@/pages/admin/AdminAnalyticsPage.tsx'
+import AdminOnboardingReview from '@/pages/admin/onboarding-review'
 import Coach from '@/pages/coach'
 import Market from '@/pages/market'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
@@ -308,6 +309,16 @@ export const routes = [
       <ProtectedRoute allowedRoles={['ADMIN']}>
         <AppLayout>
           <AdminAnalyticsPage />
+        </AppLayout>
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/admin/onboarding-review',
+    element: (
+      <ProtectedRoute allowedRoles={['ADMIN']}>
+        <AppLayout>
+          <AdminOnboardingReview />
         </AppLayout>
       </ProtectedRoute>
     ),

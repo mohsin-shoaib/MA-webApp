@@ -110,6 +110,12 @@ export function Sidebar() {
       roles: ['ADMIN'],
     },
     {
+      path: '/admin/onboarding-review',
+      label: 'Onboarding review',
+      icon: 'clipboard-check',
+      roles: ['ADMIN'],
+    },
+    {
       path: '/admin/goal-types',
       label: 'Goal Types',
       icon: 'bullseye',
