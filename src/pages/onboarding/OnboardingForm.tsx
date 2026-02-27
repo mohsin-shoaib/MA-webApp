@@ -235,9 +235,18 @@ export default function OnboardingForm({
   ]
 
   const trainingExpOptions = [
-    { label: 'BEGINNER', value: 'BEGINNER' },
-    { label: 'INTERMEDIATE', value: 'INTERMEDIATE' },
-    { label: 'ADVANCED', value: 'ADVANCED' },
+    {
+      label: 'Beginner (less than 1 year structured barbell training)',
+      value: 'BEGINNER',
+    },
+    {
+      label: 'Intermediate (1–3 years structured barbell training)',
+      value: 'INTERMEDIATE',
+    },
+    {
+      label: 'Advanced (3+ years structured barbell training)',
+      value: 'ADVANCED',
+    },
   ]
 
   return (
