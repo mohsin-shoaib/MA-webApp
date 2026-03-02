@@ -7,13 +7,16 @@ import { Icon } from '@/components/Icon'
 import { DataTable, type Column } from '@/components/DataTable'
 import { Modal } from '@/components/Modal'
 import { Tooltip } from '@/components/Tooltip'
+import { Dropdown } from '@/components/Dropdown'
 import { ProgramForm } from '@/components/Program/ProgramForm'
 import { ProgramBuilderForm } from '@/components/Program/ProgramBuilderForm'
 import { adminService } from '@/api/admin.service'
 import { programService } from '@/api/program.service'
+import { goalTypeService } from '@/api/goal-type.service'
 import { useSnackbar } from '@/components/Snackbar/useSnackbar'
 import type { Cycle } from '@/types/cycle'
 import type { Program } from '@/types/program'
+import type { GoalType } from '@/types/goal-type' // used for goalTypes state and filter options
 import { AxiosError } from 'axios'
 
 /**
@@ -31,6 +34,12 @@ const CyclePrograms = () => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [editingProgram, setEditingProgram] = useState<Program | null>(null)
+  const [goalTypes, setGoalTypes] = useState<GoalType[]>([])
+  const [filterCategory, setFilterCategory] = useState<string>('')
+  const [filterSubCategory, setFilterSubCategory] = useState<string>('')
+  const [filterStatus, setFilterStatus] = useState<
+    'all' | 'draft' | 'published'
+  >('all')
   const { showError, showSuccess } = useSnackbar()
 
   // Fetch cycle name
@@ -50,7 +59,16 @@ const CyclePrograms = () => {
     }
   }, [cycleId])
 
-  // Fetch programs for the cycle
+  const fetchGoalTypes = useCallback(async () => {
+    try {
+      const res = await goalTypeService.getAll({ limit: 100 })
+      setGoalTypes(res.data.data?.rows || [])
+    } catch {
+      setGoalTypes([])
+    }
+  }, [])
+
+  // Fetch programs for the cycle (Phase 5: with filters)
   const fetchPrograms = useCallback(async () => {
     if (!cycleId) {
       showError('Cycle ID is required')
@@ -60,8 +78,15 @@ const CyclePrograms = () => {
 
     try {
       setLoading(true)
-      // Fetch programs for the specific cycle
-      const response = await programService.getAll({ cycleId: Number(cycleId) })
+      const query: Parameters<typeof programService.getAll>[0] = {
+        cycleId: Number(cycleId),
+        limit: 100,
+      }
+      if (filterCategory) query.category = filterCategory
+      if (filterSubCategory) query.subCategory = filterSubCategory
+      if (filterStatus === 'draft') query.isPublished = false
+      if (filterStatus === 'published') query.isPublished = true
+      const response = await programService.getAll(query)
       setPrograms(response.data.data.rows || [])
     } catch (error) {
       const axiosError = error as AxiosError<{ message: string }>
@@ -73,12 +98,23 @@ const CyclePrograms = () => {
     } finally {
       setLoading(false)
     }
-  }, [cycleId, navigate, showError])
+  }, [
+    cycleId,
+    navigate,
+    showError,
+    filterCategory,
+    filterSubCategory,
+    filterStatus,
+  ])
 
   useEffect(() => {
     fetchCycleName()
+    fetchGoalTypes()
+  }, [fetchCycleName, fetchGoalTypes])
+
+  useEffect(() => {
     fetchPrograms()
-  }, [fetchCycleName, fetchPrograms])
+  }, [fetchPrograms])
 
   const handleBack = () => {
     navigate('/admin/program-management')
@@ -212,6 +248,29 @@ const CyclePrograms = () => {
       ),
     },
     {
+      key: 'createdByUser',
+      label: 'Created by',
+      sortable: false,
+      render: (_value, row) => {
+        const u = (
+          row as {
+            createdByUser?: {
+              firstName?: string
+              lastName?: string
+              email?: string
+            }
+          }
+        ).createdByUser
+        if (!u) return <Text variant="muted">—</Text>
+        const name = [u.firstName, u.lastName].filter(Boolean).join(' ').trim()
+        return (
+          <Text variant="default" className="text-sm">
+            {name || u.email || '—'}
+          </Text>
+        )
+      },
+    },
+    {
       key: 'actions',
       label: 'Actions',
       sortable: false,
@@ -286,6 +345,63 @@ const CyclePrograms = () => {
               Create Program
             </Button>
           )}
+        </div>
+
+        {/* Phase 5: List filters */}
+        <div className="flex flex-wrap items-end gap-3 mb-4">
+          <div className="min-w-[140px]">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Goal (category)
+            </label>
+            <Dropdown
+              placeholder="All"
+              value={filterCategory}
+              onValueChange={v => {
+                setFilterCategory(Array.isArray(v) ? (v[0] ?? '') : (v ?? ''))
+                setFilterSubCategory('')
+              }}
+              options={[
+                ...new Set(goalTypes.map(g => g.category).filter(Boolean)),
+              ].map(c => ({ value: c!, label: c! }))}
+            />
+          </div>
+          <div className="min-w-[140px]">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Goal type
+            </label>
+            <Dropdown
+              placeholder="All"
+              value={filterSubCategory}
+              onValueChange={v =>
+                setFilterSubCategory(
+                  Array.isArray(v) ? (v[0] ?? '') : (v ?? '')
+                )
+              }
+              options={goalTypes
+                .filter(g => !filterCategory || g.category === filterCategory)
+                .map(g => ({ value: g.subCategory, label: g.subCategory }))}
+              disabled={!filterCategory}
+            />
+          </div>
+          <div className="min-w-[120px]">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Status
+            </label>
+            <Dropdown
+              placeholder="All"
+              value={filterStatus}
+              onValueChange={v =>
+                setFilterStatus(
+                  (Array.isArray(v) ? v[0] : v) as 'all' | 'draft' | 'published'
+                )
+              }
+              options={[
+                { value: 'all', label: 'All' },
+                { value: 'draft', label: 'Draft' },
+                { value: 'published', label: 'Published' },
+              ]}
+            />
+          </div>
         </div>
 
         {/* Content Area */}

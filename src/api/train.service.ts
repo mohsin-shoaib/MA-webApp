@@ -129,4 +129,49 @@ export const trainService = {
       `athlete/train/sessions/${sessionId}/sets`,
       body
     ),
+
+  /**
+   * Get working max (MASS Phase 3). With exerciseId: single exercise + lastLogged; without: list all.
+   */
+  getWorkingMax: (exerciseId?: number) => {
+    const params = exerciseId != null ? { exerciseId } : {}
+    return api.get<{
+      statusCode: number
+      data: {
+        workingMax?: {
+          value: number
+          unit: string
+          source: string
+          updatedAt: string
+        } | null
+        lastLogged?: {
+          weightLb?: number
+          weightKg?: number
+          reps?: number
+          completedAt: string
+        } | null
+        workingMaxes?: Array<{
+          exerciseId: number
+          exerciseName: string
+          value: number
+          unit: string
+          source: string
+          updatedAt: string
+        }>
+      }
+    }>('athlete/train/working-max', { params })
+  },
+
+  /**
+   * Set working max manually (MASS Phase 3). POST /athlete/train/working-max
+   */
+  setWorkingMax: (body: {
+    exerciseId: number
+    value: number
+    unit: 'lb' | 'kg'
+  }) =>
+    api.post<{ statusCode: number; data: { workingMax: unknown } }>(
+      'athlete/train/working-max',
+      body
+    ),
 }

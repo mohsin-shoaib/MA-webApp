@@ -33,6 +33,9 @@ const INITIAL_LOADING: Record<string, boolean> = {
 export function ProgramBrowser() {
   const navigate = useNavigate()
   const [currentProgramId, setCurrentProgramId] = useState<number | null>(null)
+  /** MASS Phase 6: when in Sustainment/Custom override, resume previous program */
+  const [pausedProgramId, setPausedProgramId] = useState<number | null>(null)
+  const [resumeLoading, setResumeLoading] = useState(false)
   const [programsByCycle, setProgramsByCycle] =
     useState<Record<string, Program[]>>(INITIAL_PROGRAMS)
   const [loadingCycles, setLoadingCycles] =
@@ -47,13 +50,22 @@ export function ProgramBrowser() {
     programService
       .getCurrentProgram()
       .then(res => {
-        if (res.data.statusCode === 200 && res.data.data?.programId != null) {
-          setCurrentProgramId(res.data.data.programId)
+        if (res.data.statusCode === 200 && res.data.data) {
+          const d = res.data.data as {
+            programId?: number
+            pausedProgramId?: number | null
+          }
+          setCurrentProgramId(d.programId ?? null)
+          setPausedProgramId(d.pausedProgramId ?? null)
         } else {
           setCurrentProgramId(null)
+          setPausedProgramId(null)
         }
       })
-      .catch(() => setCurrentProgramId(null))
+      .catch(() => {
+        setCurrentProgramId(null)
+        setPausedProgramId(null)
+      })
   }, [])
 
   const fetchCyclePrograms = useCallback((cycleName: string) => {
@@ -119,6 +131,47 @@ export function ProgramBrowser() {
           Program browser
         </Text>
       </div>
+
+      {pausedProgramId != null && (
+        <Card className="p-4 mb-4 border-amber-200 bg-amber-50/50">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <Text
+              variant="default"
+              className="text-sm font-medium text-amber-900"
+            >
+              You are in a Sustainment or Custom 1:1 override. Your previous
+              program is paused.
+            </Text>
+            <Button
+              type="button"
+              variant="secondary"
+              size="small"
+              disabled={resumeLoading}
+              onClick={() => {
+                setResumeLoading(true)
+                programService
+                  .resumeProgram()
+                  .then(res => {
+                    if (
+                      res.data.statusCode === 200 &&
+                      res.data.data?.enrollment
+                    ) {
+                      const e = res.data.data.enrollment as {
+                        programId: number
+                        pausedProgramId?: number | null
+                      }
+                      setCurrentProgramId(e.programId)
+                      setPausedProgramId(e.pausedProgramId ?? null)
+                    }
+                  })
+                  .finally(() => setResumeLoading(false))
+              }}
+            >
+              {resumeLoading ? 'Resuming...' : 'Resume previous program'}
+            </Button>
+          </div>
+        </Card>
+      )}
 
       <Card className="p-6 sm:p-8">
         <div className="mb-8">

@@ -1,8 +1,8 @@
 import AdminExercises from '@/pages/admin/exercises'
 
 /**
- * Coach Exercise Library: same UI as admin but coach-added exercises need admin approval.
- * Coach can create/edit/delete their own; only approved exercises show in program builder dropdown.
+ * Coach Exercise Library: same UI and access as admin (MASS Phase 2).
+ * Coach can create/edit/delete any exercise; no approval workflow; all active exercises in program builder.
  */
 export default function CoachExercises() {
   return <AdminExercises role="coach" />

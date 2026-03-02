@@ -6,12 +6,22 @@ import { Spinner } from '@/components/Spinner'
 import { Modal } from '@/components/Modal'
 import { Input } from '@/components/Input'
 import { Dropdown } from '@/components/Dropdown'
+import { CoachSetWorkingMaxModal } from '@/components/CoachSetWorkingMaxModal'
 import { coachService } from '@/api/coach.service'
 import { programService } from '@/api/program.service'
 import type { Program } from '@/types/program'
 import type { User } from '@/types/admin'
 import { useSnackbar } from '@/components/Snackbar/useSnackbar'
 import { AxiosError } from 'axios'
+
+type WorkingMaxRow = {
+  exerciseId: number
+  exerciseName: string
+  value: number
+  unit: string
+  source: string
+  updatedAt: string
+}
 
 function userName(u: {
   firstName?: string | null
@@ -34,6 +44,11 @@ export default function CoachMyAthletes() {
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
   const [saving, setSaving] = useState(false)
+  const [workingMaxAthlete, setWorkingMaxAthlete] = useState<User | null>(null)
+  const [workingMaxList, setWorkingMaxList] = useState<WorkingMaxRow[]>([])
+  const [workingMaxListLoading, setWorkingMaxListLoading] = useState(false)
+  const [editingWorkingMax, setEditingWorkingMax] =
+    useState<WorkingMaxRow | null>(null)
   const { showError, showSuccess } = useSnackbar()
 
   const fetchAthletes = useCallback(async () => {
@@ -78,6 +93,27 @@ export default function CoachMyAthletes() {
     setAssignOpen(true)
     fetchPrograms()
   }
+
+  const openWorkingMaxes = useCallback(
+    async (athlete: User) => {
+      setWorkingMaxAthlete(athlete)
+      setWorkingMaxList([])
+      setEditingWorkingMax(null)
+      setWorkingMaxListLoading(true)
+      try {
+        const res = await coachService.getAthleteWorkingMax(Number(athlete.id))
+        if (res.data?.statusCode === 200 && res.data.data?.workingMaxes) {
+          setWorkingMaxList(res.data.data.workingMaxes)
+        }
+      } catch (e) {
+        const err = e as AxiosError<{ message?: string }>
+        showError(err.response?.data?.message || 'Failed to load working maxes')
+      } finally {
+        setWorkingMaxListLoading(false)
+      }
+    },
+    [showError]
+  )
 
   const handleAssign = async () => {
     if (!assigningAthlete) return
@@ -152,14 +188,24 @@ export default function CoachMyAthletes() {
                     {a.email}
                   </Text>
                 </div>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="small"
-                  onClick={() => openAssign(a)}
-                >
-                  Assign 1:1 program
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="small"
+                    onClick={() => openWorkingMaxes(a)}
+                  >
+                    Working maxes
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="small"
+                    onClick={() => openAssign(a)}
+                  >
+                    Assign 1:1 program
+                  </Button>
+                </div>
               </li>
             ))}
           </ul>
@@ -242,6 +288,90 @@ export default function CoachMyAthletes() {
             </Text>
           </div>
         </Modal>
+      )}
+
+      {workingMaxAthlete && (
+        <Modal
+          visible={!!workingMaxAthlete}
+          onClose={() => {
+            setWorkingMaxAthlete(null)
+            setEditingWorkingMax(null)
+          }}
+          title={`Working maxes: ${userName(workingMaxAthlete)}`}
+          showCloseButton
+          closeOnBackdropPress
+          closeOnEscape
+          size="medium"
+          secondaryAction={{
+            label: 'Close',
+            onPress: () => {
+              setWorkingMaxAthlete(null)
+              setEditingWorkingMax(null)
+            },
+          }}
+        >
+          <div className="space-y-4">
+            {workingMaxListLoading && (
+              <div className="flex items-center gap-2 py-4">
+                <Spinner size="small" variant="primary" />
+                <Text variant="secondary">Loading…</Text>
+              </div>
+            )}
+            {!workingMaxListLoading && workingMaxList.length === 0 && (
+              <Text variant="secondary" className="text-sm">
+                No working maxes yet. Athlete can set them in Train or by
+                logging sets with weight and reps.
+              </Text>
+            )}
+            {!workingMaxListLoading && workingMaxList.length > 0 && (
+              <ul className="space-y-2 max-h-[50vh] overflow-y-auto">
+                {workingMaxList.map(row => (
+                  <li
+                    key={row.exerciseId}
+                    className="flex flex-wrap items-center justify-between gap-2 py-2 border-b border-gray-100 last:border-0"
+                  >
+                    <div>
+                      <Text variant="default" className="text-sm font-medium">
+                        {row.exerciseName}
+                      </Text>
+                      <Text variant="muted" className="text-xs">
+                        {row.value} {row.unit} · {row.source}
+                      </Text>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="small"
+                      onClick={() => setEditingWorkingMax(row)}
+                    >
+                      Set
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </Modal>
+      )}
+
+      {workingMaxAthlete && editingWorkingMax && (
+        <CoachSetWorkingMaxModal
+          visible={!!editingWorkingMax}
+          onClose={() => setEditingWorkingMax(null)}
+          onSuccess={async () => {
+            const res = await coachService.getAthleteWorkingMax(
+              Number(workingMaxAthlete.id)
+            )
+            if (res.data?.statusCode === 200 && res.data.data?.workingMaxes) {
+              setWorkingMaxList(res.data.data.workingMaxes)
+            }
+          }}
+          athleteId={Number(workingMaxAthlete.id)}
+          exerciseId={editingWorkingMax.exerciseId}
+          exerciseName={editingWorkingMax.exerciseName}
+          currentValue={editingWorkingMax.value}
+          currentUnit={editingWorkingMax.unit as 'lb' | 'kg'}
+        />
       )}
     </div>
   )

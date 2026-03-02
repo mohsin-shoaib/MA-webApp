@@ -178,15 +178,43 @@ export default function WorkoutPlayer() {
                   {ex.description}
                 </Text>
               )}
-              {(ex.sets != null || ex.total_reps != null || ex.lb != null) && (
+              {(ex.sets != null ||
+                ex.total_reps != null ||
+                ex.lb != null ||
+                ex.prescribed_weight_lb != null ||
+                ex.prescribed_weight_kg != null) && (
                 <Text variant="secondary" className="text-sm mt-1">
                   {[
                     ex.sets != null && `${ex.sets} sets`,
                     ex.total_reps != null && `${ex.total_reps} reps`,
                     ex.lb != null && `${ex.lb} lb`,
+                    ex.prescribed_weight_lb != null &&
+                      `@ ${ex.prescribed_weight_lb} lb (${ex.weight_percent ?? ''}% 1RM)`,
+                    ex.prescribed_weight_kg != null &&
+                      ex.prescribed_weight_lb == null &&
+                      `@ ${ex.prescribed_weight_kg} kg (${ex.weight_percent ?? ''}% 1RM)`,
                   ]
                     .filter(Boolean)
                     .join(' • ')}
+                </Text>
+              )}
+              {(ex.working_max != null || ex.last_logged != null) && (
+                <Text
+                  variant="secondary"
+                  className="text-sm mt-1 text-gray-500"
+                >
+                  {[
+                    ex.working_max != null &&
+                      `${ex.working_max.value} ${ex.working_max.unit} 1RM`,
+                    ex.last_logged != null &&
+                    (ex.last_logged.weightLb != null ||
+                      ex.last_logged.weightKg != null) &&
+                    ex.last_logged.reps != null
+                      ? `Last: ${ex.last_logged.weightLb ?? ex.last_logged.weightKg} ${ex.last_logged.weightLb != null ? 'lb' : 'kg'} × ${ex.last_logged.reps}`
+                      : null,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
                 </Text>
               )}
               {ex.video && (

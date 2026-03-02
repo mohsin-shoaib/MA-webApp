@@ -64,4 +64,30 @@ export const coachService = {
     api.get<{ statusCode: number; data: { assignments: unknown[] } }>(
       'coach/user-program/active-1to1'
     ),
+
+  /** MASS Phase 3: Get all working maxes for an athlete. GET coach/athletes/:athleteId/working-max */
+  getAthleteWorkingMax: (athleteId: number) =>
+    api.get<{
+      statusCode: number
+      data: {
+        workingMaxes: Array<{
+          exerciseId: number
+          exerciseName: string
+          value: number
+          unit: string
+          source: string
+          updatedAt: string
+        }>
+      }
+    }>(`coach/athletes/${athleteId}/working-max`),
+
+  /** MASS Phase 3: Set athlete working max manually. POST coach/athletes/:athleteId/working-max */
+  setAthleteWorkingMax: (
+    athleteId: number,
+    body: { exerciseId: number; value: number; unit: 'lb' | 'kg' }
+  ) =>
+    api.post<{ statusCode: number; data: { workingMax: unknown } }>(
+      `coach/athletes/${athleteId}/working-max`,
+      body
+    ),
 }

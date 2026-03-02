@@ -8,21 +8,16 @@ import { Dropdown } from '@/components/Dropdown'
 import { DataTable, type Column } from '@/components/DataTable'
 import { Pagination } from '@/components/Pagination'
 import { exerciseService } from '@/api/exercise.service'
-import {
-  exerciseOptionService,
-  type ExerciseOption,
-} from '@/api/exercise-option.service'
 import { useFileUpload } from '@/hooks/useFileUpload'
 import { FileType } from '@/constants/fileTypes'
 import type { Exercise, CreateExercisePayload } from '@/types/exercise'
+import {
+  DEFAULT_PARAMETER_OPTIONS,
+  PARAMETER_2_OPTIONS,
+} from '@/types/exercise'
 import { useSnackbar } from '@/components/Snackbar/useSnackbar'
 import { AxiosError } from 'axios'
 
-function optionsFromRows(
-  rows: ExerciseOption[]
-): { value: string; label: string }[] {
-  return rows.map(r => ({ value: r.name, label: r.name }))
-}
 type FilterStatusValue = 'all' | 'active' | 'inactive'
 const FILTER_STATUS_OPTIONS: { value: FilterStatusValue; label: string }[] = [
   { value: 'all', label: 'All' },
@@ -48,30 +43,23 @@ export default function AdminExercises({
   const [saving, setSaving] = useState(false)
   const [searchQ, setSearchQ] = useState('')
   const [searchApplied, setSearchApplied] = useState('')
-  const [filterMuscleGroup, setFilterMuscleGroup] = useState('')
-  const [filterEquipment, setFilterEquipment] = useState('')
-  const [filterMovementPattern, setFilterMovementPattern] = useState('')
+  const [filterTagsStr, setFilterTagsStr] = useState('')
   const [filterActive, setFilterActive] = useState<
     'all' | 'active' | 'inactive'
   >('all')
   const [page, setPage] = useState(1)
   const limit = 10
   const [substitutionOptions, setSubstitutionOptions] = useState<Exercise[]>([])
-  const [muscleGroupOptions, setMuscleGroupOptions] = useState<
-    ExerciseOption[]
-  >([])
-  const [equipmentOptions, setEquipmentOptions] = useState<ExerciseOption[]>([])
-  const [movementPatternOptions, setMovementPatternOptions] = useState<
-    ExerciseOption[]
-  >([])
   const [form, setForm] = useState<CreateExercisePayload & { tagsStr: string }>(
     {
       name: '',
       description: '',
       videoUrl: '',
-      muscleGroup: '',
-      equipment: '',
-      movementPattern: '',
+      defaultParameter1: '',
+      defaultParameter2: '',
+      pointsOfPerformance: '',
+      referenceMaxExerciseId: undefined,
+      trackAsExerciseId: undefined,
       tagsStr: '',
       substitutionIds: [],
       isActive: true,
@@ -79,18 +67,10 @@ export default function AdminExercises({
   )
   const { showError, showSuccess } = useSnackbar()
 
-  const FILTER_MUSCLE_OPTIONS = [
-    { value: '', label: 'All' },
-    ...optionsFromRows(muscleGroupOptions),
-  ]
-  const FILTER_EQUIPMENT_OPTIONS = [
-    { value: '', label: 'All' },
-    ...optionsFromRows(equipmentOptions),
-  ]
-  const FILTER_MOVEMENT_OPTIONS = [
-    { value: '', label: 'All' },
-    ...optionsFromRows(movementPatternOptions),
-  ]
+  const filterTagsArray = filterTagsStr
+    .split(',')
+    .map(t => t.trim())
+    .filter(Boolean)
 
   const { upload: uploadVideo, uploading: uploadingVideo } = useFileUpload({
     fileType: FileType.PROGRAM_VIDEO,
@@ -122,11 +102,7 @@ export default function AdminExercises({
         page,
         limit,
         ...(searchApplied.trim() && { q: searchApplied.trim() }),
-        ...(filterMuscleGroup && { muscleGroup: filterMuscleGroup }),
-        ...(filterEquipment && { equipment: filterEquipment }),
-        ...(filterMovementPattern && {
-          movementPattern: filterMovementPattern,
-        }),
+        ...(filterTagsArray.length > 0 && { tags: filterTagsArray }),
         ...(filterActive !== 'all' && { isActive: filterActive === 'active' }),
       }
       const res = await exerciseService.getAll(query)
@@ -145,40 +121,11 @@ export default function AdminExercises({
     } finally {
       setLoading(false)
     }
-  }, [
-    showError,
-    page,
-    searchApplied,
-    filterMuscleGroup,
-    filterEquipment,
-    filterMovementPattern,
-    filterActive,
-  ])
+  }, [showError, page, searchApplied, filterTagsArray, filterActive])
 
   useEffect(() => {
     fetchList()
   }, [fetchList])
-
-  const fetchExerciseOptions = useCallback(async () => {
-    try {
-      const [muscleRes, equipmentRes, movementRes] = await Promise.all([
-        exerciseOptionService.list('muscle_group'),
-        exerciseOptionService.list('equipment'),
-        exerciseOptionService.list('movement_pattern'),
-      ])
-      setMuscleGroupOptions(muscleRes.data?.data?.rows ?? [])
-      setEquipmentOptions(equipmentRes.data?.data?.rows ?? [])
-      setMovementPatternOptions(movementRes.data?.data?.rows ?? [])
-    } catch {
-      setMuscleGroupOptions([])
-      setEquipmentOptions([])
-      setMovementPatternOptions([])
-    }
-  }, [])
-
-  useEffect(() => {
-    fetchExerciseOptions()
-  }, [fetchExerciseOptions])
 
   // Debounced search: apply searchQ to API after user stops typing
   useEffect(() => {
@@ -189,29 +136,19 @@ export default function AdminExercises({
   // Reset to page 1 when filters change
   useEffect(() => {
     setPage(1)
-  }, [
-    searchApplied,
-    filterMuscleGroup,
-    filterEquipment,
-    filterMovementPattern,
-    filterActive,
-  ])
+  }, [searchApplied, filterTagsStr, filterActive])
 
   const clearFilters = () => {
     setSearchQ('')
     setSearchApplied('')
-    setFilterMuscleGroup('')
-    setFilterEquipment('')
-    setFilterMovementPattern('')
+    setFilterTagsStr('')
     setFilterActive('all')
     setPage(1)
   }
 
   const hasActiveFilters =
     searchQ.trim() !== '' ||
-    filterMuscleGroup !== '' ||
-    filterEquipment !== '' ||
-    filterMovementPattern !== '' ||
+    filterTagsStr.trim() !== '' ||
     filterActive !== 'all'
 
   const totalPages = Math.max(1, Math.ceil(total / limit))
@@ -236,16 +173,17 @@ export default function AdminExercises({
       name: '',
       description: '',
       videoUrl: '',
-      muscleGroup: '',
-      equipment: '',
-      movementPattern: '',
+      defaultParameter1: '',
+      defaultParameter2: '',
+      pointsOfPerformance: '',
+      referenceMaxExerciseId: undefined,
+      trackAsExerciseId: undefined,
       tagsStr: '',
       substitutionIds: [],
       isActive: true,
     })
     setCreateOpen(true)
     void fetchSubstitutionOptions()
-    void fetchExerciseOptions()
   }
 
   const openEdit = (ex: Exercise) => {
@@ -254,16 +192,17 @@ export default function AdminExercises({
       name: ex.name,
       description: ex.description ?? '',
       videoUrl: ex.videoUrl ?? '',
-      muscleGroup: ex.muscleGroup ?? '',
-      equipment: ex.equipment ?? '',
-      movementPattern: ex.movementPattern ?? '',
+      defaultParameter1: ex.defaultParameter1 ?? '',
+      defaultParameter2: ex.defaultParameter2 ?? '',
+      pointsOfPerformance: ex.pointsOfPerformance ?? '',
+      referenceMaxExerciseId: ex.referenceMaxExerciseId ?? undefined,
+      trackAsExerciseId: ex.trackAsExerciseId ?? undefined,
       tagsStr: Array.isArray(ex.tags) ? ex.tags.join(', ') : '',
       substitutionIds: ex.substitutionIds ?? [],
       isActive: ex.isActive,
     })
     setEditOpen(true)
     void fetchSubstitutionOptions()
-    void fetchExerciseOptions()
   }
 
   const handleCreate = async () => {
@@ -278,9 +217,11 @@ export default function AdminExercises({
         name: form.name?.trim() || undefined,
         description: form.description?.trim() || undefined,
         videoUrl: form.videoUrl?.trim() || undefined,
-        muscleGroup: form.muscleGroup?.trim() || undefined,
-        equipment: form.equipment?.trim() || undefined,
-        movementPattern: form.movementPattern?.trim() || undefined,
+        defaultParameter1: form.defaultParameter1?.trim() || undefined,
+        defaultParameter2: form.defaultParameter2?.trim() || undefined,
+        pointsOfPerformance: form.pointsOfPerformance?.trim() || undefined,
+        referenceMaxExerciseId: form.referenceMaxExerciseId,
+        trackAsExerciseId: form.trackAsExerciseId,
         tags: tags.length ? tags : undefined,
         substitutionIds: form.substitutionIds?.length
           ? form.substitutionIds
@@ -317,9 +258,11 @@ export default function AdminExercises({
         name: form.name?.trim() || undefined,
         description: form.description?.trim() || undefined,
         videoUrl: form.videoUrl || undefined,
-        muscleGroup: form.muscleGroup || undefined,
-        equipment: form.equipment || undefined,
-        movementPattern: form.movementPattern || undefined,
+        defaultParameter1: form.defaultParameter1?.trim() || undefined,
+        defaultParameter2: form.defaultParameter2?.trim() || undefined,
+        pointsOfPerformance: form.pointsOfPerformance?.trim() || undefined,
+        referenceMaxExerciseId: form.referenceMaxExerciseId,
+        trackAsExerciseId: form.trackAsExerciseId,
         tags: tags.length ? tags : undefined,
         substitutionIds: form.substitutionIds,
         isActive: form.isActive,
@@ -357,45 +300,49 @@ export default function AdminExercises({
       ),
     },
     {
-      key: 'muscleGroup',
-      label: 'Muscle group',
-      sortable: true,
-      render: value => (
+      key: 'defaultParameter1',
+      label: 'Parameters',
+      sortable: false,
+      render: (_value, row) => (
         <Text variant="secondary" className="text-sm">
-          {(value as string) || '—'}
+          {[row.defaultParameter1, row.defaultParameter2]
+            .filter(Boolean)
+            .join(', ') || '—'}
         </Text>
       ),
     },
     {
-      key: 'equipment',
-      label: 'Equipment',
-      sortable: true,
+      key: 'tags',
+      label: 'Tags',
+      sortable: false,
       render: value => (
         <Text variant="secondary" className="text-sm">
-          {(value as string) || '—'}
+          {Array.isArray(value) && value.length
+            ? (value as string[]).join(', ')
+            : '—'}
         </Text>
       ),
     },
     {
-      key: 'movementPattern',
-      label: 'Movement',
-      sortable: true,
+      key: 'videoUrl',
+      label: 'Video',
+      sortable: false,
       render: value => (
         <Text variant="secondary" className="text-sm">
-          {(value as string) || '—'}
+          {value ? 'Yes' : '—'}
         </Text>
       ),
     },
     {
-      key: 'isApproved',
-      label: 'Status',
-      sortable: true,
-      render: value => (
-        <Text
-          variant="secondary"
-          className={`text-sm ${value ? 'text-green-600' : 'text-amber-600'}`}
-        >
-          {value ? 'Approved' : 'Pending'}
+      key: 'createdByUser',
+      label: 'Created by',
+      sortable: false,
+      render: (value, row) => (
+        <Text variant="secondary" className="text-sm">
+          {(value as { name?: string } | undefined)?.name ??
+            (row as Exercise & { createdByUser?: { name?: string } })
+              .createdByUser?.name ??
+            '—'}
         </Text>
       ),
     },
@@ -403,39 +350,16 @@ export default function AdminExercises({
       key: 'id',
       label: 'Actions',
       sortable: false,
-      width: isCoach ? '100px' : '140px',
+      width: '80px',
       render: (_value, row) => (
-        <div className="flex items-center gap-2">
-          {!isCoach && !row.isApproved && (
-            <Button
-              type="button"
-              variant="primary"
-              size="small"
-              onClick={async () => {
-                try {
-                  await exerciseService.approve(row.id)
-                  showSuccess('Exercise approved')
-                  fetchList()
-                } catch (e) {
-                  const err = e as AxiosError<{ message?: string }>
-                  showError(err.response?.data?.message || 'Failed to approve')
-                }
-              }}
-            >
-              Approve
-            </Button>
-          )}
-          {(!isCoach || !row.isApproved) && (
-            <Button
-              type="button"
-              variant="secondary"
-              size="small"
-              onClick={() => openEdit(row)}
-            >
-              Edit
-            </Button>
-          )}
-        </div>
+        <Button
+          type="button"
+          variant="secondary"
+          size="small"
+          onClick={() => openEdit(row)}
+        >
+          Edit
+        </Button>
       ),
     },
   ]
@@ -530,53 +454,116 @@ export default function AdminExercises({
           </Text>
         )}
       </div>
-      <div>
-        <Text variant="default" className="text-sm font-medium mb-1 block">
-          Muscle group
-        </Text>
-        <Dropdown
-          placeholder="— Select —"
-          options={optionsFromRows(muscleGroupOptions)}
-          value={form.muscleGroup || undefined}
-          onValueChange={v =>
-            setForm({ ...form, muscleGroup: (v as string) ?? '' })
-          }
-          fullWidth
-          size="small"
-          emptyMessage="No muscle groups added yet. Add options in Admin → Exercise options."
-        />
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <Text variant="default" className="text-sm font-medium mb-1 block">
+            Default Parameter 1 (required)
+          </Text>
+          <Dropdown
+            placeholder="— Select —"
+            options={DEFAULT_PARAMETER_OPTIONS.map(o => ({
+              value: o.value,
+              label: o.label,
+            }))}
+            value={form.defaultParameter1 || undefined}
+            onValueChange={v =>
+              setForm({ ...form, defaultParameter1: (v as string) ?? '' })
+            }
+            fullWidth
+            size="small"
+          />
+        </div>
+        <div>
+          <Text variant="default" className="text-sm font-medium mb-1 block">
+            Default Parameter 2
+          </Text>
+          <Dropdown
+            placeholder="— or —"
+            options={PARAMETER_2_OPTIONS.map(o => ({
+              value: o.value,
+              label: o.label,
+            }))}
+            value={form.defaultParameter2 || undefined}
+            onValueChange={v =>
+              setForm({ ...form, defaultParameter2: (v as string) ?? '' })
+            }
+            fullWidth
+            size="small"
+          />
+        </div>
       </div>
       <div>
         <Text variant="default" className="text-sm font-medium mb-1 block">
-          Equipment
+          Points of Performance (optional, max 10,000 chars)
         </Text>
-        <Dropdown
-          placeholder="— Select —"
-          options={optionsFromRows(equipmentOptions)}
-          value={form.equipment || undefined}
-          onValueChange={v =>
-            setForm({ ...form, equipment: (v as string) ?? '' })
+        <textarea
+          className="w-full min-h-[80px] rounded border border-gray-300 px-3 py-2 text-sm"
+          value={form.pointsOfPerformance ?? ''}
+          onChange={e =>
+            setForm({
+              ...form,
+              pointsOfPerformance: e.target.value.slice(0, 10000),
+            })
           }
-          fullWidth
-          size="small"
-          emptyMessage="No equipment added yet. Add options in Admin → Exercise options."
+          placeholder="Coaching cues, movement instructions..."
+          maxLength={10000}
         />
       </div>
-      <div>
-        <Text variant="default" className="text-sm font-medium mb-1 block">
-          Movement pattern
-        </Text>
-        <Dropdown
-          placeholder="— Select —"
-          options={optionsFromRows(movementPatternOptions)}
-          value={form.movementPattern || undefined}
-          onValueChange={v =>
-            setForm({ ...form, movementPattern: (v as string) ?? '' })
-          }
-          fullWidth
-          size="small"
-          emptyMessage="No movement patterns added yet. Add options in Admin → Exercise options."
-        />
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <Text variant="default" className="text-sm font-medium mb-1 block">
+            Reference Max (optional)
+          </Text>
+          <Dropdown
+            placeholder="— None —"
+            options={[
+              { value: '', label: '— None —' },
+              ...substitutionOptions
+                .filter(ex => ex.id !== editing?.id)
+                .map(ex => ({ value: String(ex.id), label: ex.name })),
+            ]}
+            value={
+              form.referenceMaxExerciseId != null
+                ? String(form.referenceMaxExerciseId)
+                : ''
+            }
+            onValueChange={v =>
+              setForm({
+                ...form,
+                referenceMaxExerciseId: v ? Number(v) : undefined,
+              })
+            }
+            fullWidth
+            size="small"
+          />
+        </div>
+        <div>
+          <Text variant="default" className="text-sm font-medium mb-1 block">
+            Track As (optional)
+          </Text>
+          <Dropdown
+            placeholder="— None —"
+            options={[
+              { value: '', label: '— None —' },
+              ...substitutionOptions
+                .filter(ex => ex.id !== editing?.id)
+                .map(ex => ({ value: String(ex.id), label: ex.name })),
+            ]}
+            value={
+              form.trackAsExerciseId != null
+                ? String(form.trackAsExerciseId)
+                : ''
+            }
+            onValueChange={v =>
+              setForm({
+                ...form,
+                trackAsExerciseId: v ? Number(v) : undefined,
+              })
+            }
+            fullWidth
+            size="small"
+          />
+        </div>
       </div>
       <div>
         <Text variant="default" className="text-sm font-medium mb-1 block">
@@ -642,7 +629,7 @@ export default function AdminExercises({
           </Text>
           <Text variant="secondary" className="text-sm mt-1">
             {isCoach
-              ? 'Add exercises for programs. New exercises need admin approval before they appear in the program builder.'
+              ? 'Create and manage exercises. Use them when building programs.'
               : 'Create and manage exercises. Use them when building programs.'}
           </Text>
         </div>
@@ -670,37 +657,16 @@ export default function AdminExercises({
             size="small"
           />
         </div>
-        <div className="w-40">
-          <Dropdown
-            label="Muscle group"
-            placeholder="All"
-            options={FILTER_MUSCLE_OPTIONS}
-            value={filterMuscleGroup}
-            onValueChange={v => setFilterMuscleGroup((v as string) ?? '')}
+        <div className="w-48">
+          <label className="mb-1 block text-sm font-medium text-gray-700">
+            Tags (comma-separated)
+          </label>
+          <Input
+            value={filterTagsStr}
+            onChange={e => setFilterTagsStr(e.target.value)}
+            placeholder="e.g. compound, lower body"
             size="small"
-            fullWidth
-          />
-        </div>
-        <div className="w-40">
-          <Dropdown
-            label="Equipment"
-            placeholder="All"
-            options={FILTER_EQUIPMENT_OPTIONS}
-            value={filterEquipment}
-            onValueChange={v => setFilterEquipment((v as string) ?? '')}
-            size="small"
-            fullWidth
-          />
-        </div>
-        <div className="w-40">
-          <Dropdown
-            label="Movement"
-            placeholder="All"
-            options={FILTER_MOVEMENT_OPTIONS}
-            value={filterMovementPattern}
-            onValueChange={v => setFilterMovementPattern((v as string) ?? '')}
-            size="small"
-            fullWidth
+            className="w-full"
           />
         </div>
         <div className="w-32">

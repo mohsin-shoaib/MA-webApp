@@ -290,6 +290,36 @@ export default function TrainPage() {
             </div>
           </Card>
 
+          {/* All exercises (full library) */}
+          <Card className="p-0">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <Text variant="default" className="font-semibold">
+                  All exercises
+                </Text>
+                <Tooltip
+                  content="Browse the full exercise library; search and filter by tags."
+                  position="top"
+                >
+                  <span
+                    className="inline-flex text-gray-500 cursor-help"
+                    aria-label="More info"
+                  >
+                    <Icon name="circle-info" family="solid" size={16} />
+                  </span>
+                </Tooltip>
+              </div>
+              <Button
+                type="button"
+                variant="secondary"
+                size="small"
+                onClick={() => navigate('/train/exercises')}
+              >
+                Browse exercises
+              </Button>
+            </div>
+          </Card>
+
           {/* Nutrition Hub */}
           <Card className="p-0">
             <div className="flex items-center justify-between gap-3">

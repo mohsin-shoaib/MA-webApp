@@ -9,6 +9,7 @@ import type { ExerciseDTO, AlternateExerciseDTO } from '@/types/program'
 import type { AxiosError } from 'axios'
 import { useSnackbar } from '@/components/Snackbar/useSnackbar'
 import { WorkoutTimer } from '@/components/WorkoutTimer'
+import { SetWorkingMaxModal } from '@/components/SetWorkingMaxModal'
 
 type TodayWorkoutData = {
   date: string
@@ -93,6 +94,22 @@ export default function TodaySession() {
   const [exerciseFilter, setExerciseFilter] = useState<
     'all' | 'video' | 'weight'
   >('all')
+  const [workingMaxModalOpen, setWorkingMaxModalOpen] = useState(false)
+
+  const refreshWorkout = useCallback(() => {
+    const load = dateParam
+      ? trainService.getScheduledWorkout(dateParam)
+      : trainService.getTodayWorkout()
+    load
+      .then(res => {
+        if (res.data.statusCode === 200 && res.data.data) {
+          const data = res.data.data as Record<string, unknown>
+          setWorkout(normalizeScheduledWorkout(data))
+          if (data.sessionId) setSessionId(data.sessionId as number)
+        }
+      })
+      .catch(() => {})
+  }, [dateParam])
 
   useEffect(() => {
     const load = dateParam
@@ -486,6 +503,37 @@ export default function TodaySession() {
                               >
                                 {ex.name}
                               </Text>
+                              {(ex.working_max != null ||
+                                ex.last_logged != null ||
+                                ex.prescribed_weight_lb != null ||
+                                ex.prescribed_weight_kg != null) && (
+                                <Text
+                                  variant="secondary"
+                                  className="text-xs mt-1 block"
+                                >
+                                  {[
+                                    ex.working_max != null &&
+                                      `${ex.working_max.value} ${ex.working_max.unit} 1RM`,
+                                    ex.last_logged != null &&
+                                    (ex.last_logged.weightLb != null ||
+                                      ex.last_logged.weightKg != null) &&
+                                    ex.last_logged.reps != null
+                                      ? `Last: ${ex.last_logged.weightLb ?? ex.last_logged.weightKg} ${ex.last_logged.weightLb != null ? 'lb' : 'kg'} × ${ex.last_logged.reps}`
+                                      : ex.last_logged != null &&
+                                          (ex.last_logged.weightLb != null ||
+                                            ex.last_logged.weightKg != null)
+                                        ? `Last: ${ex.last_logged.weightLb ?? ex.last_logged.weightKg} ${ex.last_logged.weightLb != null ? 'lb' : 'kg'}`
+                                        : null,
+                                    (ex.prescribed_weight_lb != null ||
+                                      ex.prescribed_weight_kg != null) &&
+                                    ex.weight_percent != null
+                                      ? `→ ${ex.prescribed_weight_lb ?? ex.prescribed_weight_kg} ${ex.prescribed_weight_lb != null ? 'lb' : 'kg'} (${ex.weight_percent}%)`
+                                      : null,
+                                  ]
+                                    .filter(Boolean)
+                                    .join(' · ')}
+                                </Text>
+                              )}
                             </div>
                             <span className="text-gray-400 text-sm shrink-0 pr-4">
                               →
@@ -532,13 +580,59 @@ export default function TodaySession() {
                 {display.description}
               </Text>
             )}
-            {(presetReps != null || presetLb != null) && (
+            {(presetReps != null ||
+              presetLb != null ||
+              selectedExercise.prescribed_weight_lb != null ||
+              selectedExercise.prescribed_weight_kg != null) && (
               <Text variant="secondary" className="text-xs mt-2 text-gray-500">
                 Target: {setsCount} sets
                 {presetReps != null && ` × ${presetReps} reps`}
                 {presetLb != null && ` @ ${presetLb} lb`}
+                {selectedExercise.prescribed_weight_lb != null &&
+                  ` @ ${selectedExercise.prescribed_weight_lb} lb (${selectedExercise.weight_percent ?? '?'}% 1RM)`}
+                {selectedExercise.prescribed_weight_kg != null &&
+                  selectedExercise.prescribed_weight_lb == null &&
+                  ` @ ${selectedExercise.prescribed_weight_kg} kg (${selectedExercise.weight_percent ?? '?'}% 1RM)`}
               </Text>
             )}
+            {(selectedExercise.working_max != null ||
+              selectedExercise.last_logged != null) && (
+              <Text variant="secondary" className="text-xs mt-1 text-gray-500">
+                {selectedExercise.working_max != null && (
+                  <span>
+                    Working max: {selectedExercise.working_max.value}{' '}
+                    {selectedExercise.working_max.unit}
+                  </span>
+                )}
+                {selectedExercise.working_max != null &&
+                  selectedExercise.last_logged != null &&
+                  ' · '}
+                {selectedExercise.last_logged != null &&
+                  (selectedExercise.last_logged.weightLb != null ||
+                    selectedExercise.last_logged.weightKg != null) && (
+                    <span>
+                      Last:{' '}
+                      {selectedExercise.last_logged.weightLb ??
+                        selectedExercise.last_logged.weightKg}{' '}
+                      {selectedExercise.last_logged.weightLb != null
+                        ? 'lb'
+                        : 'kg'}
+                      {selectedExercise.last_logged.reps != null &&
+                        ` × ${selectedExercise.last_logged.reps}`}
+                    </span>
+                  )}
+              </Text>
+            )}
+            <div className="mt-3">
+              <Button
+                type="button"
+                variant="outline"
+                size="small"
+                onClick={() => setWorkingMaxModalOpen(true)}
+              >
+                Set working max
+              </Button>
+            </div>
           </div>
         </Card>
 
@@ -669,6 +763,16 @@ export default function TodaySession() {
             </Button>
           </div>
         )}
+
+        <SetWorkingMaxModal
+          visible={workingMaxModalOpen}
+          onClose={() => setWorkingMaxModalOpen(false)}
+          onSuccess={refreshWorkout}
+          exerciseId={Number(selectedExercise.exercise_id) || 0}
+          exerciseName={selectedExercise.name}
+          currentValue={selectedExercise.working_max?.value}
+          currentUnit={selectedExercise.working_max?.unit}
+        />
       </div>
     )
   }

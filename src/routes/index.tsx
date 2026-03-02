@@ -28,6 +28,7 @@ import Train from '@/pages/train'
 import WorkoutPlayer from '@/pages/train/WorkoutPlayer'
 import TodaySession from '@/pages/train/TodaySession'
 import ExerciseLibrary from '@/pages/train/ExerciseLibrary'
+import AthleteExerciseLibrary from '@/pages/train/AthleteExerciseLibrary'
 import { ProgramBrowser } from '@/pages/train/ProgramBrowser'
 import { ProgramDetail } from '@/pages/train/ProgramDetail'
 import NutritionHub from '@/pages/train/NutritionHub'
@@ -479,6 +480,16 @@ export const routes = [
       <ProtectedRoute allowedRoles={['ATHLETE']}>
         <AppLayout>
           <ExerciseLibrary />
+        </AppLayout>
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/train/exercises',
+    element: (
+      <ProtectedRoute allowedRoles={['ATHLETE']}>
+        <AppLayout>
+          <AthleteExerciseLibrary />
         </AppLayout>
       </ProtectedRoute>
     ),
