@@ -9,9 +9,48 @@ import type { OnboardingProps, CreateOnboardingDTO } from '@/types/onboarding'
 import { JOB_ROLE_OPTIONS, EQUIPMENT_ACCESS_OPTIONS } from '@/types/onboarding'
 import type { ReadinessRecommendation } from '@/types/readiness'
 import { readinessService } from '@/api/readiness.service'
-import { goalTypeService } from '@/api/goal-type.service'
-import type { GoalType } from '@/types/goal-type'
 import type { AxiosError } from 'axios'
+
+/** Goal Category (first dropdown). Improve Operational Readiness = no second dropdown, no event date. */
+const GOAL_CATEGORIES = [
+  {
+    label: 'Tactical Selection / School',
+    value: 'Tactical Selection / School',
+  },
+  { label: 'Competition / Performance', value: 'Competition / Performance' },
+  {
+    label: 'Improve Operational Readiness',
+    value: 'Improve Operational Readiness',
+  },
+] as const
+
+/** Goals per category (second dropdown). Empty = no second dropdown. */
+const GOALS_BY_CATEGORY: Record<string, { label: string; value: string }[]> = {
+  'Tactical Selection / School': [
+    { label: 'Special Forces Selection', value: 'Special Forces Selection' },
+    { label: 'SWAT Selection', value: 'SWAT Selection' },
+    { label: 'Ranger Assessment', value: 'Ranger Assessment' },
+    { label: 'Ranger School', value: 'Ranger School' },
+    { label: 'AFSOC Selection Prep', value: 'AFSOC Selection Prep' },
+    { label: 'NSW Prep', value: 'NSW Prep' },
+    { label: 'OCS / OTS Prep', value: 'OCS / OTS Prep' },
+    { label: 'Law Enforcement Academy', value: 'Law Enforcement Academy' },
+    { label: 'Fire Academy', value: 'Fire Academy' },
+    { label: 'Other', value: 'Other' },
+  ],
+  'Competition / Performance': [
+    { label: 'Half Marathon', value: 'Half Marathon' },
+    { label: 'Marathon', value: 'Marathon' },
+    { label: 'Tactical Games', value: 'Tactical Games' },
+    { label: 'Powerlifting Meet', value: 'Powerlifting Meet' },
+  ],
+  'Improve Operational Readiness': [],
+}
+
+/** Closest-option list when user selects "Other" under Tactical Selection / School (no "Other" option). */
+const TACTICAL_CLOSEST_OPTIONS = GOALS_BY_CATEGORY[
+  'Tactical Selection / School'
+].filter(o => o.value !== 'Other')
 
 interface OnboardingFormProps {
   /** Defer-save: pass form data + recommendation from evaluate (no DB save on Step 1) */
@@ -74,33 +113,11 @@ export default function OnboardingForm({
   const [job, setJob] = useState<string>(
     (initialValues as Partial<CreateOnboardingDTO>)?.job || ''
   )
-  const [goalTypes, setGoalTypes] = useState<GoalType[]>([])
-  const [loadingGoals, setLoadingGoals] = useState(false)
 
-  // Effective goal for validation: when "Other" selected, use closest option
-  const effectivePrimaryGoalForCategory = primaryGoalIsOther
-    ? primaryGoalClosestOption
-    : primaryGoal
-
-  // Sync primaryGoalCategory when "Other" + closest option (so event date visibility is correct)
-  useEffect(() => {
-    if (
-      !primaryGoalIsOther ||
-      !primaryGoalClosestOption ||
-      goalTypes.length === 0
-    )
-      return
-    const gt = goalTypes.find(g => g.subCategory === primaryGoalClosestOption)
-    if (gt?.category) setPrimaryGoalCategory(gt.category)
-  }, [primaryGoalIsOther, primaryGoalClosestOption, goalTypes])
-
-  // Event date only for Tactical Selection/School and Competition/Performance (doc §2.4, §2.5)
+  // Event date only when category is Tactical Selection/School or Competition/Performance
   const eventDateRequired =
-    effectivePrimaryGoalForCategory !== 'Improve Operational Readiness' &&
-    (primaryGoalCategory === 'Selection' ||
-      primaryGoalCategory === 'School' ||
-      primaryGoalCategory === 'Competition' ||
-      /tactical|competition|performance/i.test(primaryGoalCategory))
+    primaryGoalCategory === 'Tactical Selection / School' ||
+    primaryGoalCategory === 'Competition / Performance'
 
   const {
     register,
@@ -126,51 +143,30 @@ export default function OnboardingForm({
     })
   }, [register, eventDateRequired])
 
-  // Sync primaryGoalCategory from selected goal (for event date visibility)
-  useEffect(() => {
-    if (!primaryGoal || goalTypes.length === 0) return
-    const gt = goalTypes.find(g => g.subCategory === primaryGoal)
-    if (gt?.category) setPrimaryGoalCategory(gt.category)
-  }, [primaryGoal, goalTypes])
-
-  // Fetch goal types on mount
-  useEffect(() => {
-    const fetchGoalTypes = async () => {
-      try {
-        setLoadingGoals(true)
-        const response = await goalTypeService.getAll({ limit: 100 })
-        setGoalTypes(response.data.data.rows || [])
-      } catch (error) {
-        const axiosError = error as AxiosError<{ message: string }>
-        console.error(
-          'Failed to fetch goal types:',
-          axiosError.response?.data?.message || 'Unknown error'
-        )
-        // Continue with empty list - user can still type if needed
-        setGoalTypes([])
-      } finally {
-        setLoadingGoals(false)
-      }
-    }
-
-    fetchGoalTypes()
-  }, [])
-
   const submitHandler: SubmitHandler<CreateOnboardingDTO> = async data => {
     setError(null)
     setLoading(true)
 
-    // Resolve effective primary goal (when "Other", use closest option)
-    const effectivePrimaryGoal = primaryGoalIsOther
-      ? primaryGoalClosestOption
-      : primaryGoal
+    // Resolve effective primary goal (Improve Operational Readiness = category; else when "Other", use closest option)
+    let effectivePrimaryGoal: string
+    if (primaryGoalCategory === 'Improve Operational Readiness') {
+      effectivePrimaryGoal = 'Improve Operational Readiness'
+    } else if (primaryGoalIsOther) {
+      effectivePrimaryGoal = primaryGoalClosestOption
+    } else {
+      effectivePrimaryGoal = primaryGoal
+    }
 
     if (!effectivePrimaryGoal) {
-      setError(
-        primaryGoalIsOther
-          ? 'Please select the closest option for your goal'
-          : 'Please select a primary goal'
-      )
+      let message: string
+      if (primaryGoalCategory === 'Improve Operational Readiness') {
+        message = 'Please select a goal category'
+      } else if (primaryGoalIsOther) {
+        message = 'Please select the closest option for your goal'
+      } else {
+        message = 'Please select a primary goal'
+      }
+      setError(message)
       setLoading(false)
       setValue('primaryGoal', '', { shouldValidate: true })
       return
@@ -300,65 +296,77 @@ export default function OnboardingForm({
       />
 
       <Dropdown
-        label="Primary Goal"
-        value={primaryGoalIsOther ? 'Other' : primaryGoal}
+        label="Goal Category"
+        value={primaryGoalCategory}
         onValueChange={v => {
           const value = v as string
-          if (value === 'Other') {
-            setPrimaryGoalIsOther(true)
+          setPrimaryGoalCategory(value)
+          if (value === 'Improve Operational Readiness') {
+            setPrimaryGoal('Improve Operational Readiness')
+            setPrimaryGoalIsOther(false)
+            setPrimaryGoalClosestOption('')
+            setValue('primaryGoal', 'Improve Operational Readiness', {
+              shouldValidate: true,
+            })
+          } else {
             setPrimaryGoal('')
+            setPrimaryGoalIsOther(false)
             setPrimaryGoalClosestOption('')
             setValue('primaryGoal', '', { shouldValidate: true })
-          } else {
-            setPrimaryGoalIsOther(false)
-            setPrimaryGoal(value)
-            setPrimaryGoalClosestOption('')
-            setValue('primaryGoal', value, { shouldValidate: true })
           }
         }}
-        options={[
-          ...goalTypes.map(gt => {
-            const categoryLabel = gt.category ? ` (${gt.category})` : ''
-            return {
-              label: `${gt.subCategory}${categoryLabel}`,
-              value: gt.subCategory,
-            }
-          }),
-          { label: 'Other (choose closest option below)', value: 'Other' },
-        ]}
+        options={[...GOAL_CATEGORIES]}
         required
         fullWidth
-        disabled={loadingGoals}
-        placeholder={loadingGoals ? 'Loading goals...' : 'Select primary goal'}
-        error={errors.primaryGoal?.message}
+        placeholder="Select goal category"
       />
 
-      {primaryGoalIsOther && (
-        <Dropdown
-          label="Choose the closest option (for admin review)"
-          value={primaryGoalClosestOption}
-          onValueChange={v => {
-            const value = v as string
-            setPrimaryGoalClosestOption(value)
-            setValue('primaryGoal', value, { shouldValidate: true })
-          }}
-          options={goalTypes
-            .filter(gt => gt.subCategory !== 'Other')
-            .map(gt => {
-              const categoryLabel = gt.category ? ` (${gt.category})` : ''
-              return {
-                label: `${gt.subCategory}${categoryLabel}`,
-                value: gt.subCategory,
+      {primaryGoalCategory &&
+        primaryGoalCategory !== 'Improve Operational Readiness' && (
+          <Dropdown
+            label="Goal"
+            value={primaryGoalIsOther ? 'Other' : primaryGoal}
+            onValueChange={v => {
+              const value = v as string
+              if (value === 'Other') {
+                setPrimaryGoalIsOther(true)
+                setPrimaryGoal('')
+                setPrimaryGoalClosestOption('')
+                setValue('primaryGoal', '', { shouldValidate: true })
+              } else {
+                setPrimaryGoalIsOther(false)
+                setPrimaryGoal(value)
+                setPrimaryGoalClosestOption('')
+                setValue('primaryGoal', value, { shouldValidate: true })
               }
-            })}
-          required
-          fullWidth
-          placeholder="Select closest option"
-        />
-      )}
+            }}
+            options={GOALS_BY_CATEGORY[primaryGoalCategory] ?? []}
+            required
+            fullWidth
+            placeholder={`Select goal`}
+            error={errors.primaryGoal?.message}
+          />
+        )}
+
+      {primaryGoalCategory === 'Tactical Selection / School' &&
+        primaryGoalIsOther && (
+          <Dropdown
+            label="Choose the closest option (for admin review)"
+            value={primaryGoalClosestOption}
+            onValueChange={v => {
+              const value = v as string
+              setPrimaryGoalClosestOption(value)
+              setValue('primaryGoal', value, { shouldValidate: true })
+            }}
+            options={TACTICAL_CLOSEST_OPTIONS}
+            required
+            fullWidth
+            placeholder="Select closest option"
+          />
+        )}
 
       <Dropdown
-        label="Training break 120+ days"
+        label="Have you had a break in training lasting 120+ days in the past year?"
         value={trainingBreak120 ? 'yes' : 'no'}
         onValueChange={v => setTrainingBreak120(v === 'yes')}
         options={[
