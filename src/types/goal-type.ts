@@ -1,8 +1,7 @@
 export const Category = {
-  Selection: 'Selection',
-  School: 'School',
-  Competition: 'Competition',
-  Personal: 'Personal',
+  TacticalSelectionSchool: 'TacticalSelectionSchool',
+  CompetitionPerformance: 'CompetitionPerformance',
+  ImproveOperationalReadiness: 'ImproveOperationalReadiness',
 } as const
 
 export type Category = (typeof Category)[keyof typeof Category]

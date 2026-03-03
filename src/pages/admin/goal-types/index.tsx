@@ -152,10 +152,18 @@ const GoalTypes = () => {
   }
 
   const categoryOptions = [
-    { value: Category.Selection, label: 'Selection' },
-    { value: Category.School, label: 'School' },
-    { value: Category.Competition, label: 'Competition' },
-    { value: Category.Personal, label: 'Personal' },
+    {
+      value: Category.TacticalSelectionSchool,
+      label: 'Tactical Selection / School',
+    },
+    {
+      value: Category.CompetitionPerformance,
+      label: 'Competition / Performance',
+    },
+    {
+      value: Category.ImproveOperationalReadiness,
+      label: 'Improve Operational Readiness',
+    },
   ]
 
   const columns: Column<GoalType>[] = [
