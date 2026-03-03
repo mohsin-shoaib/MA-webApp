@@ -47,13 +47,62 @@ export const trainService = {
     api.post<WorkoutSessionResponse>('athlete/train/sessions', body),
 
   /**
-   * Update session status (complete/skip).
+   * Update session status (complete/skip). MASS Phase 7: intensityRating, sessionComments.
    * PATCH /athlete/train/sessions/:id
    */
   updateSession: (sessionId: number, body: UpdateSessionDTO) =>
     api.patch<WorkoutSessionResponse>(
       `athlete/train/sessions/${sessionId}`,
       body
+    ),
+
+  /**
+   * MASS Phase 7: Submit pre-session readiness survey (1-5 for Sleep, Stress, Energy, Soreness, Mood).
+   * POST /athlete/train/readiness
+   */
+  submitReadiness: (body: {
+    sessionDate: string
+    workoutSessionId?: number
+    sleep: number
+    stress: number
+    energy: number
+    soreness: number
+    mood: number
+  }) =>
+    api.post<{ statusCode: number; data: unknown }>(
+      'athlete/train/readiness',
+      body
+    ),
+
+  /**
+   * MASS Phase 7: Get readiness for a date. GET /athlete/train/readiness?date=
+   */
+  getReadiness: (date: string) =>
+    api.get<{ statusCode: number; data: unknown }>('athlete/train/readiness', {
+      params: { date },
+    }),
+
+  /**
+   * MASS Phase 7: Record exercise swap for this session only.
+   * POST /athlete/train/sessions/:id/swap
+   */
+  swapExercise: (
+    sessionId: number,
+    body: { originalExerciseId: number; newExerciseId: number }
+  ) =>
+    api.post<WorkoutSessionResponse>(
+      `athlete/train/sessions/${sessionId}/swap`,
+      body
+    ),
+
+  /**
+   * MASS Phase 7: Reschedule session to another date. Completed sessions not moveable.
+   * POST /athlete/train/sessions/:id/reschedule
+   */
+  rescheduleSession: (sessionId: number, targetDate: string) =>
+    api.post<WorkoutSessionResponse>(
+      `athlete/train/sessions/${sessionId}/reschedule`,
+      { targetDate }
     ),
 
   /**
@@ -96,6 +145,18 @@ export const trainService = {
       }
     }>('athlete/train/history', { params })
   },
+
+  /**
+   * MASS Phase 7: Get linked substitution exercises for swap (show first in swap modal).
+   * GET /athlete/train/exercises/:id/substitutions
+   */
+  getExerciseSubstitutions: (exerciseId: number) =>
+    api.get<{
+      statusCode: number
+      data: {
+        substitutions: Array<{ id: number; name: string; description?: string }>
+      }
+    }>(`athlete/train/exercises/${exerciseId}/substitutions`),
 
   /**
    * Get exercise library with optional filters (PRD 9.2).

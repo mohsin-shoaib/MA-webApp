@@ -73,8 +73,8 @@ export default function WorkoutPlayer() {
     setError(null)
     trainService
       .updateSession(sessionId, {
-        status: 'completed',
-        complianceType: 'quick_toggle',
+        status: 'COMPLETED',
+        complianceType: 'QUICK_TOGGLE',
       })
       .then(() => {
         setStatus('completed')

@@ -687,8 +687,8 @@ export default function ExerciseLibrary() {
     setCompleteLoading(true)
     try {
       await trainService.updateSession(sid, {
-        status: 'completed',
-        complianceType: 'full_log',
+        status: 'COMPLETED',
+        complianceType: 'FULL_LOG',
       })
       showSuccess('Workout marked complete.')
       setSessionId(null)

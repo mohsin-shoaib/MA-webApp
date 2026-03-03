@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Text } from '@/components/Text'
 import { Button } from '@/components/Button'
 import { Card } from '@/components/Card'
@@ -67,10 +67,14 @@ export default function AdminExercises({
   )
   const { showError, showSuccess } = useSnackbar()
 
-  const filterTagsArray = filterTagsStr
-    .split(',')
-    .map(t => t.trim())
-    .filter(Boolean)
+  const filterTagsArray = useMemo(
+    () =>
+      filterTagsStr
+        .split(',')
+        .map(t => t.trim())
+        .filter(Boolean),
+    [filterTagsStr]
+  )
 
   const { upload: uploadVideo, uploading: uploadingVideo } = useFileUpload({
     fileType: FileType.PROGRAM_VIDEO,
