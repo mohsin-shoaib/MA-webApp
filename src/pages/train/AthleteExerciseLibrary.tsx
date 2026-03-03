@@ -305,12 +305,21 @@ export default function AthleteExerciseLibrary() {
                 <Text variant="default" className="text-sm font-medium mb-1">
                   Points of Performance
                 </Text>
-                <Text
-                  variant="secondary"
-                  className="text-sm whitespace-pre-wrap"
-                >
-                  {detailExercise.pointsOfPerformance}
-                </Text>
+                {detailExercise.pointsOfPerformance.trim().startsWith('<') ? (
+                  <div
+                    className="text-sm text-gray-600 [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6 [&_p]:mb-2 [&_a]:text-[#3AB8ED] [&_a]:underline"
+                    dangerouslySetInnerHTML={{
+                      __html: detailExercise.pointsOfPerformance,
+                    }}
+                  />
+                ) : (
+                  <Text
+                    variant="secondary"
+                    className="text-sm whitespace-pre-wrap"
+                  >
+                    {detailExercise.pointsOfPerformance}
+                  </Text>
+                )}
               </div>
             )}
             {(detailExercise.defaultParameter1 ||

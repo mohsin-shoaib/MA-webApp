@@ -173,14 +173,23 @@ export default function WorkoutPlayer() {
               <Text variant="default" className="font-medium">
                 {ex.name}
               </Text>
-              {(ex.pointsOfPerformance ?? ex.description) && (
-                <Text
-                  variant="secondary"
-                  className="text-sm mt-1 whitespace-pre-wrap"
-                >
-                  {ex.pointsOfPerformance ?? ex.description}
-                </Text>
-              )}
+              {(ex.pointsOfPerformance ?? ex.description) &&
+                (() => {
+                  const content = ex.pointsOfPerformance ?? ex.description ?? ''
+                  return content.trim().startsWith('<') ? (
+                    <div
+                      className="text-sm text-gray-600 mt-1 [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6 [&_p]:mb-2 [&_a]:text-[#3AB8ED] [&_a]:underline"
+                      dangerouslySetInnerHTML={{ __html: content }}
+                    />
+                  ) : (
+                    <Text
+                      variant="secondary"
+                      className="text-sm mt-1 whitespace-pre-wrap"
+                    >
+                      {content}
+                    </Text>
+                  )
+                })()}
               {(ex.sets != null ||
                 ex.total_reps != null ||
                 ex.lb != null ||

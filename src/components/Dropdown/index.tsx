@@ -803,7 +803,8 @@ function getSelectedLabelTextSingle(
 }
 
 /**
- * Get selected label text for multiple selection
+ * Get selected label text for multiple selection.
+ * Shows comma-separated labels so selected values are visible inside the dropdown.
  */
 function getSelectedLabelTextMultiple(
   value: string[] | undefined,
@@ -811,11 +812,10 @@ function getSelectedLabelTextMultiple(
   placeholder: string
 ): string {
   if (!value || value.length === 0) return placeholder
-  if (value.length === 1) {
-    const option = allOptions.find(opt => opt.value === value[0])
-    return option?.label || placeholder
-  }
-  return `${value.length} selected`
+  const labels = value
+    .map(v => allOptions.find(opt => opt.value === v)?.label ?? v)
+    .filter(Boolean)
+  return labels.length > 0 ? labels.join(', ') : placeholder
 }
 
 /**

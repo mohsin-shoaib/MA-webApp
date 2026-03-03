@@ -1537,14 +1537,24 @@ export default function TodaySession() {
             <h1 className="text-xl font-semibold text-gray-900 mb-1">
               {display?.name ?? selectedExercise.name}
             </h1>
-            {(display?.pointsOfPerformance ?? display?.description) && (
-              <Text
-                variant="secondary"
-                className="text-sm mt-2 block whitespace-pre-wrap"
-              >
-                {display?.pointsOfPerformance ?? display?.description}
-              </Text>
-            )}
+            {(display?.pointsOfPerformance ?? display?.description) &&
+              (() => {
+                const content =
+                  display?.pointsOfPerformance ?? display?.description ?? ''
+                return content.trim().startsWith('<') ? (
+                  <div
+                    className="text-sm text-gray-600 mt-2 [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6 [&_p]:mb-2 [&_a]:text-[#3AB8ED] [&_a]:underline"
+                    dangerouslySetInnerHTML={{ __html: content }}
+                  />
+                ) : (
+                  <Text
+                    variant="secondary"
+                    className="text-sm mt-2 block whitespace-pre-wrap"
+                  >
+                    {content}
+                  </Text>
+                )
+              })()}
             {(presetReps != null ||
               presetLb != null ||
               selectedExercise.prescribed_weight_lb != null ||
