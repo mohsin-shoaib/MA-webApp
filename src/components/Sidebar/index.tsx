@@ -140,12 +140,6 @@ export function Sidebar() {
       roles: ['ADMIN'],
     },
     {
-      path: '/admin/exercise-options',
-      label: 'Exercise options',
-      icon: 'list',
-      roles: ['ADMIN'],
-    },
-    {
       path: '/admin/announcements',
       label: 'Announcements',
       icon: 'bullhorn',

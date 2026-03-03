@@ -159,27 +159,33 @@ export const trainService = {
     }>(`athlete/train/exercises/${exerciseId}/substitutions`),
 
   /**
-   * Get exercise library with optional filters (PRD 9.2).
-   * GET /athlete/train/exercises?search=&muscleGroup=&equipment=&cycleSafe=
+   * Exercise library (MASS Phase 2): read-only list; search by name, filter by tags.
+   * GET /athlete/train/exercises?search=&tags=
    */
-  getExerciseLibrary: (params?: {
-    search?: string
-    muscleGroup?: string
-    equipment?: string
-    cycleSafe?: string
-  }) =>
-    api.get<{
+  getExerciseLibrary: (params?: { search?: string; tags?: string[] }) => {
+    const query = params ?? {}
+    const search = query.search
+    const tags = query.tags
+    const paramsObj: Record<string, string | string[] | undefined> = {}
+    if (search != null && search !== '') paramsObj.search = search
+    if (tags != null && tags.length > 0) paramsObj.tags = tags
+    return api.get<{
       statusCode: number
-      data: Array<{
-        name: string
-        description?: string
-        video?: string
-        exercise_id?: string
-        muscle_group?: string
-        equipment?: string
-        cycleName?: string
-      }>
-    }>('athlete/train/exercises', { params: params ?? {} }),
+      data: {
+        rows: Array<{
+          id: number
+          name: string
+          description?: string | null
+          videoUrl?: string | null
+          defaultParameter1?: string | null
+          defaultParameter2?: string | null
+          pointsOfPerformance?: string | null
+          tags?: string[] | null
+        }>
+        meta: { total: number; page: number; limit: number; pages: number }
+      }
+    }>('athlete/train/exercises', { params: paramsObj })
+  },
 
   /**
    * Log a set for a session.

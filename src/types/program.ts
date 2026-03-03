@@ -3,6 +3,7 @@ export interface AlternateExerciseDTO {
   video?: string
   name: string
   description?: string
+  pointsOfPerformance?: string
   total_reps?: number
   sets?: number
   lb?: number
@@ -28,6 +29,8 @@ export interface ExerciseDTO {
   video?: string
   name: string
   description?: string
+  /** MASS Phase 2: coaching cues, shown to athletes */
+  pointsOfPerformance?: string
   total_reps?: number
   sets?: number
   lb?: number
@@ -221,8 +224,6 @@ export interface ProgramStructureSectionExerciseWithExercise extends ProgramStru
     name: string
     description?: string | null
     videoUrl?: string | null
-    muscleGroup?: string | null
-    equipment?: string | null
   }
 }
 

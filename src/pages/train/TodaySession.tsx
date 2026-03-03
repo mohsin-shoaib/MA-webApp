@@ -479,7 +479,8 @@ export default function TodaySession() {
             ).map(e => ({
               id: e.id,
               name: e.name,
-              description: e.description,
+              description: (e as { pointsOfPerformance?: string })
+                .pointsOfPerformance,
             }))
           )
         }
@@ -1027,6 +1028,8 @@ export default function TodaySession() {
                 const matchSearch =
                   !q ||
                   (ex.name?.toLowerCase().includes(q) ?? false) ||
+                  (typeof ex.pointsOfPerformance === 'string' &&
+                    ex.pointsOfPerformance.toLowerCase().includes(q)) ||
                   (typeof ex.description === 'string' &&
                     ex.description.toLowerCase().includes(q))
                 const matchFilter =
@@ -1352,7 +1355,7 @@ export default function TodaySession() {
           </div>
         )}
 
-        {/* MASS Phase 7: Swap exercise modal — linked substitutions first, then full library */}
+        {/* Swap exercise: full library only (no substitution field per MASS spec) */}
         {swapModalOpen && swapForExercise && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
             <Card className="w-full max-w-md max-h-[80vh] flex flex-col p-4">
@@ -1534,9 +1537,12 @@ export default function TodaySession() {
             <h1 className="text-xl font-semibold text-gray-900 mb-1">
               {display?.name ?? selectedExercise.name}
             </h1>
-            {display?.description && (
-              <Text variant="secondary" className="text-sm mt-2 block">
-                {display.description}
+            {(display?.pointsOfPerformance ?? display?.description) && (
+              <Text
+                variant="secondary"
+                className="text-sm mt-2 block whitespace-pre-wrap"
+              >
+                {display?.pointsOfPerformance ?? display?.description}
               </Text>
             )}
             {(presetReps != null ||

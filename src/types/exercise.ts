@@ -25,60 +25,45 @@ export const PARAMETER_2_OPTIONS = [
   ...DEFAULT_PARAMETER_OPTIONS,
 ]
 
-/** Exercise from library (admin/coach CRUD) */
+/** Exercise from library (admin/coach CRUD). MASS Phase 2: tags only, no muscle/equipment/movementPattern. */
 export interface Exercise {
   id: number
   name: string
-  description?: string | null
   videoUrl?: string | null
   defaultParameter1?: string | null
   defaultParameter2?: string | null
   pointsOfPerformance?: string | null
   referenceMaxExerciseId?: number | null
   trackAsExerciseId?: number | null
-  muscleGroup?: string | null
-  equipment?: string | null
-  movementPattern?: string | null
   tags?: string[] | null
-  substitutionIds?: number[] | null
   isActive: boolean
   isApproved?: boolean
-  createdByUser?: { id: number; name?: string } | null
+  createdByUser?: { id: number; firstName?: string; lastName?: string } | null
   createdAt: string
   updatedAt: string
 }
 
 export interface CreateExercisePayload {
   name?: string
-  description?: string
   videoUrl?: string
   defaultParameter1?: string
   defaultParameter2?: string
   pointsOfPerformance?: string
   referenceMaxExerciseId?: number
   trackAsExerciseId?: number
-  muscleGroup?: string
-  equipment?: string
-  movementPattern?: string
   tags?: string[]
-  substitutionIds?: number[]
   isActive?: boolean
 }
 
 export interface UpdateExercisePayload {
   name?: string
-  description?: string
   videoUrl?: string
   defaultParameter1?: string
   defaultParameter2?: string
   pointsOfPerformance?: string
   referenceMaxExerciseId?: number
   trackAsExerciseId?: number
-  muscleGroup?: string
-  equipment?: string
-  movementPattern?: string
   tags?: string[]
-  substitutionIds?: number[]
   isActive?: boolean
 }
 
@@ -86,9 +71,6 @@ export interface GetExercisesQuery {
   page?: number
   limit?: number
   q?: string
-  muscleGroup?: string
-  equipment?: string
-  movementPattern?: string
   tags?: string[]
   isActive?: boolean
 }
@@ -111,9 +93,9 @@ export interface GetExerciseResponse {
 export interface ExerciseListForBuilderItem {
   id: number
   name: string
-  muscleGroup?: string | null
-  equipment?: string | null
-  movementPattern?: string | null
+  defaultParameter1?: string | null
+  defaultParameter2?: string | null
+  tags?: string[] | null
 }
 
 export interface ListForProgramBuilderResponse {

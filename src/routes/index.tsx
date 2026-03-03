@@ -19,7 +19,6 @@ import AdminRecoveryProtocols from '@/pages/admin/recovery-protocols'
 import AdminMarketplace from '@/pages/admin/marketplace'
 import AdminTests from '@/pages/admin/tests'
 import AdminExercises from '@/pages/admin/exercises'
-import AdminExerciseOptions from '@/pages/admin/exercise-options'
 import CoachHeadUserManagement from '@/pages/coach-head/user-management'
 import CoachUserManagement from '@/pages/coach/user-management'
 import CoachAthleteDetail from '@/pages/coach/athlete-detail'
@@ -318,13 +317,7 @@ export const routes = [
   },
   {
     path: '/admin/exercise-options',
-    element: (
-      <ProtectedRoute allowedRoles={['ADMIN']}>
-        <AppLayout>
-          <AdminExerciseOptions />
-        </AppLayout>
-      </ProtectedRoute>
-    ),
+    element: <Navigate to="/admin/exercises" replace />,
   },
   {
     path: '/admin/analytics',

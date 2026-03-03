@@ -104,10 +104,9 @@ export function ProgramBuilderForm({
   const [newExerciseModalOpen, setNewExerciseModalOpen] = useState(false)
   const [newExerciseForm, setNewExerciseForm] = useState({
     name: '',
-    description: '',
     videoUrl: '',
-    defaultParameter1: '',
-    defaultParameter2: '',
+    defaultParameter1: 'Reps',
+    defaultParameter2: '-',
     pointsOfPerformance: '',
     tagsStr: '',
   })
@@ -1598,10 +1597,9 @@ export function ProgramBuilderForm({
                 setNewExerciseModalOpen(false)
                 setNewExerciseForm({
                   name: '',
-                  description: '',
                   videoUrl: '',
-                  defaultParameter1: '',
-                  defaultParameter2: '',
+                  defaultParameter1: 'Reps',
+                  defaultParameter2: '-',
                   pointsOfPerformance: '',
                   tagsStr: '',
                 })
@@ -1620,38 +1618,6 @@ export function ProgramBuilderForm({
                       setNewExerciseForm(f => ({ ...f, name: e.target.value }))
                     }
                     placeholder="e.g. Barbell Back Squat"
-                    size="small"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">
-                    Description
-                  </label>
-                  <textarea
-                    className="w-full min-h-[60px] rounded border border-gray-300 px-3 py-2 text-sm"
-                    value={newExerciseForm.description}
-                    onChange={e =>
-                      setNewExerciseForm(f => ({
-                        ...f,
-                        description: e.target.value,
-                      }))
-                    }
-                    placeholder="Instructions or notes"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">
-                    Video URL
-                  </label>
-                  <Input
-                    value={newExerciseForm.videoUrl}
-                    onChange={e =>
-                      setNewExerciseForm(f => ({
-                        ...f,
-                        videoUrl: e.target.value,
-                      }))
-                    }
-                    placeholder="https://..."
                     size="small"
                   />
                 </div>
@@ -1701,6 +1667,22 @@ export function ProgramBuilderForm({
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">
+                    Video URL (optional)
+                  </label>
+                  <Input
+                    value={newExerciseForm.videoUrl}
+                    onChange={e =>
+                      setNewExerciseForm(f => ({
+                        ...f,
+                        videoUrl: e.target.value,
+                      }))
+                    }
+                    placeholder="https://..."
+                    size="small"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
                     Points of Performance (optional)
                   </label>
                   <textarea
@@ -1747,8 +1729,6 @@ export function ProgramBuilderForm({
                         .filter(Boolean)
                       const res = await exerciseService.create({
                         name: newExerciseForm.name.trim(),
-                        description:
-                          newExerciseForm.description.trim() || undefined,
                         videoUrl: newExerciseForm.videoUrl.trim() || undefined,
                         defaultParameter1:
                           newExerciseForm.defaultParameter1 || undefined,
@@ -1779,10 +1759,9 @@ export function ProgramBuilderForm({
                         setAddBlockModalOpen(false)
                         setNewExerciseForm({
                           name: '',
-                          description: '',
                           videoUrl: '',
-                          defaultParameter1: '',
-                          defaultParameter2: '',
+                          defaultParameter1: 'Reps',
+                          defaultParameter2: '-',
                           pointsOfPerformance: '',
                           tagsStr: '',
                         })

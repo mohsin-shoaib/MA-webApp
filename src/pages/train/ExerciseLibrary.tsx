@@ -58,7 +58,7 @@ function daysFromProgramStructure(
               exercise?: {
                 id: number
                 name: string
-                description?: string
+                pointsOfPerformance?: string
                 videoUrl?: string
               }
             }
@@ -66,7 +66,7 @@ function daysFromProgramStructure(
           exercises.push({
             exercise_id: ex ? String(ex.id) : String(se.exerciseId),
             name: ex?.name ?? '',
-            description: ex?.description ?? undefined,
+            description: ex?.pointsOfPerformance ?? undefined,
             video: ex?.videoUrl ?? undefined,
             sets: se.sets,
             total_reps: se.reps,
@@ -362,8 +362,8 @@ function DayExercisesView({
     const matchSearch =
       !q ||
       (ex.name?.toLowerCase().includes(q) ?? false) ||
-      (typeof ex.description === 'string' &&
-        ex.description.toLowerCase().includes(q)) ||
+      (typeof ex.pointsOfPerformance === 'string' &&
+        ex.pointsOfPerformance.toLowerCase().includes(q)) ||
       (ex.alternate_exercise?.name?.toLowerCase().includes(q) ?? false)
     const matchFilter =
       exerciseFilter === 'all' ||
@@ -767,9 +767,12 @@ export default function ExerciseLibrary() {
             <h1 className="text-xl font-semibold text-gray-900 mb-1">
               {display?.name ?? selectedExercise.name}
             </h1>
-            {display?.description && (
-              <Text variant="secondary" className="text-sm mt-2 block">
-                {display.description}
+            {(display?.pointsOfPerformance ?? display?.description) && (
+              <Text
+                variant="secondary"
+                className="text-sm mt-2 block whitespace-pre-wrap"
+              >
+                {display?.pointsOfPerformance ?? display?.description}
               </Text>
             )}
             {(presetReps != null || presetLb != null) && (

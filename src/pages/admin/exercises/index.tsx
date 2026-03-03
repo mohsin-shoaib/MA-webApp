@@ -2,14 +2,12 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Text } from '@/components/Text'
 import { Button } from '@/components/Button'
 import { Card } from '@/components/Card'
-import { Modal } from '@/components/Modal'
+import { Drawer } from '@/components/Drawer'
 import { Input } from '@/components/Input'
 import { Dropdown } from '@/components/Dropdown'
 import { DataTable, type Column } from '@/components/DataTable'
 import { Pagination } from '@/components/Pagination'
 import { exerciseService } from '@/api/exercise.service'
-import { useFileUpload } from '@/hooks/useFileUpload'
-import { FileType } from '@/constants/fileTypes'
 import type { Exercise, CreateExercisePayload } from '@/types/exercise'
 import {
   DEFAULT_PARAMETER_OPTIONS,
@@ -49,19 +47,17 @@ export default function AdminExercises({
   >('all')
   const [page, setPage] = useState(1)
   const limit = 10
-  const [substitutionOptions, setSubstitutionOptions] = useState<Exercise[]>([])
+  const [exerciseOptions, setExerciseOptions] = useState<Exercise[]>([])
   const [form, setForm] = useState<CreateExercisePayload & { tagsStr: string }>(
     {
       name: '',
-      description: '',
       videoUrl: '',
-      defaultParameter1: '',
-      defaultParameter2: '',
+      defaultParameter1: 'Reps',
+      defaultParameter2: '-',
       pointsOfPerformance: '',
       referenceMaxExerciseId: undefined,
       trackAsExerciseId: undefined,
       tagsStr: '',
-      substitutionIds: [],
       isActive: true,
     }
   )
@@ -74,29 +70,6 @@ export default function AdminExercises({
         .map(t => t.trim())
         .filter(Boolean),
     [filterTagsStr]
-  )
-
-  const { upload: uploadVideo, uploading: uploadingVideo } = useFileUpload({
-    fileType: FileType.PROGRAM_VIDEO,
-    onError: err => showError(err.message),
-  })
-
-  const handleVideoUpload = useCallback(
-    async (file: File) => {
-      if (uploadingVideo) {
-        showError('Please wait for the current upload to complete')
-        return
-      }
-      try {
-        const videoUrl = await uploadVideo(file)
-        if (!videoUrl) throw new Error('No video URL returned')
-        setForm(prev => ({ ...prev, videoUrl }))
-        showSuccess('Video uploaded successfully')
-      } catch {
-        // onError already called by useFileUpload
-      }
-    },
-    [uploadVideo, uploadingVideo, showError, showSuccess]
   )
 
   const fetchList = useCallback(async () => {
@@ -162,51 +135,47 @@ export default function AdminExercises({
       ? '1 exercise'
       : `${total} exercises`
 
-  const fetchSubstitutionOptions = useCallback(async () => {
+  const fetchExerciseOptions = useCallback(async () => {
     try {
       const res = await exerciseService.getAll({ limit: 500 })
       const rows = res.data?.data?.rows ?? []
-      setSubstitutionOptions(rows)
+      setExerciseOptions(rows)
     } catch {
-      setSubstitutionOptions([])
+      setExerciseOptions([])
     }
   }, [])
 
   const openCreate = () => {
     setForm({
       name: '',
-      description: '',
       videoUrl: '',
-      defaultParameter1: '',
-      defaultParameter2: '',
+      defaultParameter1: 'Reps',
+      defaultParameter2: '-',
       pointsOfPerformance: '',
       referenceMaxExerciseId: undefined,
       trackAsExerciseId: undefined,
       tagsStr: '',
-      substitutionIds: [],
       isActive: true,
     })
     setCreateOpen(true)
-    void fetchSubstitutionOptions()
+    void fetchExerciseOptions()
   }
 
   const openEdit = (ex: Exercise) => {
     setEditing(ex)
     setForm({
       name: ex.name,
-      description: ex.description ?? '',
       videoUrl: ex.videoUrl ?? '',
-      defaultParameter1: ex.defaultParameter1 ?? '',
-      defaultParameter2: ex.defaultParameter2 ?? '',
+      defaultParameter1: ex.defaultParameter1 ?? 'Reps',
+      defaultParameter2: ex.defaultParameter2 ?? '-',
       pointsOfPerformance: ex.pointsOfPerformance ?? '',
       referenceMaxExerciseId: ex.referenceMaxExerciseId ?? undefined,
       trackAsExerciseId: ex.trackAsExerciseId ?? undefined,
       tagsStr: Array.isArray(ex.tags) ? ex.tags.join(', ') : '',
-      substitutionIds: ex.substitutionIds ?? [],
       isActive: ex.isActive,
     })
     setEditOpen(true)
-    void fetchSubstitutionOptions()
+    void fetchExerciseOptions()
   }
 
   const handleCreate = async () => {
@@ -219,7 +188,6 @@ export default function AdminExercises({
     try {
       await exerciseService.create({
         name: form.name?.trim() || undefined,
-        description: form.description?.trim() || undefined,
         videoUrl: form.videoUrl?.trim() || undefined,
         defaultParameter1: form.defaultParameter1?.trim() || undefined,
         defaultParameter2: form.defaultParameter2?.trim() || undefined,
@@ -227,9 +195,6 @@ export default function AdminExercises({
         referenceMaxExerciseId: form.referenceMaxExerciseId,
         trackAsExerciseId: form.trackAsExerciseId,
         tags: tags.length ? tags : undefined,
-        substitutionIds: form.substitutionIds?.length
-          ? form.substitutionIds
-          : undefined,
         isActive: form.isActive,
       })
       showSuccess('Exercise created')
@@ -260,7 +225,6 @@ export default function AdminExercises({
         .filter(Boolean)
       await exerciseService.update(editing.id, {
         name: form.name?.trim() || undefined,
-        description: form.description?.trim() || undefined,
         videoUrl: form.videoUrl || undefined,
         defaultParameter1: form.defaultParameter1?.trim() || undefined,
         defaultParameter2: form.defaultParameter2?.trim() || undefined,
@@ -268,7 +232,6 @@ export default function AdminExercises({
         referenceMaxExerciseId: form.referenceMaxExerciseId,
         trackAsExerciseId: form.trackAsExerciseId,
         tags: tags.length ? tags : undefined,
-        substitutionIds: form.substitutionIds,
         isActive: form.isActive,
       })
       showSuccess('Exercise updated')
@@ -280,15 +243,6 @@ export default function AdminExercises({
       showError(err.response?.data?.message || 'Failed to update')
     } finally {
       setSaving(false)
-    }
-  }
-
-  const toggleSubstitution = (id: number) => {
-    const ids = form.substitutionIds ?? []
-    if (ids.includes(id)) {
-      setForm({ ...form, substitutionIds: ids.filter(x => x !== id) })
-    } else {
-      setForm({ ...form, substitutionIds: [...ids, id] })
     }
   }
 
@@ -341,29 +295,14 @@ export default function AdminExercises({
       key: 'createdByUser',
       label: 'Created by',
       sortable: false,
-      render: (value, row) => (
-        <Text variant="secondary" className="text-sm">
-          {(value as { name?: string } | undefined)?.name ??
-            (row as Exercise & { createdByUser?: { name?: string } })
-              .createdByUser?.name ??
-            '—'}
-        </Text>
-      ),
-    },
-    {
-      key: 'id',
-      label: 'Actions',
-      sortable: false,
-      width: '80px',
       render: (_value, row) => (
-        <Button
-          type="button"
-          variant="secondary"
-          size="small"
-          onClick={() => openEdit(row)}
-        >
-          Edit
-        </Button>
+        <Text variant="secondary" className="text-sm">
+          {row.createdByUser
+            ? [row.createdByUser.firstName, row.createdByUser.lastName]
+                .filter(Boolean)
+                .join(' ') || '—'
+            : '—'}
+        </Text>
       ),
     },
   ]
@@ -372,91 +311,13 @@ export default function AdminExercises({
     <>
       <div>
         <Text variant="default" className="text-sm font-medium mb-1 block">
-          Name
+          Title (required)
         </Text>
         <Input
           value={form.name}
           onChange={e => setForm({ ...form, name: e.target.value })}
           placeholder="e.g. Barbell Back Squat"
         />
-      </div>
-      <div>
-        <Text variant="default" className="text-sm font-medium mb-1 block">
-          Description
-        </Text>
-        <textarea
-          className="w-full min-h-[60px] rounded border border-gray-300 px-3 py-2 text-sm"
-          value={form.description}
-          onChange={e => setForm({ ...form, description: e.target.value })}
-          placeholder="Instructions or notes"
-        />
-      </div>
-      <div>
-        <Text variant="default" className="text-sm font-medium mb-1 block">
-          Video (upload or link)
-        </Text>
-        <Input
-          value={form.videoUrl}
-          onChange={e => setForm({ ...form, videoUrl: e.target.value })}
-          placeholder="e.g. https://www.youtube.com/watch?v=..."
-          className="mb-2"
-          size="small"
-        />
-        <input
-          type="file"
-          accept="video/*"
-          onChange={e => {
-            const file = e.target.files?.[0]
-            if (file) handleVideoUpload(file)
-          }}
-          className="w-full p-2 border border-mid-gray rounded-lg text-sm"
-          disabled={uploadingVideo}
-        />
-        {form.videoUrl && (
-          <div className="mt-2">
-            {(() => {
-              const url = form.videoUrl.trim()
-              let embedId: string | null = null
-              if (url.includes('youtu.be/')) {
-                embedId = url.split('youtu.be/')[1]?.split('?')[0] ?? null
-              } else if (url.includes('youtube.com')) {
-                try {
-                  embedId = new URL(url).searchParams.get('v')
-                } catch {
-                  embedId = null
-                }
-              }
-              if (embedId) {
-                return (
-                  <div className="rounded-lg overflow-hidden bg-black aspect-video max-w-md">
-                    <iframe
-                      title="Video"
-                      src={`https://www.youtube.com/embed/${embedId}`}
-                      className="w-full h-full"
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                      allowFullScreen
-                    />
-                  </div>
-                )
-              }
-              return (
-                <a
-                  href={url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-primary text-xs"
-                >
-                  View video
-                </a>
-              )
-            })()}
-          </div>
-        )}
-        {uploadingVideo && (
-          <Text variant="muted" className="text-xs mt-1">
-            Uploading...
-          </Text>
-        )}
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div>
@@ -482,7 +343,7 @@ export default function AdminExercises({
             Default Parameter 2
           </Text>
           <Dropdown
-            placeholder="— or —"
+            placeholder="— or dash for single —"
             options={PARAMETER_2_OPTIONS.map(o => ({
               value: o.value,
               label: o.label,
@@ -498,7 +359,77 @@ export default function AdminExercises({
       </div>
       <div>
         <Text variant="default" className="text-sm font-medium mb-1 block">
-          Points of Performance (optional, max 10,000 chars)
+          Video (optional) — YouTube or Vimeo URL
+        </Text>
+        <Input
+          value={form.videoUrl}
+          onChange={e => setForm({ ...form, videoUrl: e.target.value })}
+          placeholder="https://www.youtube.com/watch?v=... or Vimeo URL"
+          className="mb-2"
+          size="small"
+        />
+        {form.videoUrl && (
+          <div className="mt-2">
+            {(() => {
+              const url = form.videoUrl.trim()
+              let youtubeId: string | null = null
+              let vimeoId: string | null = null
+              if (url.includes('youtu.be/')) {
+                youtubeId = url.split('youtu.be/')[1]?.split('?')[0] ?? null
+              } else if (url.includes('youtube.com')) {
+                try {
+                  youtubeId = new URL(url).searchParams.get('v')
+                } catch {
+                  youtubeId = null
+                }
+              }
+              if (url.includes('vimeo.com/')) {
+                const m = url.match(/vimeo\.com\/(?:video\/)?(\d+)/)
+                vimeoId = m ? m[1] : null
+              }
+              if (youtubeId) {
+                return (
+                  <div className="rounded-lg overflow-hidden bg-black aspect-video max-w-md">
+                    <iframe
+                      title="Video"
+                      src={`https://www.youtube.com/embed/${youtubeId}`}
+                      className="w-full h-full"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                    />
+                  </div>
+                )
+              }
+              if (vimeoId) {
+                return (
+                  <div className="rounded-lg overflow-hidden bg-black aspect-video max-w-md">
+                    <iframe
+                      title="Video"
+                      src={`https://player.vimeo.com/video/${vimeoId}`}
+                      className="w-full h-full"
+                      allow="fullscreen; picture-in-picture"
+                      allowFullScreen
+                    />
+                  </div>
+                )
+              }
+              return (
+                <a
+                  href={url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary text-xs"
+                >
+                  View video
+                </a>
+              )
+            })()}
+          </div>
+        )}
+      </div>
+      <div>
+        <Text variant="default" className="text-sm font-medium mb-1 block">
+          Points of Performance (optional, rich text, max 10,000 chars)
         </Text>
         <textarea
           className="w-full min-h-[80px] rounded border border-gray-300 px-3 py-2 text-sm"
@@ -509,20 +440,30 @@ export default function AdminExercises({
               pointsOfPerformance: e.target.value.slice(0, 10000),
             })
           }
-          placeholder="Coaching cues, movement instructions..."
+          placeholder="Coaching cues, movement instructions. Shown to athletes."
           maxLength={10000}
+        />
+      </div>
+      <div>
+        <Text variant="default" className="text-sm font-medium mb-1 block">
+          Tags (optional) — select existing or type your own
+        </Text>
+        <Input
+          value={form.tagsStr}
+          onChange={e => setForm({ ...form, tagsStr: e.target.value })}
+          placeholder="e.g. compound, lower body, bilateral"
         />
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div>
           <Text variant="default" className="text-sm font-medium mb-1 block">
-            Reference Max (optional)
+            Reference Max (optional, advanced)
           </Text>
           <Dropdown
             placeholder="— None —"
             options={[
               { value: '', label: '— None —' },
-              ...substitutionOptions
+              ...exerciseOptions
                 .filter(ex => ex.id !== editing?.id)
                 .map(ex => ({ value: String(ex.id), label: ex.name })),
             ]}
@@ -543,13 +484,13 @@ export default function AdminExercises({
         </div>
         <div>
           <Text variant="default" className="text-sm font-medium mb-1 block">
-            Track As (optional)
+            Track As (optional, advanced)
           </Text>
           <Dropdown
             placeholder="— None —"
             options={[
               { value: '', label: '— None —' },
-              ...substitutionOptions
+              ...exerciseOptions
                 .filter(ex => ex.id !== editing?.id)
                 .map(ex => ({ value: String(ex.id), label: ex.name })),
             ]}
@@ -567,47 +508,6 @@ export default function AdminExercises({
             fullWidth
             size="small"
           />
-        </div>
-      </div>
-      <div>
-        <Text variant="default" className="text-sm font-medium mb-1 block">
-          Tags (comma-separated)
-        </Text>
-        <Input
-          value={form.tagsStr}
-          onChange={e => setForm({ ...form, tagsStr: e.target.value })}
-          placeholder="e.g. compound, lower body"
-        />
-      </div>
-      <div>
-        <Text variant="default" className="text-sm font-medium mb-1 block">
-          Substitutions
-        </Text>
-        <p className="text-xs text-gray-500 mb-1">
-          Select alternative exercises from the library.
-        </p>
-        <div className="max-h-32 overflow-y-auto border border-gray-200 rounded p-2 space-y-1">
-          {substitutionOptions
-            .filter(ex => ex.id !== editing?.id)
-            .map(ex => (
-              <label
-                key={ex.id}
-                className="flex items-center gap-2 cursor-pointer"
-              >
-                <input
-                  type="checkbox"
-                  checked={form.substitutionIds?.includes(ex.id) ?? false}
-                  onChange={() => toggleSubstitution(ex.id)}
-                />
-                <span className="text-sm">{ex.name}</span>
-              </label>
-            ))}
-          {substitutionOptions.filter(ex => ex.id !== editing?.id).length ===
-            0 && (
-            <Text variant="muted" className="text-xs">
-              No other exercises in library yet.
-            </Text>
-          )}
         </div>
       </div>
       <div className="flex items-center gap-2">
@@ -707,6 +607,8 @@ export default function AdminExercises({
           searchable={false}
           paginated={false}
           rowKey="id"
+          rowClickable={true}
+          onRowClick={row => openEdit(row)}
           emptyMessage="No exercises yet. Create exercises here; then select them when building programs."
         />
         {!loading && total > 0 && (
@@ -726,19 +628,20 @@ export default function AdminExercises({
       </Card>
 
       {createOpen && (
-        <Modal
+        <Drawer
           visible={createOpen}
           onClose={() => setCreateOpen(false)}
           title="Create exercise"
           showCloseButton
           closeOnBackdropPress
           closeOnEscape
+          width="lg"
           primaryAction={{
             label: 'Create',
             onPress: () => {
               void handleCreate()
             },
-            disabled: saving || uploadingVideo,
+            disabled: saving,
           }}
           secondaryAction={{
             label: 'Cancel',
@@ -746,11 +649,11 @@ export default function AdminExercises({
           }}
         >
           <div className="space-y-4">{formFields}</div>
-        </Modal>
+        </Drawer>
       )}
 
       {editOpen && editing && (
-        <Modal
+        <Drawer
           visible={editOpen}
           onClose={() => {
             setEditOpen(false)
@@ -760,12 +663,13 @@ export default function AdminExercises({
           showCloseButton
           closeOnBackdropPress
           closeOnEscape
+          width="lg"
           primaryAction={{
             label: 'Save',
             onPress: () => {
               void handleUpdate()
             },
-            disabled: saving || uploadingVideo,
+            disabled: saving,
           }}
           secondaryAction={{
             label: 'Cancel',
@@ -776,7 +680,7 @@ export default function AdminExercises({
           }}
         >
           <div className="space-y-4">{formFields}</div>
-        </Modal>
+        </Drawer>
       )}
     </div>
   )

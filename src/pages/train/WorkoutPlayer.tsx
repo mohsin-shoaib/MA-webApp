@@ -173,9 +173,12 @@ export default function WorkoutPlayer() {
               <Text variant="default" className="font-medium">
                 {ex.name}
               </Text>
-              {ex.description && (
-                <Text variant="secondary" className="text-sm mt-1">
-                  {ex.description}
+              {(ex.pointsOfPerformance ?? ex.description) && (
+                <Text
+                  variant="secondary"
+                  className="text-sm mt-1 whitespace-pre-wrap"
+                >
+                  {ex.pointsOfPerformance ?? ex.description}
                 </Text>
               )}
               {(ex.sets != null ||
