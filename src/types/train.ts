@@ -76,6 +76,16 @@ export interface WorkoutSession {
   setLogs?: SetLog[]
   /** MASS Phase 7: when status=COMPLETED */
   sessionSummary?: SessionSummary
+  /** MASS Phase 7: athlete comments on completion */
+  sessionComments?: string | null
+  /** MASS Phase 8: coach response (visible to athlete) */
+  coachResponseComment?: string | null
+  intensityRating?: number | null
+  exerciseSwaps?: Array<{
+    originalExerciseId: number
+    newExerciseId: number
+    newExercise?: { id: number; name: string }
+  }>
 }
 
 /** Single set log */

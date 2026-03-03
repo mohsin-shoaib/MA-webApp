@@ -68,6 +68,12 @@ export function Sidebar() {
       icon: 'user',
     },
     {
+      path: '/coach/dashboard',
+      label: 'Dashboard',
+      icon: 'home',
+      roles: ['COACH', 'COACH_HEAD'],
+    },
+    {
       path: '/coach/program-management',
       label: 'Manage Program',
       icon: 'clipboard-list',

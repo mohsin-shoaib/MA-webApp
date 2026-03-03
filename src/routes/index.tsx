@@ -22,6 +22,7 @@ import AdminExercises from '@/pages/admin/exercises'
 import AdminExerciseOptions from '@/pages/admin/exercise-options'
 import CoachHeadUserManagement from '@/pages/coach-head/user-management'
 import CoachUserManagement from '@/pages/coach/user-management'
+import CoachAthleteDetail from '@/pages/coach/athlete-detail'
 import CoachMyAthletes from '@/pages/coach/my-athletes'
 import Profile from '@/pages/profile'
 import Train from '@/pages/train'
@@ -39,6 +40,7 @@ import Progress from '@/pages/progress'
 import TestsPage from '@/pages/progress/TestsPage'
 import AnalyticsPage from '@/pages/progress/AnalyticsPage'
 import CoachAnalyticsPage from '@/pages/coach/CoachAnalyticsPage.tsx'
+import CoachDashboard from '@/pages/coach/CoachDashboard'
 import CoachMarketplace from '@/pages/coach/marketplace'
 import CoachExercises from '@/pages/coach/exercises'
 import AdminAnalyticsPage from '@/pages/admin/AdminAnalyticsPage.tsx'
@@ -125,6 +127,16 @@ export const routes = [
     ),
   },
   {
+    path: '/coach/dashboard',
+    element: (
+      <ProtectedRoute allowedRoles={['COACH', 'COACH_HEAD']}>
+        <AppLayout>
+          <CoachDashboard />
+        </AppLayout>
+      </ProtectedRoute>
+    ),
+  },
+  {
     path: '/coach/program-management',
     element: (
       <ProtectedRoute allowedRoles={['COACH']}>
@@ -150,6 +162,16 @@ export const routes = [
       <ProtectedRoute allowedRoles={['COACH']}>
         <AppLayout>
           <CoachUserManagement />
+        </AppLayout>
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/coach/athletes/:athleteId',
+    element: (
+      <ProtectedRoute allowedRoles={['COACH', 'COACH_HEAD']}>
+        <AppLayout>
+          <CoachAthleteDetail />
         </AppLayout>
       </ProtectedRoute>
     ),
