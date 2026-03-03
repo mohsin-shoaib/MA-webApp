@@ -7,7 +7,9 @@ import { Modal } from '@/components/Modal'
 import { SetWorkingMaxModal } from '@/components/SetWorkingMaxModal'
 import { DataTable, type Column } from '@/components/DataTable'
 import { Pagination } from '@/components/Pagination'
-import { Dropdown, type DropdownValue } from '@/components/Dropdown'
+import { Dropdown } from '@/components/Dropdown'
+import { Icon } from '@/components/Icon'
+import { Tooltip } from '@/components/Tooltip'
 import { athleteExerciseService } from '@/api/athlete-exercise.service'
 import { trainService } from '@/api/train.service'
 import type { Exercise } from '@/types/exercise'
@@ -45,7 +47,10 @@ export default function AthleteExerciseLibrary() {
     }
   } | null>(null)
   const [workingMaxModalOpen, setWorkingMaxModalOpen] = useState(false)
-  const { showError } = useSnackbar()
+  const [exerciseOptionsForTags, setExerciseOptionsForTags] = useState<
+    Exercise[]
+  >([])
+  const { showError, showSuccess } = useSnackbar()
 
   const fetchList = useCallback(async () => {
     try {
@@ -77,6 +82,20 @@ export default function AthleteExerciseLibrary() {
   useEffect(() => {
     fetchList()
   }, [fetchList])
+
+  const fetchTagOptions = useCallback(async () => {
+    try {
+      const res = await athleteExerciseService.getAll({ limit: 500 })
+      const rows = res.data?.data?.rows ?? []
+      setExerciseOptionsForTags(rows)
+    } catch {
+      setExerciseOptionsForTags([])
+    }
+  }, [])
+
+  useEffect(() => {
+    void fetchTagOptions()
+  }, [fetchTagOptions])
 
   useEffect(() => {
     const t = setTimeout(() => setSearchApplied(searchQ), 400)
@@ -126,26 +145,47 @@ export default function AthleteExerciseLibrary() {
 
   const totalPages = Math.max(1, Math.ceil(total / limit))
 
-  const availableTagOptions = useMemo(() => {
-    const tagSet = new Set<string>(selectedTags)
-    list.forEach(ex => {
-      if (Array.isArray(ex.tags)) ex.tags.forEach(t => tagSet.add(t))
+  const existingTagOptions = useMemo(() => {
+    const set = new Set<string>()
+    exerciseOptionsForTags.forEach(ex => {
+      const tags = ex.tags
+      const arr = Array.isArray(tags)
+        ? tags
+        : typeof tags === 'string'
+          ? (() => {
+              try {
+                const parsed = JSON.parse(tags) as unknown
+                return Array.isArray(parsed) ? parsed : []
+              } catch {
+                return []
+              }
+            })()
+          : []
+      arr.forEach((t: string) => typeof t === 'string' && set.add(t))
     })
-    return Array.from(tagSet)
+    return Array.from(set)
       .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }))
       .map(t => ({ value: t, label: t }))
-  }, [list, selectedTags])
+  }, [exerciseOptionsForTags])
 
-  const handleTagsChange = useCallback((value: DropdownValue) => {
-    if (Array.isArray(value)) setSelectedTags(value)
-    else if (value) setSelectedTags([value])
-    else setSelectedTags([])
+  const hasActiveFilters = searchQ.trim() !== '' || selectedTags.length > 0
+  const clearFilters = useCallback(() => {
+    setSearchQ('')
+    setSearchApplied('')
+    setSelectedTags([])
+    setPage(1)
   }, [])
+
+  const resultCountLabel = loading
+    ? 'Loading...'
+    : total === 1
+      ? '1 exercise'
+      : `${total} exercises`
 
   function formatParams(ex: Exercise): string {
     const parts = [ex.defaultParameter1, ex.defaultParameter2].filter(Boolean)
     if (parts.length === 0) return '—'
-    return parts.join(', ')
+    return parts.join(' + ')
   }
 
   const columns: Column<Exercise>[] = useMemo(
@@ -166,7 +206,9 @@ export default function AthleteExerciseLibrary() {
         sortable: false,
         render: (_value, row) => (
           <Text variant="secondary" className="text-sm">
-            {formatParams(row)}
+            {[row.defaultParameter1, row.defaultParameter2]
+              .filter(Boolean)
+              .join(' + ') || '—'}
           </Text>
         ),
       },
@@ -186,28 +228,75 @@ export default function AthleteExerciseLibrary() {
         key: 'videoUrl',
         label: 'Video',
         sortable: false,
-        render: value => (
+        render: (_value, row) => {
+          const url = row.videoUrl?.trim()
+          if (!url) {
+            return (
+              <Text variant="secondary" className="text-sm">
+                —
+              </Text>
+            )
+          }
+          const copyLink = (e: React.MouseEvent) => {
+            e.stopPropagation()
+            void navigator.clipboard.writeText(url).then(() => {
+              showSuccess('Link copied to clipboard')
+            })
+          }
+          return (
+            <div className="flex items-center gap-1.5">
+              <Tooltip content={url} position="top">
+                <span className="inline-flex text-gray-600 cursor-default">
+                  <Icon name="video" family="solid" size={16} />
+                </span>
+              </Tooltip>
+              <button
+                type="button"
+                onClick={copyLink}
+                className="inline-flex text-gray-500 hover:text-gray-700 p-0.5 rounded focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer"
+                aria-label="Copy video link"
+              >
+                <Icon name="copy" family="solid" size={14} />
+              </button>
+            </div>
+          )
+        },
+      },
+      {
+        key: 'createdByUser',
+        label: 'Created by',
+        sortable: false,
+        render: (_value, row) => (
           <Text variant="secondary" className="text-sm">
-            {value ? 'Yes' : '—'}
+            {row.createdByUser
+              ? [row.createdByUser.firstName, row.createdByUser.lastName]
+                  .filter(Boolean)
+                  .join(' ') || '—'
+              : '—'}
           </Text>
         ),
       },
     ],
-    []
+    [showSuccess]
   )
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
-      <Text as="h1" variant="primary" className="text-2xl font-bold mb-1">
-        Exercise Library
-      </Text>
-      <Text variant="secondary" className="text-sm mb-6 block">
-        Read-only. Search by name and filter by tags. Click a row to view Points
-        of Performance, demo video, and your working max / history.
-      </Text>
+    <div className="p-6">
+      <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+        <div>
+          <Text as="h1" variant="primary" className="text-2xl font-bold">
+            Exercise Library
+          </Text>
+          <Text variant="secondary" className="text-sm mt-1">
+            Read-only. Search by name and filter by tags. Click a row to view
+            Points of Performance, demo video, and your working max / history.
+          </Text>
+        </div>
+      </div>
 
+      {/* Search and filters - same structure as admin */}
       <div className="mb-4 flex flex-wrap items-end gap-3">
-        <div className="min-w-[200px]">
+        <div className="w-40">
           <label
             htmlFor="athlete-ex-search"
             className="mb-1 block text-sm font-medium text-gray-700"
@@ -219,44 +308,37 @@ export default function AthleteExerciseLibrary() {
             type="search"
             value={searchQ}
             onChange={e => setSearchQ(e.target.value)}
-            placeholder="By name..."
+            placeholder="Name or description..."
             size="small"
             className="w-full"
           />
         </div>
-        <div className="min-w-[220px]">
+        <div className="w-48">
           <Dropdown
-            label="Filter by tags (multi-select)"
-            placeholder={
-              availableTagOptions.length === 0 && list.length === 0
-                ? 'Load exercises to see tags'
-                : 'All tags'
+            label="Tags"
+            placeholder="All tags"
+            options={existingTagOptions}
+            value={selectedTags}
+            onValueChange={v =>
+              setSelectedTags(Array.isArray(v) ? v : v != null ? [v] : [])
             }
-            options={availableTagOptions}
-            value={selectedTags.length > 0 ? selectedTags : undefined}
-            onValueChange={handleTagsChange}
             multiple
             size="small"
-            fullWidth={true}
+            fullWidth
           />
         </div>
-        {selectedTags.length > 0 && (
+        {hasActiveFilters && (
           <Button
             type="button"
-            variant="secondary"
+            variant="outline"
             size="small"
-            onClick={() => setSelectedTags([])}
+            onClick={clearFilters}
           >
-            Clear tags
+            Clear filters
           </Button>
         )}
       </div>
-
-      <div className="mb-2 text-sm text-gray-600">
-        {loading && 'Loading...'}
-        {!loading && total === 1 && '1 exercise'}
-        {!loading && total !== 1 && `${total} exercises`}
-      </div>
+      <div className="mb-2 text-sm text-gray-600">{resultCountLabel}</div>
 
       <Card className="overflow-hidden" padding="none">
         <DataTable<Exercise>
@@ -270,11 +352,11 @@ export default function AthleteExerciseLibrary() {
           onRowClick={row => setDetailExercise(row)}
           emptyMessage="No exercises match your search or filters."
         />
-        {loading === false && total > 0 && (
+        {!loading && total > 0 && (
           <div className="px-4 py-3 border-t border-gray-200 flex items-center justify-between flex-wrap gap-2">
             <Text variant="secondary" className="text-sm">
               Showing {(page - 1) * limit + 1} to{' '}
-              {Math.min(page * limit, total)} of {total}
+              {Math.min(page * limit, total)} of {total} results
             </Text>
             <Pagination
               currentPage={page}
