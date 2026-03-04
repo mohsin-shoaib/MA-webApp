@@ -133,18 +133,18 @@ export function Sidebar() {
     //   icon: 'clipboard-check',
     //   roles: ['ADMIN'],
     // },
-    // {
-    //   path: '/admin/goal-types',
-    //   label: 'Goal Types',
-    //   icon: 'bullseye',
-    //   roles: ['ADMIN'],
-    // },
-    // {
-    //   path: '/admin/program-management',
-    //   label: 'Manage Program',
-    //   icon: 'clipboard-list',
-    //   roles: ['ADMIN'],
-    // },
+    {
+      path: '/admin/goal-types',
+      label: 'Goal Types',
+      icon: 'bullseye',
+      roles: ['ADMIN'],
+    },
+    {
+      path: '/admin/program-management',
+      label: 'Manage Program',
+      icon: 'clipboard-list',
+      roles: ['ADMIN'],
+    },
     // {
     //   path: '/admin/exercises',
     //   label: 'Exercise Library',
