@@ -262,20 +262,6 @@ export default function AthleteExerciseLibrary() {
           )
         },
       },
-      {
-        key: 'createdByUser',
-        label: 'Created by',
-        sortable: false,
-        render: (_value, row) => (
-          <Text variant="secondary" className="text-sm">
-            {row.createdByUser
-              ? [row.createdByUser.firstName, row.createdByUser.lastName]
-                  .filter(Boolean)
-                  .join(' ') || '—'
-              : '—'}
-          </Text>
-        ),
-      },
     ],
     [showSuccess]
   )

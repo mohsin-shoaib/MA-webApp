@@ -36,10 +36,10 @@ export function AuthRedirect({
       return <Navigate to="/onboarding" replace />
     }
     if (user.role === 'COACH') {
-      return <Navigate to="/create_program" replace />
+      return <Navigate to="/dashboard" replace />
     }
     if (user.role === 'ADMIN') {
-      return <Navigate to="/admin/user-management" replace />
+      return <Navigate to="/dashboard" replace />
     }
     if (user.role === 'COACH_HEAD') {
       return <Navigate to="/coach-head/user-management" replace />
