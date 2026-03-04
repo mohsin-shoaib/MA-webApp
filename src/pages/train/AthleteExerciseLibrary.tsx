@@ -382,15 +382,18 @@ export default function AthleteExerciseLibrary() {
             onPress: () => setDetailExercise(null),
           }}
         >
-          <div className="space-y-4">
+          <div className="space-y-5">
             {detailExercise.pointsOfPerformance && (
               <div>
-                <Text variant="default" className="text-sm font-medium mb-1">
+                <Text
+                  variant="default"
+                  className="text-sm font-medium block mb-1.5"
+                >
                   Points of Performance
                 </Text>
                 {detailExercise.pointsOfPerformance.trim().startsWith('<') ? (
                   <div
-                    className="text-sm text-gray-600 [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6 [&_p]:mb-2 [&_a]:text-[#3AB8ED] [&_a]:underline"
+                    className="text-sm text-gray-600 mt-0 [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6 [&_p]:mb-2 [&_a]:text-[#3AB8ED] [&_a]:underline"
                     dangerouslySetInnerHTML={{
                       __html: detailExercise.pointsOfPerformance,
                     }}
@@ -398,7 +401,7 @@ export default function AthleteExerciseLibrary() {
                 ) : (
                   <Text
                     variant="secondary"
-                    className="text-sm whitespace-pre-wrap"
+                    className="text-sm whitespace-pre-wrap block mt-0"
                   >
                     {detailExercise.pointsOfPerformance}
                   </Text>
@@ -408,10 +411,13 @@ export default function AthleteExerciseLibrary() {
             {(detailExercise.defaultParameter1 ||
               detailExercise.defaultParameter2) && (
               <div>
-                <Text variant="default" className="text-sm font-medium mb-1">
+                <Text
+                  variant="default"
+                  className="text-sm font-medium block mb-1.5"
+                >
                   Parameters
                 </Text>
-                <Text variant="secondary" className="text-sm">
+                <Text variant="secondary" className="text-sm block mt-0">
                   {formatParams(detailExercise)}
                 </Text>
               </div>
@@ -419,10 +425,13 @@ export default function AthleteExerciseLibrary() {
             {Array.isArray(detailExercise.tags) &&
               detailExercise.tags.length > 0 && (
                 <div>
-                  <Text variant="default" className="text-sm font-medium mb-1">
+                  <Text
+                    variant="default"
+                    className="text-sm font-medium block mb-1.5"
+                  >
                     Tags
                   </Text>
-                  <Text variant="secondary" className="text-sm">
+                  <Text variant="secondary" className="text-sm block mt-0">
                     {detailExercise.tags.join(', ')}
                   </Text>
                 </div>
@@ -431,83 +440,85 @@ export default function AthleteExerciseLibrary() {
               <div>
                 <Text
                   variant="default"
-                  className="text-sm font-medium mb-1 block"
+                  className="text-sm font-medium block mb-1.5"
                 >
                   Demo video
                 </Text>
-                {(() => {
-                  const url = detailExercise.videoUrl.trim()
-                  let youtubeId: string | null = null
-                  let vimeoId: string | null = null
-                  if (url.includes('youtu.be/')) {
-                    youtubeId =
-                      url.split('youtu.be/')[1]?.split('?')[0]?.trim() ?? null
-                  } else if (url.includes('youtube.com')) {
-                    try {
-                      youtubeId = new URL(url).searchParams.get('v')
-                    } catch {
-                      youtubeId = null
+                <div className="mt-0">
+                  {(() => {
+                    const url = detailExercise.videoUrl.trim()
+                    let youtubeId: string | null = null
+                    let vimeoId: string | null = null
+                    if (url.includes('youtu.be/')) {
+                      youtubeId =
+                        url.split('youtu.be/')[1]?.split('?')[0]?.trim() ?? null
+                    } else if (url.includes('youtube.com')) {
+                      try {
+                        youtubeId = new URL(url).searchParams.get('v')
+                      } catch {
+                        youtubeId = null
+                      }
                     }
-                  }
-                  if (!youtubeId && url.includes('vimeo.com/')) {
-                    const m = url.match(/vimeo\.com\/(?:video\/)?(\d+)/)
-                    vimeoId = m ? m[1] : null
-                  }
-                  if (youtubeId) {
+                    if (!youtubeId && url.includes('vimeo.com/')) {
+                      const m = url.match(/vimeo\.com\/(?:video\/)?(\d+)/)
+                      vimeoId = m ? m[1] : null
+                    }
+                    if (youtubeId) {
+                      return (
+                        <div className="rounded-lg overflow-hidden bg-black aspect-video max-w-full">
+                          <iframe
+                            title="Demo video"
+                            src={`https://www.youtube.com/embed/${youtubeId}`}
+                            className="w-full h-full min-h-[200px]"
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                            allowFullScreen
+                          />
+                        </div>
+                      )
+                    }
+                    if (vimeoId) {
+                      return (
+                        <div className="rounded-lg overflow-hidden bg-black aspect-video max-w-full">
+                          <iframe
+                            title="Demo video"
+                            src={`https://player.vimeo.com/video/${vimeoId}`}
+                            className="w-full h-full min-h-[200px]"
+                            allow="fullscreen; picture-in-picture"
+                            allowFullScreen
+                          />
+                        </div>
+                      )
+                    }
                     return (
-                      <div className="rounded-lg overflow-hidden bg-black aspect-video max-w-full">
-                        <iframe
-                          title="Demo video"
-                          src={`https://www.youtube.com/embed/${youtubeId}`}
-                          className="w-full h-full min-h-[200px]"
-                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                          allowFullScreen
-                        />
-                      </div>
+                      <a
+                        href={url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[#3AB8ED] text-sm hover:underline"
+                      >
+                        Open video link
+                      </a>
                     )
-                  }
-                  if (vimeoId) {
-                    return (
-                      <div className="rounded-lg overflow-hidden bg-black aspect-video max-w-full">
-                        <iframe
-                          title="Demo video"
-                          src={`https://player.vimeo.com/video/${vimeoId}`}
-                          className="w-full h-full min-h-[200px]"
-                          allow="fullscreen; picture-in-picture"
-                          allowFullScreen
-                        />
-                      </div>
-                    )
-                  }
-                  return (
-                    <a
-                      href={url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-[#3AB8ED] text-sm hover:underline"
-                    >
-                      Watch demo
-                    </a>
-                  )
-                })()}
+                  })()}
+                </div>
               </div>
             )}
             <div className="border-t border-gray-200 pt-4 mt-4">
               <Text
                 variant="default"
-                className="text-sm font-medium mb-2 block"
+                className="text-sm font-medium block mb-2"
               >
                 Your working max & history
               </Text>
               {workingMaxData === null && (
-                <Text variant="secondary" className="text-sm">
+                <Text variant="secondary" className="text-sm block mt-0">
                   Loading…
                 </Text>
               )}
               {workingMaxData &&
                 !workingMaxData.workingMax &&
                 !workingMaxData.lastLogged && (
-                  <Text variant="secondary" className="text-sm">
+                  <Text variant="secondary" className="text-sm block mt-0">
                     No working max or history yet. Set one or log sets in a
                     workout to auto-calculate.
                   </Text>
@@ -515,28 +526,43 @@ export default function AthleteExerciseLibrary() {
               {workingMaxData &&
                 (workingMaxData.workingMax != null ||
                   workingMaxData.lastLogged != null) && (
-                  <div className="space-y-1 text-sm text-gray-600">
+                  <div className="space-y-3 text-sm">
                     {workingMaxData.workingMax != null && (
-                      <Text variant="secondary">
-                        Working max: {workingMaxData.workingMax.value}{' '}
-                        {workingMaxData.workingMax.unit}
-                        {workingMaxData.workingMax.source &&
-                          ` (${workingMaxData.workingMax.source})`}
-                      </Text>
+                      <div>
+                        <Text
+                          variant="default"
+                          className="text-xs font-medium text-gray-500 block mb-0.5"
+                        >
+                          Working max
+                        </Text>
+                        <Text variant="secondary" className="block mt-0">
+                          {workingMaxData.workingMax.value}{' '}
+                          {workingMaxData.workingMax.unit}
+                          {workingMaxData.workingMax.source &&
+                            ` (${workingMaxData.workingMax.source})`}
+                        </Text>
+                      </div>
                     )}
                     {workingMaxData.lastLogged != null &&
                       (workingMaxData.lastLogged.weightLb != null ||
                         workingMaxData.lastLogged.weightKg != null) && (
-                        <Text variant="secondary">
-                          Last:{' '}
-                          {workingMaxData.lastLogged.weightLb ??
-                            workingMaxData.lastLogged.weightKg}{' '}
-                          {workingMaxData.lastLogged.weightLb == null
-                            ? 'kg'
-                            : 'lb'}
-                          {workingMaxData.lastLogged.reps != null &&
-                            ` × ${workingMaxData.lastLogged.reps}`}
-                        </Text>
+                        <div>
+                          <Text
+                            variant="default"
+                            className="text-xs font-medium text-gray-500 block mb-0.5"
+                          >
+                            Last logged
+                          </Text>
+                          <Text variant="secondary" className="block mt-0">
+                            {workingMaxData.lastLogged.weightLb ??
+                              workingMaxData.lastLogged.weightKg}{' '}
+                            {workingMaxData.lastLogged.weightLb == null
+                              ? 'kg'
+                              : 'lb'}
+                            {workingMaxData.lastLogged.reps != null &&
+                              ` × ${workingMaxData.lastLogged.reps}`}
+                          </Text>
+                        </div>
                       )}
                   </div>
                 )}
