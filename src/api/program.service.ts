@@ -122,6 +122,140 @@ export const programService = {
     api.get<RecommendedNextResponse>('athlete/program/recommended-next'),
 
   /**
+   * MASS Phase 4: Create block (section) in a day.
+   * POST admin/program/:programId/weeks/:weekIndex/days/:dayIndex/blocks
+   */
+  createBlock: (
+    programId: number,
+    weekIndex: number,
+    dayIndex: number,
+    body: {
+      blockType: 'EXERCISE' | 'CIRCUIT' | 'SUPERSET'
+      sectionType?: string
+      name?: string
+      blockCategory?: string
+      instructions?: string
+      resultTrackingType?: string
+      conditioningFormat?: string
+      videoUrls?: unknown
+      exerciseId?: number
+      sets?: number
+      reps?: number
+      weightPercent?: number
+      tempo?: string
+      rest?: string
+      coachingNotes?: string
+    }
+  ) =>
+    api.post<{ statusCode: number; data: { id: number }; message?: string }>(
+      `admin/program/${programId}/weeks/${weekIndex}/days/${dayIndex}/blocks`,
+      body
+    ),
+
+  /**
+   * MASS Phase 4: Update block (section).
+   * PATCH admin/program/sections/:sectionId
+   */
+  updateSection: (
+    sectionId: number,
+    body: {
+      blockType?: string
+      name?: string
+      blockCategory?: string
+      instructions?: string
+      resultTrackingType?: string
+      videoUrls?: unknown
+      conditioningFormat?: string
+      parentSectionId?: number | null
+      supersetRounds?: number
+      restBetweenExercises?: string
+      restBetweenRounds?: string
+      orderIndex?: number
+    }
+  ) =>
+    api.patch<{ statusCode: number; data: unknown; message?: string }>(
+      `admin/program/sections/${sectionId}`,
+      body
+    ),
+
+  /**
+   * MASS Phase 4: Delete block (section).
+   * DELETE admin/program/sections/:sectionId
+   */
+  deleteSection: (sectionId: number) =>
+    api.delete<{ statusCode: number; message?: string }>(
+      `admin/program/sections/${sectionId}`
+    ),
+
+  /** MASS Phase 6: List Amber date-based sessions for a program. GET .../find-by-id/:programId/amber-sessions?from=&to= */
+  getAmberSessions: (
+    programId: number,
+    params?: { from?: string; to?: string }
+  ) =>
+    api.get<{
+      statusCode: number
+      data: {
+        rows: Array<{
+          id: number
+          sessionDate: string
+          programDayId: number
+          dayName?: string
+          dayIndex: number
+          isRestDay: boolean
+        }>
+      }
+    }>(`admin/program/find-by-id/${programId}/amber-sessions`, {
+      params: params ?? {},
+    }),
+
+  /** MASS Phase 6: Assign session to date (Amber program). PUT .../find-by-id/:programId/amber-sessions */
+  setAmberSession: (
+    programId: number,
+    body: { date: string; programDayId: number }
+  ) =>
+    api.put<{ statusCode: number; data: unknown }>(
+      `admin/program/find-by-id/${programId}/amber-sessions`,
+      body
+    ),
+
+  /** MASS Phase 6: Remove Amber session for a date. DELETE .../find-by-id/:programId/amber-sessions/:date */
+  deleteAmberSession: (programId: number, date: string) =>
+    api.delete<{ statusCode: number }>(
+      `admin/program/find-by-id/${programId}/amber-sessions/${date}`
+    ),
+
+  /** MASS Phase 6: Copy Amber session from one date to another. POST .../find-by-id/:programId/amber-sessions/copy */
+  copyAmberSession: (
+    programId: number,
+    body: { fromDate: string; toDate: string }
+  ) =>
+    api.post<{ statusCode: number; data: unknown }>(
+      `admin/program/find-by-id/${programId}/amber-sessions/copy`,
+      body
+    ),
+
+  /** MASS Phase 6: Assign Custom 1:1 program to athlete. PUT .../find-by-id/:programId/assign */
+  assignCustomProgram: (
+    programId: number,
+    body: { userId: number; endDate?: string }
+  ) =>
+    api.put<{ statusCode: number; data: { assignment: unknown } }>(
+      `admin/program/find-by-id/${programId}/assign`,
+      body
+    ),
+
+  /**
+   * MASS Phase 6: End Sustainment/Custom override and resume paused program.
+   * POST /api/v1/athlete/program/resume
+   */
+  resumeProgram: () =>
+    api.post<{
+      statusCode: number
+      data: { enrollment: unknown }
+      message?: string
+    }>('athlete/program/resume'),
+
+  /**
    * Upload video to S3
    * POST /api/v1/s3/upload
    */

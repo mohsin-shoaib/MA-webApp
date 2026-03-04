@@ -208,8 +208,8 @@ export default function DashboardPage() {
     try {
       if (sessionId) {
         await trainService.updateSession(sessionId, {
-          status: 'completed',
-          complianceType: 'quick_toggle',
+          status: 'COMPLETED',
+          complianceType: 'QUICK_TOGGLE',
         })
       } else {
         const createRes = await trainService.createOrGetSession({
@@ -223,8 +223,8 @@ export default function DashboardPage() {
         const session = createRes.data?.data
         if (session?.id) {
           await trainService.updateSession(session.id, {
-            status: 'completed',
-            complianceType: 'quick_toggle',
+            status: 'COMPLETED',
+            complianceType: 'QUICK_TOGGLE',
           })
         }
       }

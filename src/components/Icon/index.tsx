@@ -139,6 +139,15 @@ export function Icon({
   // Get icon definition
   const iconDefinition = getIconDefinition(name, family)
 
+  // Font Awesome size prop only accepts "xs" | "sm" | "lg" | "1x" | "2x" etc., not pixel numbers.
+  // When size is a number, use inline fontSize so pixel sizing works.
+  const sizeProp: SizeProp | undefined =
+    typeof size === 'number' ? undefined : (size as unknown as SizeProp)
+  const combinedStyle: React.CSSProperties = {
+    ...(typeof size === 'number' ? { fontSize: `${size}px` } : {}),
+    ...style,
+  }
+
   if (!iconDefinition) {
     console.warn(
       `Icon "${name}" not found in ${family} family. Falling back to solid.`
@@ -152,11 +161,12 @@ export function Icon({
     return (
       <FontAwesomeIcon
         icon={fallbackIcon}
-        size={size as unknown as SizeProp}
+        size={sizeProp}
         color={iconColor}
         className={className}
         style={
-          style as React.CSSProperties & Record<`--fa-font-${string}`, string>
+          combinedStyle as React.CSSProperties &
+            Record<`--fa-font-${string}`, string>
         }
       />
     )
@@ -165,11 +175,12 @@ export function Icon({
   return (
     <FontAwesomeIcon
       icon={iconDefinition}
-      size={size as unknown as SizeProp}
+      size={sizeProp}
       color={iconColor}
       className={className}
       style={
-        style as React.CSSProperties & Record<`--fa-font-${string}`, string>
+        combinedStyle as React.CSSProperties &
+          Record<`--fa-font-${string}`, string>
       }
     />
   )

@@ -3,9 +3,25 @@ export interface AlternateExerciseDTO {
   video?: string
   name: string
   description?: string
+  pointsOfPerformance?: string
   total_reps?: number
   sets?: number
   lb?: number
+}
+
+/** MASS Phase 3: working max and last logged from backend */
+export interface WorkingMaxDTO {
+  value: number
+  unit: 'lb' | 'kg'
+  source: 'auto' | 'manual' | 'test'
+  updatedAt: string
+}
+
+export interface LastLoggedDTO {
+  weightLb?: number
+  weightKg?: number
+  reps?: number
+  completedAt: string
 }
 
 export interface ExerciseDTO {
@@ -13,9 +29,20 @@ export interface ExerciseDTO {
   video?: string
   name: string
   description?: string
+  /** MASS Phase 2: coaching cues, shown to athletes */
+  pointsOfPerformance?: string
   total_reps?: number
   sets?: number
   lb?: number
+  /** MASS Phase 3: weight % of working max (e.g. 75) */
+  weight_percent?: number
+  /** MASS Phase 3: resolved working max for this exercise */
+  working_max?: WorkingMaxDTO
+  /** MASS Phase 3: prescribed weight from % (lb or kg) */
+  prescribed_weight_lb?: number
+  prescribed_weight_kg?: number
+  /** MASS Phase 3: last logged set */
+  last_logged?: LastLoggedDTO
   alternate_exercise?: AlternateExerciseDTO | null
 }
 
@@ -31,7 +58,19 @@ export interface DailyExerciseDTO {
   exercises: ExerciseDTO[]
 }
 
-// --- Program Builder hierarchy: Program → Weeks → Days → Sections → Exercises ---
+// --- Program Builder hierarchy: Program → Weeks → Days → Sections → Exercises (MASS Phase 4) ---
+/** MASS Phase 4: per-set prescription row */
+export interface ProgramStructureSetRow {
+  setIndex?: number
+  reps?: number
+  repsDisplay?: string
+  weightMode?: string
+  weightValue?: number
+  rpe?: number
+  tempo?: string
+  restSeconds?: number
+}
+
 export interface ProgramStructureSectionExercise {
   exerciseId: number
   sets?: number
@@ -41,18 +80,42 @@ export interface ProgramStructureSectionExercise {
   tempo?: string
   rest?: string
   coachingNotes?: string
+  /** MASS Phase 4: per-set prescription */
+  setsRows?: ProgramStructureSetRow[]
+  exercise?: {
+    id: number
+    name: string
+    description?: string | null
+    videoUrl?: string | null
+  }
 }
 
 export interface ProgramStructureSection {
   sectionType?: 'normal' | 'superset' | 'circuit' | 'AMRAP' | 'EMOM'
+  /** MASS Phase 4: EXERCISE | CIRCUIT | SUPERSET */
+  blockType?: 'EXERCISE' | 'CIRCUIT' | 'SUPERSET'
+  blockCategory?: string
   name?: string
+  instructions?: string
+  resultTrackingType?: string
+  videoUrls?: unknown
+  conditioningFormat?: string
+  parentSectionId?: number
+  supersetRounds?: number
+  restBetweenExercises?: string
+  restBetweenRounds?: string
   exercises: ProgramStructureSectionExercise[]
 }
 
 export interface ProgramStructureDay {
+  /** MASS Phase 6: DB id for Amber session assignment */
+  id?: number
   dayIndex: number
   isRestDay?: boolean
   dayName?: string
+  /** MASS Phase 4 */
+  sessionNotes?: string
+  estimatedDurationMinutes?: number
   sections?: ProgramStructureSection[]
 }
 
@@ -73,10 +136,11 @@ export interface CreateProgramDTO {
   category?: string | null
   subCategory?: string | null
   cycleId: number
+  /** MASS Phase 4: create empty weeks when no programStructure */
+  numberOfWeeks?: number
+  goalTypeId?: number
   isActive?: boolean
-  /** Legacy flat structure; required if programStructure not provided */
   dailyExercises?: DailyExerciseDTO[]
-  /** Program Builder hierarchy; when provided, backend derives dailyExercise */
   programStructure?: ProgramStructure
 }
 
@@ -140,6 +204,8 @@ export interface GetProgramsQueryDTO {
   category?: string
   subCategory?: string
   isActive?: boolean
+  /** true = published, false = draft (Phase 5 list filter) */
+  isPublished?: boolean
   sortBy?: string
   sortOrder?: 'ASC' | 'DESC'
 }
@@ -158,8 +224,6 @@ export interface ProgramStructureSectionExerciseWithExercise extends ProgramStru
     name: string
     description?: string | null
     videoUrl?: string | null
-    muscleGroup?: string | null
-    equipment?: string | null
   }
 }
 

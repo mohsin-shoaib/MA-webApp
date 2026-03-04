@@ -134,6 +134,9 @@ export function ProgramDetail() {
     setShowReviewStep(true)
   }
 
+  const isSustainmentOrCustom =
+    program?.cycle?.name === 'Sustainment' || program?.cycle?.name === 'Custom'
+
   const handleConfirmEnroll = () => {
     if (!program) return
     setEnrollLoading(true)
@@ -232,7 +235,14 @@ export function ProgramDetail() {
             <p className="text-sm text-gray-600">
               Cycle: {program.cycle.name}
               {program.cycle.duration != null &&
+                program.cycle.duration < 9999 &&
                 ` • ${program.cycle.duration} weeks`}
+            </p>
+          )}
+          {isSustainmentOrCustom && (
+            <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded px-3 py-2 mt-2">
+              Enrolling will temporarily pause your current program. You can
+              resume it later from the Program browser.
             </p>
           )}
           {program.description && (

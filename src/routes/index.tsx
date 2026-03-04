@@ -19,25 +19,27 @@ import AdminRecoveryProtocols from '@/pages/admin/recovery-protocols'
 import AdminMarketplace from '@/pages/admin/marketplace'
 import AdminTests from '@/pages/admin/tests'
 import AdminExercises from '@/pages/admin/exercises'
-import AdminExerciseOptions from '@/pages/admin/exercise-options'
 import CoachHeadUserManagement from '@/pages/coach-head/user-management'
 import CoachUserManagement from '@/pages/coach/user-management'
+import CoachAthleteDetail from '@/pages/coach/athlete-detail'
 import CoachMyAthletes from '@/pages/coach/my-athletes'
 import Profile from '@/pages/profile'
 import Train from '@/pages/train'
 import WorkoutPlayer from '@/pages/train/WorkoutPlayer'
 import TodaySession from '@/pages/train/TodaySession'
 import ExerciseLibrary from '@/pages/train/ExerciseLibrary'
+import AthleteExerciseLibrary from '@/pages/train/AthleteExerciseLibrary'
 import { ProgramBrowser } from '@/pages/train/ProgramBrowser'
 import { ProgramDetail } from '@/pages/train/ProgramDetail'
 import NutritionHub from '@/pages/train/NutritionHub'
 import RecoveryHub from '@/pages/train/RecoveryHub'
-import Dashboard from '@/pages/dashboard'
+import AthleteDashboard from '@/pages/athleteDashboard'
 import Goals from '@/pages/goals'
 import Progress from '@/pages/progress'
 import TestsPage from '@/pages/progress/TestsPage'
 import AnalyticsPage from '@/pages/progress/AnalyticsPage'
 import CoachAnalyticsPage from '@/pages/coach/CoachAnalyticsPage.tsx'
+import CoachDashboard from '@/pages/coach/CoachDashboard'
 import CoachMarketplace from '@/pages/coach/marketplace'
 import CoachExercises from '@/pages/coach/exercises'
 import AdminAnalyticsPage from '@/pages/admin/AdminAnalyticsPage.tsx'
@@ -49,6 +51,8 @@ import { AuthRedirect } from '@/components/AuthRedirect'
 import { NotFound } from '@/components/NotFound'
 import { AppLayout } from '@/components/AppLayout'
 import { Navigate } from 'react-router-dom'
+import DashboardPage from '@/pages/Dashboard'
+import LibraryPage from '@/pages/library'
 
 export const routes = [
   {
@@ -100,6 +104,26 @@ export const routes = [
     element: <AcceptInvite />,
   },
   {
+    path: '/dashboard',
+    element: (
+      <ProtectedRoute allowedRoles={['ATHLETE', 'ADMIN', 'COACH']}>
+        <AppLayout>
+          <DashboardPage />
+        </AppLayout>
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/library',
+    element: (
+      <ProtectedRoute allowedRoles={['ATHLETE', 'ADMIN', 'COACH']}>
+        <AppLayout>
+          <LibraryPage />
+        </AppLayout>
+      </ProtectedRoute>
+    ),
+  },
+  {
     path: '/subscription',
     element: (
       <ProtectedRoute allowedRoles={['ATHLETE']}>
@@ -120,6 +144,16 @@ export const routes = [
     element: (
       <ProtectedRoute allowedRoles={['COACH']}>
         <Navigate to="/coach/program-management" replace />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/coach/dashboard',
+    element: (
+      <ProtectedRoute allowedRoles={['COACH', 'COACH_HEAD']}>
+        <AppLayout>
+          <CoachDashboard />
+        </AppLayout>
       </ProtectedRoute>
     ),
   },
@@ -149,6 +183,16 @@ export const routes = [
       <ProtectedRoute allowedRoles={['COACH']}>
         <AppLayout>
           <CoachUserManagement />
+        </AppLayout>
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/coach/athletes/:athleteId',
+    element: (
+      <ProtectedRoute allowedRoles={['COACH', 'COACH_HEAD']}>
+        <AppLayout>
+          <CoachAthleteDetail />
         </AppLayout>
       </ProtectedRoute>
     ),
@@ -295,13 +339,7 @@ export const routes = [
   },
   {
     path: '/admin/exercise-options',
-    element: (
-      <ProtectedRoute allowedRoles={['ADMIN']}>
-        <AppLayout>
-          <AdminExerciseOptions />
-        </AppLayout>
-      </ProtectedRoute>
-    ),
+    element: <Navigate to="/admin/exercises" replace />,
   },
   {
     path: '/admin/analytics',
@@ -354,11 +392,11 @@ export const routes = [
     ),
   },
   {
-    path: '/dashboard',
+    path: 'athlete/dashboard',
     element: (
       <ProtectedRoute allowedRoles={['ATHLETE']}>
         <AppLayout>
-          <Dashboard />
+          <AthleteDashboard />
         </AppLayout>
       </ProtectedRoute>
     ),
@@ -479,6 +517,16 @@ export const routes = [
       <ProtectedRoute allowedRoles={['ATHLETE']}>
         <AppLayout>
           <ExerciseLibrary />
+        </AppLayout>
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/train/exercises',
+    element: (
+      <ProtectedRoute allowedRoles={['ATHLETE']}>
+        <AppLayout>
+          <AthleteExerciseLibrary />
         </AppLayout>
       </ProtectedRoute>
     ),

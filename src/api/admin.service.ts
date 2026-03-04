@@ -39,4 +39,30 @@ export const adminService = {
     api.patch<ClearOnboardingFlagResponse>(
       `admin/onboardings/${onboardingId}/clear-flag`
     ),
+
+  /** MASS Phase 3: Get working maxes for a user. GET admin/users/:userId/working-max */
+  getUserWorkingMax: (userId: number) =>
+    api.get<{
+      statusCode: number
+      data: {
+        workingMaxes: Array<{
+          exerciseId: number
+          exerciseName: string
+          value: number
+          unit: string
+          source: string
+          updatedAt: string
+        }>
+      }
+    }>(`admin/users/${userId}/working-max`),
+
+  /** MASS Phase 3: Set user working max. POST admin/users/:userId/working-max */
+  setUserWorkingMax: (
+    userId: number,
+    body: { exerciseId: number; value: number; unit: 'lb' | 'kg' }
+  ) =>
+    api.post<{ statusCode: number; data: { workingMax: unknown } }>(
+      `admin/users/${userId}/working-max`,
+      body
+    ),
 }

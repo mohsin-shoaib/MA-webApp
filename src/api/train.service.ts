@@ -47,13 +47,62 @@ export const trainService = {
     api.post<WorkoutSessionResponse>('athlete/train/sessions', body),
 
   /**
-   * Update session status (complete/skip).
+   * Update session status (complete/skip). MASS Phase 7: intensityRating, sessionComments.
    * PATCH /athlete/train/sessions/:id
    */
   updateSession: (sessionId: number, body: UpdateSessionDTO) =>
     api.patch<WorkoutSessionResponse>(
       `athlete/train/sessions/${sessionId}`,
       body
+    ),
+
+  /**
+   * MASS Phase 7: Submit pre-session readiness survey (1-5 for Sleep, Stress, Energy, Soreness, Mood).
+   * POST /athlete/train/readiness
+   */
+  submitReadiness: (body: {
+    sessionDate: string
+    workoutSessionId?: number
+    sleep: number
+    stress: number
+    energy: number
+    soreness: number
+    mood: number
+  }) =>
+    api.post<{ statusCode: number; data: unknown }>(
+      'athlete/train/readiness',
+      body
+    ),
+
+  /**
+   * MASS Phase 7: Get readiness for a date. GET /athlete/train/readiness?date=
+   */
+  getReadiness: (date: string) =>
+    api.get<{ statusCode: number; data: unknown }>('athlete/train/readiness', {
+      params: { date },
+    }),
+
+  /**
+   * MASS Phase 7: Record exercise swap for this session only.
+   * POST /athlete/train/sessions/:id/swap
+   */
+  swapExercise: (
+    sessionId: number,
+    body: { originalExerciseId: number; newExerciseId: number }
+  ) =>
+    api.post<WorkoutSessionResponse>(
+      `athlete/train/sessions/${sessionId}/swap`,
+      body
+    ),
+
+  /**
+   * MASS Phase 7: Reschedule session to another date. Completed sessions not moveable.
+   * POST /athlete/train/sessions/:id/reschedule
+   */
+  rescheduleSession: (sessionId: number, targetDate: string) =>
+    api.post<WorkoutSessionResponse>(
+      `athlete/train/sessions/${sessionId}/reschedule`,
+      { targetDate }
     ),
 
   /**
@@ -98,27 +147,45 @@ export const trainService = {
   },
 
   /**
-   * Get exercise library with optional filters (PRD 9.2).
-   * GET /athlete/train/exercises?search=&muscleGroup=&equipment=&cycleSafe=
+   * MASS Phase 7: Get linked substitution exercises for swap (show first in swap modal).
+   * GET /athlete/train/exercises/:id/substitutions
    */
-  getExerciseLibrary: (params?: {
-    search?: string
-    muscleGroup?: string
-    equipment?: string
-    cycleSafe?: string
-  }) =>
+  getExerciseSubstitutions: (exerciseId: number) =>
     api.get<{
       statusCode: number
-      data: Array<{
-        name: string
-        description?: string
-        video?: string
-        exercise_id?: string
-        muscle_group?: string
-        equipment?: string
-        cycleName?: string
-      }>
-    }>('athlete/train/exercises', { params: params ?? {} }),
+      data: {
+        substitutions: Array<{ id: number; name: string; description?: string }>
+      }
+    }>(`athlete/train/exercises/${exerciseId}/substitutions`),
+
+  /**
+   * Exercise library (MASS Phase 2): read-only list; search by name, filter by tags.
+   * GET /athlete/train/exercises?search=&tags=
+   */
+  getExerciseLibrary: (params?: { search?: string; tags?: string[] }) => {
+    const query = params ?? {}
+    const search = query.search
+    const tags = query.tags
+    const paramsObj: Record<string, string | string[] | undefined> = {}
+    if (search != null && search !== '') paramsObj.search = search
+    if (tags != null && tags.length > 0) paramsObj.tags = tags
+    return api.get<{
+      statusCode: number
+      data: {
+        rows: Array<{
+          id: number
+          name: string
+          description?: string | null
+          videoUrl?: string | null
+          defaultParameter1?: string | null
+          defaultParameter2?: string | null
+          pointsOfPerformance?: string | null
+          tags?: string[] | null
+        }>
+        meta: { total: number; page: number; limit: number; pages: number }
+      }
+    }>('athlete/train/exercises', { params: paramsObj })
+  },
 
   /**
    * Log a set for a session.
@@ -127,6 +194,51 @@ export const trainService = {
   logSet: (sessionId: number, body: LogSetDTO) =>
     api.post<WorkoutSessionResponse>(
       `athlete/train/sessions/${sessionId}/sets`,
+      body
+    ),
+
+  /**
+   * Get working max (MASS Phase 3). With exerciseId: single exercise + lastLogged; without: list all.
+   */
+  getWorkingMax: (exerciseId?: number) => {
+    const params = exerciseId != null ? { exerciseId } : {}
+    return api.get<{
+      statusCode: number
+      data: {
+        workingMax?: {
+          value: number
+          unit: string
+          source: string
+          updatedAt: string
+        } | null
+        lastLogged?: {
+          weightLb?: number
+          weightKg?: number
+          reps?: number
+          completedAt: string
+        } | null
+        workingMaxes?: Array<{
+          exerciseId: number
+          exerciseName: string
+          value: number
+          unit: string
+          source: string
+          updatedAt: string
+        }>
+      }
+    }>('athlete/train/working-max', { params })
+  },
+
+  /**
+   * Set working max manually (MASS Phase 3). POST /athlete/train/working-max
+   */
+  setWorkingMax: (body: {
+    exerciseId: number
+    value: number
+    unit: 'lb' | 'kg'
+  }) =>
+    api.post<{ statusCode: number; data: { workingMax: unknown } }>(
+      'athlete/train/working-max',
       body
     ),
 }

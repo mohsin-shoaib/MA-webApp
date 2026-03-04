@@ -1,5 +1,12 @@
 import type { DailyExerciseDTO } from '@/types/program'
 
+/** MASS Phase 7: exercise swap for this session (apply when rendering blocks) */
+export interface ExerciseSwapItem {
+  originalExerciseId: number
+  newExerciseId: number
+  newExercise?: { id: number; name: string }
+}
+
 /** Response from GET /athlete/train/today or scheduled-workout?date= */
 export interface TodayWorkoutResponse {
   statusCode: number
@@ -24,8 +31,32 @@ export interface TodayWorkoutResponse {
     /** Uppercase from scheduled-workout e.g. "COMPLETED" */
     sessionStatus?: string
     completedAt?: string
+    /** MASS Phase 7: session notes from ProgramDay */
+    sessionNotes?: string
+    /** MASS Phase 7: full day structure (sections with exercises) for block view */
+    dayStructure?: Record<string, unknown>
+    /** MASS Phase 7: exercise swaps for this session */
+    exerciseSwaps?: ExerciseSwapItem[]
   }
   message?: string
+}
+
+/** MASS Phase 7: one PR entry when status=COMPLETED */
+export interface SessionSummaryPR {
+  exerciseKey: string
+  exerciseName?: string
+  type: string
+  previousValue: number
+  newValue: number
+  unit: string
+}
+
+/** MASS Phase 7: computed when status=COMPLETED */
+export interface SessionSummary {
+  totalSets: number
+  volumeKg: number
+  durationMinutes?: number
+  prs?: SessionSummaryPR[]
 }
 
 /** Workout session (one scheduled day) */
@@ -43,18 +74,34 @@ export interface WorkoutSession {
   createdAt: string
   updatedAt: string
   setLogs?: SetLog[]
+  /** MASS Phase 7: when status=COMPLETED */
+  sessionSummary?: SessionSummary
+  /** MASS Phase 7: athlete comments on completion */
+  sessionComments?: string | null
+  /** MASS Phase 8: coach response (visible to athlete) */
+  coachResponseComment?: string | null
+  intensityRating?: number | null
+  exerciseSwaps?: Array<{
+    originalExerciseId: number
+    newExerciseId: number
+    newExercise?: { id: number; name: string }
+  }>
 }
 
 /** Single set log */
 export interface SetLog {
   id: number
   workoutSessionId: number
+  exerciseKey?: string
   exerciseId?: string
   exerciseName?: string
   setIndex: number
   reps?: number
   weightLb?: number
   weightKg?: number
+  rpe?: number
+  sectionExerciseId?: number
+  isModified?: boolean
   completedAt?: string
 }
 
@@ -82,8 +129,12 @@ export interface CreateSessionDTO {
 
 /** Body for PATCH /athlete/train/sessions/:id */
 export interface UpdateSessionDTO {
-  status: 'in_progress' | 'completed' | 'skipped'
-  complianceType?: 'full_log' | 'quick_toggle'
+  status: 'COMPLETED' | 'SKIPPED'
+  complianceType?: 'FULL_LOG' | 'QUICK_TOGGLE'
+  /** MASS Phase 7: 1-10 when status=COMPLETED */
+  intensityRating?: number
+  /** MASS Phase 7: optional comments when status=COMPLETED */
+  sessionComments?: string
 }
 
 /** Body for POST /athlete/train/sessions/:id/sets */
@@ -96,4 +147,7 @@ export interface LogSetDTO {
   reps?: number
   weightLb?: number
   weightKg?: number
+  rpe?: number
+  sectionExerciseId?: number
+  isModified?: boolean
 }

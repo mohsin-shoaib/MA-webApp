@@ -6,13 +6,35 @@ import { Tabs } from '@/components/Tabs'
 import { Button } from '@/components/Button'
 import { Input } from '@/components/Input'
 import { Modal } from '@/components/Modal'
+import { Spinner } from '@/components/Spinner'
 import { adminService } from '@/api/admin.service'
 import { coachInviteService } from '@/api/coach-invite.service'
+import { AdminSetWorkingMaxModal } from '@/components/AdminSetWorkingMaxModal'
 import { useSnackbar } from '@/components/Snackbar/useSnackbar'
 import type { User } from '@/types/admin'
 import { AxiosError } from 'axios'
 import { Avatar } from '@/components/Avatar'
 import { Badge } from '@/components/Badge'
+
+type WorkingMaxRow = {
+  exerciseId: number
+  exerciseName: string
+  value: number
+  unit: string
+  source: string
+  updatedAt: string
+}
+
+function userDisplayName(u: {
+  firstName?: string | null
+  lastName?: string | null
+  email?: string
+}) {
+  const first = u.firstName ?? ''
+  const last = u.lastName ?? ''
+  if (first || last) return `${first} ${last}`.trim()
+  return u.email ?? ''
+}
 
 const UserManagement = () => {
   const [activeTab, setActiveTab] = useState('all')
@@ -24,6 +46,11 @@ const UserManagement = () => {
   const [inviteFirstName, setInviteFirstName] = useState('')
   const [inviteLastName, setInviteLastName] = useState('')
   const [inviteError, setInviteError] = useState<string | null>(null)
+  const [workingMaxUser, setWorkingMaxUser] = useState<User | null>(null)
+  const [workingMaxList, setWorkingMaxList] = useState<WorkingMaxRow[]>([])
+  const [workingMaxListLoading, setWorkingMaxListLoading] = useState(false)
+  const [editingWorkingMax, setEditingWorkingMax] =
+    useState<WorkingMaxRow | null>(null)
   const { showError, showSuccess } = useSnackbar()
 
   const fetchUsers = useCallback(async () => {
@@ -47,6 +74,25 @@ const UserManagement = () => {
   useEffect(() => {
     fetchUsers()
   }, [fetchUsers])
+
+  useEffect(() => {
+    if (!workingMaxUser) {
+      setWorkingMaxList([])
+      return
+    }
+    setWorkingMaxListLoading(true)
+    adminService
+      .getUserWorkingMax(Number(workingMaxUser.id))
+      .then(res => {
+        if (res.data?.statusCode === 200 && res.data.data?.workingMaxes) {
+          setWorkingMaxList(res.data.data.workingMaxes)
+        } else {
+          setWorkingMaxList([])
+        }
+      })
+      .catch(() => setWorkingMaxList([]))
+      .finally(() => setWorkingMaxListLoading(false))
+  }, [workingMaxUser, workingMaxUser?.id])
 
   const handleInviteCoach = async () => {
     if (!inviteEmail.trim()) {
@@ -209,7 +255,16 @@ const UserManagement = () => {
       sortable: false,
       align: 'right',
       width: '150px',
-      render: () => <Text variant="muted">—</Text>,
+      render: (_value, row) => (
+        <Button
+          type="button"
+          variant="outline"
+          size="small"
+          onClick={() => setWorkingMaxUser(row)}
+        >
+          Working maxes
+        </Button>
+      ),
     },
   ]
 
@@ -370,6 +425,90 @@ const UserManagement = () => {
         onTabChange={setActiveTab}
         variant="default"
       />
+
+      {workingMaxUser && (
+        <Modal
+          visible={!!workingMaxUser}
+          onClose={() => {
+            setWorkingMaxUser(null)
+            setEditingWorkingMax(null)
+          }}
+          title={`Working maxes: ${userDisplayName(workingMaxUser)}`}
+          showCloseButton
+          closeOnBackdropPress
+          closeOnEscape
+          size="medium"
+          secondaryAction={{
+            label: 'Close',
+            onPress: () => {
+              setWorkingMaxUser(null)
+              setEditingWorkingMax(null)
+            },
+          }}
+        >
+          <div className="space-y-4">
+            {workingMaxListLoading && (
+              <div className="flex gap-2 py-4">
+                <Spinner size="small" variant="primary" />
+                <Text variant="secondary">Loading…</Text>
+              </div>
+            )}
+            {!workingMaxListLoading && workingMaxList.length === 0 && (
+              <Text variant="secondary" className="text-sm">
+                No working maxes yet. User can set them in Train or by logging
+                sets with weight and reps.
+              </Text>
+            )}
+            {!workingMaxListLoading && workingMaxList.length > 0 && (
+              <ul className="space-y-2 max-h-[50vh] overflow-y-auto">
+                {workingMaxList.map(row => (
+                  <li
+                    key={row.exerciseId}
+                    className="flex flex-wrap items-center justify-between gap-2 py-2 border-b border-gray-100 last:border-0"
+                  >
+                    <div>
+                      <Text variant="default" className="text-sm font-medium">
+                        {row.exerciseName}
+                      </Text>
+                      <Text variant="muted" className="text-xs">
+                        {row.value} {row.unit} · {row.source}
+                      </Text>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="small"
+                      onClick={() => setEditingWorkingMax(row)}
+                    >
+                      Set
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </Modal>
+      )}
+
+      {workingMaxUser && editingWorkingMax && (
+        <AdminSetWorkingMaxModal
+          visible={!!editingWorkingMax}
+          onClose={() => setEditingWorkingMax(null)}
+          onSuccess={async () => {
+            const res = await adminService.getUserWorkingMax(
+              Number(workingMaxUser.id)
+            )
+            if (res.data?.statusCode === 200 && res.data.data?.workingMaxes) {
+              setWorkingMaxList(res.data.data.workingMaxes)
+            }
+          }}
+          userId={Number(workingMaxUser.id)}
+          exerciseId={editingWorkingMax.exerciseId}
+          exerciseName={editingWorkingMax.exerciseName}
+          currentValue={editingWorkingMax.value}
+          currentUnit={editingWorkingMax.unit as 'lb' | 'kg'}
+        />
+      )}
     </Stack>
   )
 }
