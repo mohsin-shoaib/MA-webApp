@@ -3,7 +3,7 @@ import { Text } from '@/components/Text'
 import { Card } from '@/components/Card'
 import { Input } from '@/components/Input'
 import { Button } from '@/components/Button'
-import { Modal } from '@/components/Modal'
+import { Drawer } from '@/components/Drawer'
 import { SetWorkingMaxModal } from '@/components/SetWorkingMaxModal'
 import { DataTable, type Column } from '@/components/DataTable'
 import { Pagination } from '@/components/Pagination'
@@ -369,19 +369,20 @@ export default function AthleteExerciseLibrary() {
       </Card>
 
       {detailExercise && (
-        <Modal
+        <Drawer
           visible={true}
           onClose={() => setDetailExercise(null)}
           title={detailExercise.name}
           showCloseButton
           closeOnBackdropPress
           closeOnEscape
+          width="lg"
           secondaryAction={{
             label: 'Close',
             onPress: () => setDetailExercise(null),
           }}
         >
-          <div className="space-y-4 max-h-[70vh] overflow-y-auto">
+          <div className="space-y-4">
             {detailExercise.pointsOfPerformance && (
               <div>
                 <Text variant="default" className="text-sm font-medium mb-1">
@@ -426,19 +427,69 @@ export default function AthleteExerciseLibrary() {
                   </Text>
                 </div>
               )}
-            {detailExercise.videoUrl && (
+            {detailExercise.videoUrl && detailExercise.videoUrl.trim() && (
               <div>
-                <Text variant="default" className="text-sm font-medium mb-1">
+                <Text
+                  variant="default"
+                  className="text-sm font-medium mb-1 block"
+                >
                   Demo video
                 </Text>
-                <a
-                  href={detailExercise.videoUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-[#3AB8ED] text-sm hover:underline"
-                >
-                  Watch demo
-                </a>
+                {(() => {
+                  const url = detailExercise.videoUrl.trim()
+                  let youtubeId: string | null = null
+                  let vimeoId: string | null = null
+                  if (url.includes('youtu.be/')) {
+                    youtubeId =
+                      url.split('youtu.be/')[1]?.split('?')[0]?.trim() ?? null
+                  } else if (url.includes('youtube.com')) {
+                    try {
+                      youtubeId = new URL(url).searchParams.get('v')
+                    } catch {
+                      youtubeId = null
+                    }
+                  }
+                  if (!youtubeId && url.includes('vimeo.com/')) {
+                    const m = url.match(/vimeo\.com\/(?:video\/)?(\d+)/)
+                    vimeoId = m ? m[1] : null
+                  }
+                  if (youtubeId) {
+                    return (
+                      <div className="rounded-lg overflow-hidden bg-black aspect-video max-w-full">
+                        <iframe
+                          title="Demo video"
+                          src={`https://www.youtube.com/embed/${youtubeId}`}
+                          className="w-full h-full min-h-[200px]"
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                          allowFullScreen
+                        />
+                      </div>
+                    )
+                  }
+                  if (vimeoId) {
+                    return (
+                      <div className="rounded-lg overflow-hidden bg-black aspect-video max-w-full">
+                        <iframe
+                          title="Demo video"
+                          src={`https://player.vimeo.com/video/${vimeoId}`}
+                          className="w-full h-full min-h-[200px]"
+                          allow="fullscreen; picture-in-picture"
+                          allowFullScreen
+                        />
+                      </div>
+                    )
+                  }
+                  return (
+                    <a
+                      href={url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[#3AB8ED] text-sm hover:underline"
+                    >
+                      Watch demo
+                    </a>
+                  )
+                })()}
               </div>
             )}
             <div className="border-t border-gray-200 pt-4 mt-4">
@@ -500,7 +551,7 @@ export default function AthleteExerciseLibrary() {
               </Button>
             </div>
           </div>
-        </Modal>
+        </Drawer>
       )}
 
       {detailExercise && (
