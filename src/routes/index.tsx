@@ -33,7 +33,7 @@ import { ProgramBrowser } from '@/pages/train/ProgramBrowser'
 import { ProgramDetail } from '@/pages/train/ProgramDetail'
 import NutritionHub from '@/pages/train/NutritionHub'
 import RecoveryHub from '@/pages/train/RecoveryHub'
-import Dashboard from '@/pages/dashboard'
+import AthleteDashboard from '@/pages/athleteDashboard'
 import Goals from '@/pages/goals'
 import Progress from '@/pages/progress'
 import TestsPage from '@/pages/progress/TestsPage'
@@ -51,6 +51,8 @@ import { AuthRedirect } from '@/components/AuthRedirect'
 import { NotFound } from '@/components/NotFound'
 import { AppLayout } from '@/components/AppLayout'
 import { Navigate } from 'react-router-dom'
+import DashboardPage from '@/pages/Dashboard'
+import LibraryPage from '@/pages/library'
 
 export const routes = [
   {
@@ -100,6 +102,26 @@ export const routes = [
   {
     path: '/accept-invite',
     element: <AcceptInvite />,
+  },
+  {
+    path: '/dashboard',
+    element: (
+      <ProtectedRoute allowedRoles={['ATHLETE', 'ADMIN', 'COACH']}>
+        <AppLayout>
+          <DashboardPage />
+        </AppLayout>
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/library',
+    element: (
+      <ProtectedRoute allowedRoles={['ATHLETE', 'ADMIN', 'COACH']}>
+        <AppLayout>
+          <LibraryPage />
+        </AppLayout>
+      </ProtectedRoute>
+    ),
   },
   {
     path: '/subscription',
@@ -370,11 +392,11 @@ export const routes = [
     ),
   },
   {
-    path: '/dashboard',
+    path: 'athlete/dashboard',
     element: (
       <ProtectedRoute allowedRoles={['ATHLETE']}>
         <AppLayout>
-          <Dashboard />
+          <AthleteDashboard />
         </AppLayout>
       </ProtectedRoute>
     ),
