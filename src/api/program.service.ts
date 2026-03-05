@@ -121,39 +121,215 @@ export const programService = {
   getRecommendedNext: () =>
     api.get<RecommendedNextResponse>('athlete/program/recommended-next'),
 
-  /**
-   * MASS Phase 4: Create block (section) in a day.
-   * POST admin/program/:programId/weeks/:weekIndex/days/:dayIndex/blocks
-   */
-  createBlock: (
-    programId: number,
-    weekIndex: number,
-    dayIndex: number,
+  /** MASS 2.3: Add week. POST admin/program/:programId/weeks */
+  addWeek: (programId: number, body?: { weekName?: string }) =>
+    api.post<{
+      statusCode: number
+      data: { id: number; weekIndex: number; weekName?: string }
+      message?: string
+    }>(`admin/program/${programId}/weeks`, body ?? {}),
+
+  /** MASS 2.3: Update week. PATCH admin/program/weeks/:weekId */
+  updateWeek: (weekId: number, body: { weekName?: string }) =>
+    api.patch<{ statusCode: number; data: unknown; message?: string }>(
+      `admin/program/weeks/${weekId}`,
+      body
+    ),
+
+  /** MASS 2.3: Delete week. DELETE admin/program/weeks/:weekId */
+  deleteWeek: (weekId: number) =>
+    api.delete<{ statusCode: number; message?: string }>(
+      `admin/program/weeks/${weekId}`
+    ),
+
+  /** MASS 2.3: Duplicate week. POST admin/program/:programId/weeks/duplicate */
+  duplicateWeek: (programId: number, body: { sourceWeekId: number }) =>
+    api.post<{ statusCode: number; data: unknown; message?: string }>(
+      `admin/program/${programId}/weeks/duplicate`,
+      body
+    ),
+
+  /** MASS 2.3: Reorder weeks. PATCH admin/program/:programId/weeks/reorder */
+  reorderWeeks: (programId: number, body: { weekIds: number[] }) =>
+    api.patch<{ statusCode: number; data: unknown; message?: string }>(
+      `admin/program/${programId}/weeks/reorder`,
+      body
+    ),
+
+  /** MASS 2.4: Add day. POST admin/program/weeks/:weekId/days */
+  addDay: (weekId: number, body?: { dayName?: string; dayIndex?: number }) =>
+    api.post<{
+      statusCode: number
+      data: { id: number; dayIndex: number }
+      message?: string
+    }>(`admin/program/weeks/${weekId}/days`, body ?? {}),
+
+  /** MASS 2.4: Update day. PATCH admin/program/days/:dayId */
+  updateDay: (
+    dayId: number,
     body: {
-      blockType: 'EXERCISE' | 'CIRCUIT' | 'SUPERSET'
-      sectionType?: string
-      name?: string
-      blockCategory?: string
-      instructions?: string
-      resultTrackingType?: string
-      conditioningFormat?: string
-      videoUrls?: unknown
-      exerciseId?: number
-      sets?: number
-      reps?: number
-      weightPercent?: number
-      tempo?: string
-      rest?: string
-      coachingNotes?: string
+      dayName?: string
+      sessionNotes?: string
+      isRestDay?: boolean
+      estimatedDurationMinutes?: number
     }
   ) =>
-    api.post<{ statusCode: number; data: { id: number }; message?: string }>(
-      `admin/program/${programId}/weeks/${weekIndex}/days/${dayIndex}/blocks`,
+    api.patch<{ statusCode: number; data: unknown; message?: string }>(
+      `admin/program/days/${dayId}`,
+      body
+    ),
+
+  /** MASS 2.4: Delete day. DELETE admin/program/days/:dayId */
+  deleteDay: (dayId: number) =>
+    api.delete<{ statusCode: number; message?: string }>(
+      `admin/program/days/${dayId}`
+    ),
+
+  /** MASS 2.4: Duplicate day. POST admin/program/weeks/:weekId/days/duplicate */
+  duplicateDay: (weekId: number, body: { sourceDayId: number }) =>
+    api.post<{ statusCode: number; data: unknown; message?: string }>(
+      `admin/program/weeks/${weekId}/days/duplicate`,
+      body
+    ),
+
+  /** MASS 2.4: Reorder days. PATCH admin/program/weeks/:weekId/days/reorder */
+  reorderDays: (weekId: number, body: { dayIds: number[] }) =>
+    api.patch<{ statusCode: number; data: unknown; message?: string }>(
+      `admin/program/weeks/${weekId}/days/reorder`,
+      body
+    ),
+
+  /** MASS 2.8: Move day to another week/slot. PATCH admin/program/days/:dayId/move */
+  moveDay: (
+    dayId: number,
+    body: { targetWeekId: number; targetDayIndex?: number }
+  ) =>
+    api.patch<{ statusCode: number; data: unknown; message?: string }>(
+      `admin/program/days/${dayId}/move`,
       body
     ),
 
   /**
-   * MASS Phase 4: Update block (section).
+   * MASS 2.5: Create block in a day by dayId (EXERCISE, CIRCUIT, SUPERSET).
+   * POST admin/program/days/:dayId/blocks
+   */
+  createBlockByDayId: (
+    dayId: number,
+    body: {
+      blockType: 'EXERCISE' | 'CIRCUIT' | 'SUPERSET'
+      blockCategory?: string
+      orderIndex?: number
+      exerciseId?: number
+      sets?: number
+      reps?: number
+      prescriptionRows?: Array<{
+        setIndex?: number
+        reps?: number
+        repsDisplay?: string
+        weightMode?: string
+        weightValue?: number
+        rpe?: number
+        tempo?: string
+        restSeconds?: number
+      }>
+      coachingNotes?: string
+      name?: string
+      instructions?: string
+      resultTrackingType?: string
+      conditioningFormat?: string
+      conditioningConfig?: {
+        timeCapSeconds?: number
+        durationSeconds?: number
+        intervalLengthSeconds?: number
+        rounds?: number
+        workSeconds?: number
+        restSeconds?: number
+      }
+      videoUrls?: string[] | Record<string, unknown>
+      supersetRounds?: number
+      restBetweenExercises?: string
+      restBetweenRounds?: string
+      supersetNotes?: string
+      exercises?: Array<{
+        exerciseId: number
+        sets?: number
+        reps?: number
+        coachingNotes?: string
+        orderIndex?: number
+        prescriptionRows?: Array<{
+          setIndex?: number
+          reps?: number
+          restSeconds?: number
+        }>
+      }>
+    }
+  ) =>
+    api.post<{ statusCode: number; data: { id: number }; message?: string }>(
+      `admin/program/days/${dayId}/blocks`,
+      body
+    ),
+
+  /**
+   * MASS 2.5: Reorder blocks within a day.
+   * PATCH admin/program/days/:dayId/blocks/reorder
+   */
+  reorderBlocks: (dayId: number, body: { blockIds: number[] }) =>
+    api.patch<{ statusCode: number; data: unknown; message?: string }>(
+      `admin/program/days/${dayId}/blocks/reorder`,
+      body
+    ),
+
+  /**
+   * MASS 2.5: Get block by ID (for edit form).
+   * GET admin/program/blocks/:blockId
+   */
+  getBlockById: (blockId: number) =>
+    api.get<{ statusCode: number; data: unknown; message?: string }>(
+      `admin/program/blocks/${blockId}`
+    ),
+
+  /**
+   * MASS 2.5: Update block. PATCH admin/program/blocks/:blockId
+   */
+  updateBlock: (
+    blockId: number,
+    body: {
+      blockType?: 'EXERCISE' | 'CIRCUIT' | 'SUPERSET'
+      blockCategory?: string
+      orderIndex?: number
+      exerciseId?: number
+      sets?: number
+      reps?: number
+      prescriptionRows?: Array<{
+        setIndex?: number
+        reps?: number
+        repsDisplay?: string
+        weightMode?: string
+        weightValue?: number
+        rpe?: number
+        tempo?: string
+        restSeconds?: number
+      }>
+      coachingNotes?: string
+      name?: string
+      instructions?: string
+      resultTrackingType?: string
+      conditioningFormat?: string
+      conditioningConfig?: Record<string, number>
+      videoUrls?: string[] | Record<string, unknown>
+      supersetRounds?: number
+      restBetweenExercises?: string
+      restBetweenRounds?: string
+      supersetNotes?: string
+    }
+  ) =>
+    api.patch<{ statusCode: number; data: unknown; message?: string }>(
+      `admin/program/blocks/${blockId}`,
+      body
+    ),
+
+  /**
+   * MASS 2.5: Update block (section).
    * PATCH admin/program/sections/:sectionId
    */
   updateSection: (
@@ -185,6 +361,35 @@ export const programService = {
   deleteSection: (sectionId: number) =>
     api.delete<{ statusCode: number; message?: string }>(
       `admin/program/sections/${sectionId}`
+    ),
+
+  /**
+   * MASS 2.5: Add exercise to superset block.
+   * POST admin/program/supersets/:parentSectionId/exercises
+   */
+  addExerciseToSuperset: (
+    parentSectionId: number,
+    body: {
+      exerciseId: number
+      sets?: number
+      reps?: number
+      coachingNotes?: string
+      orderIndex?: number
+      prescriptionRows?: Array<{
+        setIndex?: number
+        reps?: number
+        repsDisplay?: string
+        weightMode?: string
+        weightValue?: number
+        rpe?: number
+        tempo?: string
+        restSeconds?: number
+      }>
+    }
+  ) =>
+    api.post<{ statusCode: number; data: unknown; message?: string }>(
+      `admin/program/supersets/${parentSectionId}/exercises`,
+      body
     ),
 
   /** MASS Phase 6: List Amber date-based sessions for a program. GET .../find-by-id/:programId/amber-sessions?from=&to= */

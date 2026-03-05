@@ -90,17 +90,34 @@ export interface ProgramStructureSectionExercise {
   }
 }
 
+/** MASS 2.7: Format-specific params for conditioning circuit blocks */
+export interface ConditioningConfig {
+  timeCapSeconds?: number
+  durationSeconds?: number
+  intervalLengthSeconds?: number
+  rounds?: number
+  workSeconds?: number
+  restSeconds?: number
+}
+
 export interface ProgramStructureSection {
+  id?: number
   sectionType?: 'normal' | 'superset' | 'circuit' | 'AMRAP' | 'EMOM'
   /** MASS Phase 4: EXERCISE | CIRCUIT | SUPERSET */
   blockType?: 'EXERCISE' | 'CIRCUIT' | 'SUPERSET'
+  /** MASS 2.6: Uncategorized, Prep, Speed/Agility, Skill/Tech, Strength/Power, Conditioning, Recovery */
   blockCategory?: string
   name?: string
   instructions?: string
   resultTrackingType?: string
   videoUrls?: unknown
+  /** MASS 2.7: AMRAP, EMOM, For Time, Tabata, Custom Interval, For Completion */
   conditioningFormat?: string
+  /** MASS 2.7: Timer/result params per format */
+  conditioningConfig?: ConditioningConfig
   parentSectionId?: number
+  /** Client-side superset grouping: index of parent section within the same day (before parentSectionId is set) */
+  parentSectionIndex?: number
   supersetRounds?: number
   restBetweenExercises?: string
   restBetweenRounds?: string
@@ -120,6 +137,8 @@ export interface ProgramStructureDay {
 }
 
 export interface ProgramStructureWeek {
+  /** Week ID for API (add day, duplicate, reorder, delete week) */
+  id?: number
   weekIndex: number
   weekName?: string
   days: ProgramStructureDay[]
@@ -129,17 +148,31 @@ export interface ProgramStructure {
   weeks: ProgramStructureWeek[]
 }
 
+/** MASS 2.1: Cycle type (required for create). */
+export type ProgramCycleType =
+  | 'RED'
+  | 'AMBER'
+  | 'GREEN'
+  | 'SUSTAINMENT'
+  | 'CUSTOM'
+
 // Create Program DTO (matches backend CreateProgramDTO)
 export interface CreateProgramDTO {
   program_name: string
   program_description: string
   category?: string | null
   subCategory?: string | null
-  cycleId: number
-  /** MASS Phase 4: create empty weeks when no programStructure */
-  numberOfWeeks?: number
+  /** MASS 2.1: Required. Red, Amber, Green, Sustainment, Custom */
+  cycleType: ProgramCycleType
+  /** Legacy: cycle ID; optional if cycleType is sent */
+  cycleId?: number
+  /** MASS 2.1: Required at creation. Pre-generates that many empty week rows when createEmptyWeeks. */
+  numberOfWeeks: number
+  /** MASS 2.1: Required for Green programs (links to Goal Type table). */
   goalTypeId?: number
   isActive?: boolean
+  /** Only ADMIN can set true at create; coach-created start as draft. */
+  isPublished?: boolean
   dailyExercises?: DailyExerciseDTO[]
   programStructure?: ProgramStructure
 }
@@ -152,6 +185,8 @@ export interface UpdateProgramDTO {
   subCategory?: string | null
   cycleId?: number
   isActive?: boolean
+  /** Only ADMIN can set true (publish); coach can set false (unpublish) */
+  isPublished?: boolean
   dailyExercises?: DailyExerciseDTO[]
   programStructure?: ProgramStructure
 }
@@ -167,6 +202,10 @@ export interface Program extends Record<string, unknown> {
   category: string | null
   subCategory: string | null
   cycleId: number
+  /** MASS 2.1: Computed from week count (null for Amber). Returned by getProgramById. */
+  durationWeeks?: number | null
+  /** MASS 2.1: Average training days per week. Returned by getProgramById. */
+  sessionsPerWeek?: number | null
   /** @deprecated Use programStructure for program content */
   dailyExercise?: DailyExerciseDTO[]
   alternateExercise?: Record<string, unknown>
