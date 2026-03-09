@@ -8,6 +8,7 @@ import { DataTable, type Column } from '@/components/DataTable'
 import { Modal } from '@/components/Modal'
 import { Tooltip } from '@/components/Tooltip'
 import { Dropdown } from '@/components/Dropdown'
+import { Input } from '@/components/Input'
 import { ProgramBuilderForm } from '@/components/Program/ProgramBuilderForm'
 import { adminService } from '@/api/admin.service'
 import { programService } from '@/api/program.service'
@@ -16,6 +17,7 @@ import { useSnackbar } from '@/components/Snackbar/useSnackbar'
 import type { Cycle } from '@/types/cycle'
 import type { Program } from '@/types/program'
 import type { GoalType } from '@/types/goal-type' // used for goalTypes state and filter options
+import type { User } from '@/types/admin'
 import { AxiosError } from 'axios'
 
 /**
@@ -40,6 +42,24 @@ const CyclePrograms = () => {
     'all' | 'draft' | 'published'
   >('all')
   const { showError, showSuccess } = useSnackbar()
+  // Red Cycle (3.1): Assign Red program to athlete
+  const [assignRedOpen, setAssignRedOpen] = useState(false)
+  const [assignRedProgram, setAssignRedProgram] = useState<Program | null>(null)
+  const [assignRedUserId, setAssignRedUserId] = useState<number | null>(null)
+  const [assignRedStartDate, setAssignRedStartDate] = useState(() =>
+    new Date().toISOString().slice(0, 10)
+  )
+  const [athletes, setAthletes] = useState<User[]>([])
+  const [assignRedLoading, setAssignRedLoading] = useState(false)
+  // 3.5 Custom / 1:1: Assign or reassign custom program to athlete
+  const [assignCustomOpen, setAssignCustomOpen] = useState(false)
+  const [assignCustomProgram, setAssignCustomProgram] =
+    useState<Program | null>(null)
+  const [assignCustomUserId, setAssignCustomUserId] = useState<number | null>(
+    null
+  )
+  const [assignCustomEndDate, setAssignCustomEndDate] = useState('')
+  const [assignCustomLoading, setAssignCustomLoading] = useState(false)
 
   // Fetch cycle name
   const fetchCycleName = useCallback(async () => {
@@ -192,6 +212,86 @@ const CyclePrograms = () => {
   // Amber cycle (id 2) allows only one program
   const isAmberCycle = cycleId === '2'
   const isAmberLimitReached = isAmberCycle && programs.length >= 1
+  const isRedCycle = cycleName === 'Red'
+  const isCustomCycle = cycleName === 'Custom'
+
+  const openAssignRed = (program: Program) => {
+    setAssignRedProgram(program)
+    setAssignRedUserId(null)
+    setAssignRedStartDate(new Date().toISOString().slice(0, 10))
+    setAssignRedOpen(true)
+  }
+
+  useEffect(() => {
+    if (assignRedOpen || assignCustomOpen) {
+      adminService
+        .getUsers()
+        .then(res => {
+          const rows = res.data?.data?.rows ?? []
+          setAthletes(rows.filter((u: User) => u.role === 'ATHLETE'))
+        })
+        .catch(() => setAthletes([]))
+    }
+  }, [assignRedOpen, assignCustomOpen])
+
+  const openAssignCustom = (program: Program) => {
+    setAssignCustomProgram(program)
+    setAssignCustomUserId(
+      (program as { assignedToUserId?: number })?.assignedToUserId ?? null
+    )
+    setAssignCustomEndDate('')
+    setAssignCustomOpen(true)
+  }
+
+  const handleAssignCustomSubmit = async () => {
+    if (!assignCustomProgram || assignCustomUserId == null) {
+      showError('Select an athlete')
+      return
+    }
+    setAssignCustomLoading(true)
+    try {
+      await programService.assignCustomProgram(assignCustomProgram.id, {
+        userId: assignCustomUserId,
+        endDate: assignCustomEndDate.trim() || undefined,
+      })
+      showSuccess(
+        'Custom program assigned. Athlete will see it until end date or resume.'
+      )
+      setAssignCustomOpen(false)
+      setAssignCustomProgram(null)
+      setAssignCustomUserId(null)
+      fetchPrograms()
+    } catch (err) {
+      const axiosErr = err as AxiosError<{ message?: string }>
+      showError(axiosErr.response?.data?.message ?? 'Failed to assign program')
+    } finally {
+      setAssignCustomLoading(false)
+    }
+  }
+
+  const handleAssignRedSubmit = async () => {
+    if (!assignRedProgram || assignRedUserId == null) {
+      showError('Select an athlete')
+      return
+    }
+    setAssignRedLoading(true)
+    try {
+      await programService.assignRedProgram(assignRedProgram.id, {
+        userId: assignRedUserId,
+        startDate: assignRedStartDate || undefined,
+      })
+      showSuccess('Red program assigned. Start and end dates set.')
+      setAssignRedOpen(false)
+      setAssignRedProgram(null)
+      setAssignRedUserId(null)
+      fetchPrograms()
+    } catch (err) {
+      const axiosErr = err as AxiosError<{ message?: string }>
+      showError(axiosErr.response?.data?.message ?? 'Failed to assign program')
+    } finally {
+      setAssignRedLoading(false)
+    }
+  }
 
   // Define table columns
   const columns: Column<Program>[] = [
@@ -283,12 +383,42 @@ const CyclePrograms = () => {
         )
       },
     },
+    ...(isCustomCycle
+      ? [
+          {
+            key: 'assignedToUser',
+            label: 'Assigned to',
+            sortable: false,
+            render: (_value: unknown, row: Program) => {
+              const u = (
+                row as {
+                  assignedToUser?: {
+                    firstName?: string
+                    lastName?: string
+                    email?: string
+                  }
+                }
+              ).assignedToUser
+              if (!u) return <Text variant="muted">—</Text>
+              const name = [u.firstName, u.lastName]
+                .filter(Boolean)
+                .join(' ')
+                .trim()
+              return (
+                <Text variant="default" className="text-sm">
+                  {name || u.email || '—'}
+                </Text>
+              )
+            },
+          },
+        ]
+      : []),
     {
       key: 'actions',
       label: 'Actions',
       sortable: false,
       align: 'center',
-      width: '180px',
+      width: isRedCycle || isCustomCycle ? '260px' : '180px',
       render: (_value, row) => (
         <div className="flex items-center justify-center gap-1.5 flex-wrap">
           {!row.isPublished && (
@@ -299,6 +429,26 @@ const CyclePrograms = () => {
               leftIcon={<Icon name="check" family="solid" size={14} />}
             >
               Approve
+            </Button>
+          )}
+          {isRedCycle && (
+            <Button
+              variant="outline"
+              size="small"
+              onClick={() => openAssignRed(row)}
+              leftIcon={<Icon name="user-plus" family="solid" size={14} />}
+            >
+              Assign Red
+            </Button>
+          )}
+          {isCustomCycle && (
+            <Button
+              variant="outline"
+              size="small"
+              onClick={() => openAssignCustom(row)}
+              leftIcon={<Icon name="user-plus" family="solid" size={14} />}
+            >
+              Assign
             </Button>
           )}
           <Button
@@ -463,6 +613,135 @@ const CyclePrograms = () => {
                 onSuccess={handleFormSuccess}
                 onCancel={handleCloseEditModal}
               />
+            </div>
+          </Modal>
+        )}
+
+        {/* 3.1 Red: Assign Red program to athlete */}
+        {assignRedOpen && assignRedProgram && (
+          <Modal
+            visible={assignRedOpen}
+            onClose={() => {
+              setAssignRedOpen(false)
+              setAssignRedProgram(null)
+              setAssignRedUserId(null)
+            }}
+            title="Assign Red Program"
+            showCloseButton={true}
+          >
+            <div className="p-6 space-y-4">
+              <Text variant="default" className="font-medium">
+                {assignRedProgram.name}
+              </Text>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Athlete
+                </label>
+                <Dropdown
+                  placeholder="Select athlete"
+                  value={assignRedUserId != null ? String(assignRedUserId) : ''}
+                  onValueChange={v => setAssignRedUserId(v ? Number(v) : null)}
+                  options={athletes.map(a => ({
+                    value: String(a.id),
+                    label:
+                      [a.firstName, a.lastName].filter(Boolean).join(' ') ||
+                      a.email ||
+                      String(a.id),
+                  }))}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Start date
+                </label>
+                <Input
+                  type="date"
+                  value={assignRedStartDate}
+                  onChange={e => setAssignRedStartDate(e.target.value)}
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <Button
+                  variant="secondary"
+                  onClick={() => setAssignRedOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="primary"
+                  disabled={assignRedUserId == null || assignRedLoading}
+                  onClick={handleAssignRedSubmit}
+                >
+                  {assignRedLoading ? 'Assigning...' : 'Assign'}
+                </Button>
+              </div>
+            </div>
+          </Modal>
+        )}
+
+        {/* 3.5 Custom: Assign or reassign custom program to athlete */}
+        {assignCustomOpen && assignCustomProgram && (
+          <Modal
+            visible={assignCustomOpen}
+            onClose={() => {
+              setAssignCustomOpen(false)
+              setAssignCustomProgram(null)
+              setAssignCustomUserId(null)
+              setAssignCustomEndDate('')
+            }}
+            title="Assign Custom Program (1:1)"
+            showCloseButton={true}
+          >
+            <div className="p-6 space-y-4">
+              <Text variant="default" className="font-medium">
+                {assignCustomProgram.name}
+              </Text>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Athlete
+                </label>
+                <Dropdown
+                  placeholder="Select athlete"
+                  value={
+                    assignCustomUserId != null ? String(assignCustomUserId) : ''
+                  }
+                  onValueChange={v =>
+                    setAssignCustomUserId(v ? Number(v) : null)
+                  }
+                  options={athletes.map(a => ({
+                    value: String(a.id),
+                    label:
+                      [a.firstName, a.lastName].filter(Boolean).join(' ') ||
+                      a.email ||
+                      String(a.id),
+                  }))}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  End date (optional)
+                </label>
+                <Input
+                  type="date"
+                  value={assignCustomEndDate}
+                  onChange={e => setAssignCustomEndDate(e.target.value)}
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <Button
+                  variant="secondary"
+                  onClick={() => setAssignCustomOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="primary"
+                  disabled={assignCustomUserId == null || assignCustomLoading}
+                  onClick={handleAssignCustomSubmit}
+                >
+                  {assignCustomLoading ? 'Assigning...' : 'Assign'}
+                </Button>
+              </div>
             </div>
           </Modal>
         )}

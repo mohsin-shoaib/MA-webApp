@@ -49,6 +49,24 @@ export default function CoachMyAthletes() {
   const [workingMaxListLoading, setWorkingMaxListLoading] = useState(false)
   const [editingWorkingMax, setEditingWorkingMax] =
     useState<WorkingMaxRow | null>(null)
+  // 3.5 Custom: Assign a program day to an athlete's calendar date (ad-hoc session).
+  const [assignSessionOpen, setAssignSessionOpen] = useState(false)
+  const [assignSessionAthlete, setAssignSessionAthlete] = useState<User | null>(
+    null
+  )
+  const [assignSessionDate, setAssignSessionDate] = useState('')
+  const [assignSessionProgramDayId, setAssignSessionProgramDayId] = useState<
+    number | null
+  >(null)
+  const [assignSessionProgramId, setAssignSessionProgramId] = useState<
+    number | null
+  >(null)
+  const [assignSessionProgramName, setAssignSessionProgramName] = useState('')
+  const [assignSessionDayOptions, setAssignSessionDayOptions] = useState<
+    { value: number; label: string }[]
+  >([])
+  const [assignSessionLoading, setAssignSessionLoading] = useState(false)
+  const [assignSessionSaving, setAssignSessionSaving] = useState(false)
   const { showError, showSuccess } = useSnackbar()
 
   const fetchAthletes = useCallback(async () => {
@@ -85,6 +103,69 @@ export default function CoachMyAthletes() {
     }
   }, [fetchAthletes])
 
+  useEffect(() => {
+    if (!assignSessionOpen || !assignSessionAthlete) return
+    let cancelled = false
+    setAssignSessionLoading(true)
+    coachService
+      .listActive1to1()
+      .then(res => {
+        if (cancelled) return
+        const list = (res.data?.data?.assignments ?? []) as Array<{
+          userId: number
+          programId: number
+          program?: { id: number; name: string }
+        }>
+        const assignment = list.find(
+          a => a.userId === Number(assignSessionAthlete?.id)
+        )
+        if (!assignment) {
+          setAssignSessionProgramId(null)
+          setAssignSessionProgramName('')
+          setAssignSessionDayOptions([])
+          setAssignSessionLoading(false)
+          return
+        }
+        const pid = assignment.programId
+        setAssignSessionProgramId(pid)
+        setAssignSessionProgramName(assignment.program?.name ?? '')
+        return programService.getById(pid)
+      })
+      .then(res => {
+        if (cancelled || !res) return
+        const prog = res.data?.data as {
+          programStructure?: {
+            weeks?: Array<{
+              weekIndex?: number
+              weekName?: string
+              days?: Array<{ id: number; dayIndex?: number; dayName?: string }>
+            }>
+          }
+        }
+        const weeks = prog?.programStructure?.weeks ?? []
+        const options = weeks.flatMap(w =>
+          (w.days ?? []).map(
+            (d: { id: number; dayIndex?: number; dayName?: string }) => ({
+              value: d.id,
+              label: `${w.weekName ?? 'Week ' + (w.weekIndex ?? '')} – ${d.dayName ?? 'Day ' + (d.dayIndex ?? '')}`,
+            })
+          )
+        )
+        setAssignSessionDayOptions(options)
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setAssignSessionDayOptions([])
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setAssignSessionLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [assignSessionOpen, assignSessionAthlete])
+
   const openAssign = (athlete: User) => {
     setAssigningAthlete(athlete)
     setProgramId('')
@@ -92,6 +173,16 @@ export default function CoachMyAthletes() {
     setEndDate('')
     setAssignOpen(true)
     fetchPrograms()
+  }
+
+  const openAssignSession = (athlete: User) => {
+    setAssignSessionAthlete(athlete)
+    setAssignSessionDate('')
+    setAssignSessionProgramDayId(null)
+    setAssignSessionProgramId(null)
+    setAssignSessionProgramName('')
+    setAssignSessionDayOptions([])
+    setAssignSessionOpen(true)
   }
 
   const openWorkingMaxes = useCallback(
@@ -143,10 +234,46 @@ export default function CoachMyAthletes() {
     }
   }
 
-  const programOptions = programs.map(p => ({
-    value: String(p.id),
-    label: p.name,
-  }))
+  const handleAssignSession = async () => {
+    if (
+      !assignSessionAthlete ||
+      !assignSessionProgramId ||
+      !assignSessionProgramDayId ||
+      !assignSessionDate.trim()
+    ) {
+      showError('Select date and session day')
+      return
+    }
+    try {
+      setAssignSessionSaving(true)
+      await coachService.assignCustomSessionToDate({
+        athleteId: Number(assignSessionAthlete.id),
+        programId: assignSessionProgramId,
+        date: assignSessionDate.trim(),
+        programDayId: assignSessionProgramDayId,
+      })
+      showSuccess(
+        'Session assigned to date. Athlete will see it on their calendar.'
+      )
+      setAssignSessionOpen(false)
+      setAssignSessionAthlete(null)
+    } catch (e) {
+      const err = e as AxiosError<{ message?: string }>
+      showError(err.response?.data?.message || 'Failed to assign session')
+    } finally {
+      setAssignSessionSaving(false)
+    }
+  }
+
+  // 3.5 Custom / 1:1: Only Custom cycle programs can be assigned to an athlete (90 Unchained, 1:1 S&C).
+  const programOptions = programs
+    .filter(
+      (p: Program) => (p as { cycleType?: string }).cycleType === 'CUSTOM'
+    )
+    .map(p => ({
+      value: String(p.id),
+      label: p.name,
+    }))
 
   return (
     <div className="p-6">
@@ -196,6 +323,14 @@ export default function CoachMyAthletes() {
                     onClick={() => openWorkingMaxes(a)}
                   >
                     Working maxes
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="small"
+                    onClick={() => openAssignSession(a)}
+                  >
+                    Assign session to date
                   </Button>
                   <Button
                     type="button"
@@ -253,7 +388,7 @@ export default function CoachMyAthletes() {
                 onValueChange={v => setProgramId((v as string) ?? '')}
                 options={programOptions}
                 fullWidth
-                emptyMessage="No programs. Create one in Manage Program first."
+                emptyMessage="No custom programs. Create one in Program Management → Custom cycle."
               />
             </div>
             <div>
@@ -286,6 +421,87 @@ export default function CoachMyAthletes() {
               From start to end date, this athlete will see workouts from the
               selected program instead of their roadmap.
             </Text>
+          </div>
+        </Modal>
+      )}
+
+      {assignSessionOpen && assignSessionAthlete && (
+        <Modal
+          visible={assignSessionOpen}
+          onClose={() => {
+            setAssignSessionOpen(false)
+            setAssignSessionAthlete(null)
+          }}
+          title={`Assign session to date: ${userName(assignSessionAthlete)}`}
+          showCloseButton
+          closeOnBackdropPress
+          closeOnEscape
+          primaryAction={{
+            label: assignSessionSaving ? 'Assigning…' : 'Assign',
+            onPress: () => void handleAssignSession(),
+            disabled:
+              assignSessionSaving ||
+              !assignSessionDate.trim() ||
+              !assignSessionProgramDayId,
+          }}
+          secondaryAction={{
+            label: 'Cancel',
+            onPress: () => {
+              setAssignSessionOpen(false)
+              setAssignSessionAthlete(null)
+            },
+          }}
+        >
+          <div className="space-y-4">
+            {assignSessionLoading && (
+              <div className="flex gap-2 py-2">
+                <Spinner size="small" variant="primary" />
+                <Text variant="secondary">Loading program days…</Text>
+              </div>
+            )}
+            {!assignSessionLoading && assignSessionProgramName && (
+              <Text variant="muted" className="text-sm">
+                Program: {assignSessionProgramName}
+              </Text>
+            )}
+            <div>
+              <Text
+                variant="default"
+                className="text-sm font-medium mb-1 block"
+              >
+                Date
+              </Text>
+              <Input
+                type="date"
+                value={assignSessionDate}
+                onChange={e => setAssignSessionDate(e.target.value)}
+              />
+            </div>
+            <div>
+              <Text
+                variant="default"
+                className="text-sm font-medium mb-1 block"
+              >
+                Session (day)
+              </Text>
+              <Dropdown
+                placeholder="Select session"
+                value={
+                  assignSessionProgramDayId != null
+                    ? String(assignSessionProgramDayId)
+                    : ''
+                }
+                onValueChange={v =>
+                  setAssignSessionProgramDayId(v ? Number(v) : null)
+                }
+                options={assignSessionDayOptions.map(opt => ({
+                  value: String(opt.value),
+                  label: opt.label,
+                }))}
+                fullWidth
+                emptyMessage="No days in program"
+              />
+            </div>
           </div>
         </Modal>
       )}

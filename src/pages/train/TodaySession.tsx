@@ -5,6 +5,7 @@ import { Card } from '@/components/Card'
 import { Button } from '@/components/Button'
 import { Spinner } from '@/components/Spinner'
 import { trainService } from '@/api/train.service'
+import { cycleTransitionService } from '@/api/cycle-transition.service'
 import type { ExerciseDTO, AlternateExerciseDTO } from '@/types/program'
 import type { ExerciseSwapItem, SetLog, SessionSummary } from '@/types/train'
 import type { AxiosError } from 'axios'
@@ -138,6 +139,12 @@ export default function TodaySession() {
   const [rescheduleModalOpen, setRescheduleModalOpen] = useState(false)
   const [rescheduleTargetDate, setRescheduleTargetDate] = useState('')
   const [rescheduleSubmitting, setRescheduleSubmitting] = useState(false)
+  // Red 3.1: when Red program is complete — show "Confirm transition to Amber"
+  const [redCompleteState, setRedCompleteState] = useState<{
+    message: string
+    recommendTransitionTo: string
+  } | null>(null)
+  const [transitionConfirming, setTransitionConfirming] = useState(false)
   // MASS Phase 7: set logs for current session (prescribed vs actual, modified highlight)
   const [setLogs, setSetLogs] = useState<SetLog[]>([])
   // MASS Phase 7: rest timer after logging a set (countdown from prescribed rest)
@@ -160,6 +167,7 @@ export default function TodaySession() {
   }, [restTimerActive, restTimerPaused])
 
   const refreshWorkout = useCallback(() => {
+    setRedCompleteState(null)
     const load = dateParam
       ? trainService.getScheduledWorkout(dateParam)
       : trainService.getTodayWorkout()
@@ -167,6 +175,24 @@ export default function TodaySession() {
       .then(res => {
         if (res.data.statusCode === 200 && res.data.data) {
           const data = res.data.data as Record<string, unknown>
+          const programComplete =
+            data.redProgramComplete === true ||
+            data.greenProgramComplete === true
+          if (
+            programComplete &&
+            typeof data.recommendTransitionTo === 'string'
+          ) {
+            setRedCompleteState({
+              message:
+                (data.message as string) ||
+                (data.greenProgramComplete === true
+                  ? 'Green program complete. Confirm transition to Red to begin a new cycle.'
+                  : 'Red program complete. Confirm transition to Amber.'),
+              recommendTransitionTo: data.recommendTransitionTo as string,
+            })
+            setWorkout(null)
+            return
+          }
           setWorkout(normalizeScheduledWorkout(data))
           if (data.sessionId) setSessionId(data.sessionId as number)
         }
@@ -182,15 +208,38 @@ export default function TodaySession() {
       .then(res => {
         if (res.data.statusCode === 200 && res.data.data) {
           const data = res.data.data as Record<string, unknown>
-          setWorkout(normalizeScheduledWorkout(data))
-          if (data.sessionId) {
-            setSessionId(data.sessionId as number)
+          const programComplete =
+            data.redProgramComplete === true ||
+            data.greenProgramComplete === true
+          if (
+            programComplete &&
+            typeof data.recommendTransitionTo === 'string'
+          ) {
+            setRedCompleteState({
+              message:
+                (data.message as string) ||
+                (data.greenProgramComplete === true
+                  ? 'Green program complete. Confirm transition to Red to begin a new cycle.'
+                  : 'Red program complete. Confirm transition to Amber.'),
+              recommendTransitionTo: data.recommendTransitionTo as string,
+            })
+            setWorkout(null)
+          } else {
+            setRedCompleteState(null)
+            setWorkout(normalizeScheduledWorkout(data))
+            if (data.sessionId) {
+              setSessionId(data.sessionId as number)
+            }
           }
         } else {
           setWorkout(null)
+          setRedCompleteState(null)
         }
       })
-      .catch(() => setWorkout(null))
+      .catch(() => {
+        setWorkout(null)
+        setRedCompleteState(null)
+      })
       .finally(() => setLoading(false))
   }, [dateParam])
 
@@ -346,7 +395,7 @@ export default function TodaySession() {
     if (!sid) return
     setCompleteLoading(true)
     try {
-      await trainService.updateSession(sid, {
+      const res = await trainService.updateSession(sid, {
         status: 'COMPLETED',
         complianceType: 'FULL_LOG',
         intensityRating: completeIntensity,
@@ -354,13 +403,37 @@ export default function TodaySession() {
       })
       setCompleteModalOpen(false)
       setCompleteComments('')
+      const payload = res.data?.data as
+        | {
+            redComplete?: boolean
+            recommendTransitionTo?: string
+            message?: string
+          }
+        | undefined
+      if (
+        payload?.redComplete === true &&
+        typeof payload?.recommendTransitionTo === 'string'
+      ) {
+        setRedCompleteState({
+          message:
+            payload.message ||
+            'Red program complete. Confirm transition to Amber.',
+          recommendTransitionTo: payload.recommendTransitionTo,
+        })
+        setCompleteLoading(false)
+        return
+      }
       try {
-        const res = await trainService.getSession(sid)
-        if (res.data?.statusCode === 200 && res.data?.data?.sessionSummary) {
+        const sessionRes = await trainService.getSession(sid)
+        if (
+          sessionRes.data?.statusCode === 200 &&
+          sessionRes.data?.data?.sessionSummary
+        ) {
           setCompleteSuccessSummary(
-            res.data.data.sessionSummary as SessionSummary
+            sessionRes.data.data.sessionSummary as SessionSummary
           )
           setView('exercises')
+          setCompleteLoading(false)
           return
         }
       } catch {
@@ -382,6 +455,28 @@ export default function TodaySession() {
     setCompleteSuccessSummary(null)
     showSuccess('Workout marked complete.')
     navigate(backTo)
+  }
+
+  const handleConfirmTransition = async () => {
+    if (!redCompleteState) return
+    setTransitionConfirming(true)
+    try {
+      await cycleTransitionService.confirmCycleTransition({
+        cycleName: redCompleteState.recommendTransitionTo,
+      })
+      setRedCompleteState(null)
+      showSuccess(`Transitioned to ${redCompleteState.recommendTransitionTo}.`)
+      navigate(backTo)
+    } catch (err) {
+      const ax = err as AxiosError<{ message?: string }>
+      showError(
+        ax.response?.data?.message ||
+          ax.message ||
+          'Failed to confirm transition.'
+      )
+    } finally {
+      setTransitionConfirming(false)
+    }
   }
 
   const exercises = useMemo(
@@ -585,6 +680,56 @@ export default function TodaySession() {
   }
 
   const backTo = dateParam ? '/dashboard' : '/train'
+
+  if (redCompleteState) {
+    return (
+      <div className="space-y-6 max-w-4xl">
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={() => navigate(backTo)}
+          className="shrink-0"
+        >
+          ← Back to {dateParam ? 'Dashboard' : 'Train'}
+        </Button>
+        <Card className="p-0">
+          <div className="p-8 text-center">
+            <div className="mx-auto w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center mb-4">
+              <span className="text-xl text-amber-700" aria-hidden>
+                ✓
+              </span>
+            </div>
+            <Text variant="default" className="font-semibold text-lg mb-2">
+              Foundations complete
+            </Text>
+            <Text variant="secondary" className="text-sm max-w-sm mx-auto mb-6">
+              {redCompleteState.message}
+            </Text>
+            <div className="flex flex-wrap items-center justify-center gap-3">
+              <Button
+                type="button"
+                variant="primary"
+                onClick={handleConfirmTransition}
+                disabled={transitionConfirming}
+              >
+                {transitionConfirming
+                  ? 'Confirming…'
+                  : `Transition to ${redCompleteState.recommendTransitionTo}`}
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => navigate(backTo)}
+                disabled={transitionConfirming}
+              >
+                Later
+              </Button>
+            </div>
+          </div>
+        </Card>
+      </div>
+    )
+  }
 
   if (!workout) {
     return (

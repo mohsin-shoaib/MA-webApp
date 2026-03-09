@@ -170,6 +170,8 @@ export interface CreateProgramDTO {
   numberOfWeeks: number
   /** MASS 2.1: Required for Green programs (links to Goal Type table). */
   goalTypeId?: number
+  /** 3.3 Green: Duration in weeks for event-aligned scheduling. Green start = event date − durationWeeks. */
+  durationWeeks?: number
   isActive?: boolean
   /** Only ADMIN can set true at create; coach-created start as draft. */
   isPublished?: boolean
@@ -187,6 +189,9 @@ export interface UpdateProgramDTO {
   isActive?: boolean
   /** Only ADMIN can set true (publish); coach can set false (unpublish) */
   isPublished?: boolean
+  /** 3.3 Green: goalTypeId and durationWeeks for event-aligned scheduling. */
+  goalTypeId?: number | null
+  durationWeeks?: number | null
   dailyExercises?: DailyExerciseDTO[]
   programStructure?: ProgramStructure
 }

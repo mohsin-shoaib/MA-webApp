@@ -1,12 +1,13 @@
 /**
  * Map cycle display name to backend cycleId (for program list API).
- * Align with backend cycle seed/data (Red, Amber, Green, Sustainment).
+ * Align with backend cycle seed/data (Red, Amber, Green, Sustainment, Custom).
  */
 export const CYCLE_NAME_TO_ID: Record<string, number> = {
   Red: 1,
   Amber: 2,
   Green: 3,
   Sustainment: 4,
+  Custom: 5,
 }
 
 /**

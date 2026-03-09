@@ -37,6 +37,14 @@ export interface TodayWorkoutResponse {
     dayStructure?: Record<string, unknown>
     /** MASS Phase 7: exercise swaps for this session */
     exerciseSwaps?: ExerciseSwapItem[]
+    /** Red 3.1: when Red program is complete (last day done or past endDate) */
+    redProgramComplete?: boolean
+    /** 3.3 Green: when Green program is complete (event date reached); recommend return to Red */
+    greenProgramComplete?: boolean
+    /** Red 3.1 / 3.3 Green: e.g. 'Amber' or 'Red' — confirm transition to this cycle */
+    recommendTransitionTo?: string
+    /** Red 3.1 / 3.3 Green: message when redProgramComplete or greenProgramComplete */
+    message?: string
   }
   message?: string
 }
@@ -81,6 +89,10 @@ export interface WorkoutSession {
   /** MASS Phase 8: coach response (visible to athlete) */
   coachResponseComment?: string | null
   intensityRating?: number | null
+  /** Red 3.1: set when completing last day of Red program */
+  redComplete?: boolean
+  /** Red 3.1: e.g. 'Amber' */
+  recommendTransitionTo?: string
   exerciseSwaps?: Array<{
     originalExerciseId: number
     newExerciseId: number

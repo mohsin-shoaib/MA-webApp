@@ -68,16 +68,22 @@ export const programService = {
     api.post<CreateProgramResponse>('admin/program/create', payload),
 
   /**
-   * List programs by cycle for manual selection (onboarding Step 3).
-   * GET /api/v1/athlete/program/list?cycleId=...&subCategory=...
-   * Red/Green: filter by subCategory (primary goal); Amber: no programs.
+   * List programs by cycle for manual selection (onboarding Step 3) and 3.4 Sustainment Library.
+   * GET /api/v1/athlete/program/list?cycleId=...&subCategory=...&constraintCategory=...
+   * Red/Green: filter by subCategory (primary goal). 3.4 Sustainment: filter by constraintCategory (Travel, Limited Equipment, Rehab, Time, Deployed).
    */
   getProgramsByCycle: (
     cycleId: number,
-    subCategory?: string
+    subCategory?: string,
+    constraintCategory?: string
   ): Promise<{ data: Program[] }> => {
-    const params: { cycleId: number; subCategory?: string } = { cycleId }
+    const params: {
+      cycleId: number
+      subCategory?: string
+      constraintCategory?: string
+    } = { cycleId }
     if (subCategory) params.subCategory = subCategory
+    if (constraintCategory) params.constraintCategory = constraintCategory
     return api
       .get<ProgramListByCycleResponse>('athlete/program/list', { params })
       .then(res => {
@@ -392,7 +398,7 @@ export const programService = {
       body
     ),
 
-  /** MASS Phase 6: List Amber date-based sessions for a program. GET .../find-by-id/:programId/amber-sessions?from=&to= */
+  /** 3.2 Amber: List date-based sessions for a program. GET .../find-by-id/:programId/amber-sessions?from=&to= */
   getAmberSessions: (
     programId: number,
     params?: { from?: string; to?: string }
@@ -406,12 +412,23 @@ export const programService = {
           programDayId: number
           dayName?: string
           dayIndex: number
+          weekIndex: number
           isRestDay: boolean
         }>
       }
     }>(`admin/program/find-by-id/${programId}/amber-sessions`, {
       params: params ?? {},
     }),
+
+  /** 3.2 Amber: Create empty session for a date; returns programDayId, weekIndex, dayIndex to open session designer. */
+  createEmptyAmberSession: (programId: number, body: { date: string }) =>
+    api.post<{
+      statusCode: number
+      data: { programDayId: number; weekIndex: number; dayIndex: number }
+    }>(
+      `admin/program/find-by-id/${programId}/amber-sessions/create-empty`,
+      body
+    ),
 
   /** MASS Phase 6: Assign session to date (Amber program). PUT .../find-by-id/:programId/amber-sessions */
   setAmberSession: (
@@ -439,6 +456,16 @@ export const programService = {
       body
     ),
 
+  /** 3.2 Amber: Assign library session to a calendar date. POST .../find-by-id/:programId/amber-sessions/from-library */
+  setAmberSessionFromLibrary: (
+    programId: number,
+    body: { date: string; librarySessionId: number }
+  ) =>
+    api.post<{ statusCode: number; data: unknown }>(
+      `admin/program/find-by-id/${programId}/amber-sessions/from-library`,
+      body
+    ),
+
   /** MASS Phase 6: Assign Custom 1:1 program to athlete. PUT .../find-by-id/:programId/assign */
   assignCustomProgram: (
     programId: number,
@@ -446,6 +473,23 @@ export const programService = {
   ) =>
     api.put<{ statusCode: number; data: { assignment: unknown } }>(
       `admin/program/find-by-id/${programId}/assign`,
+      body
+    ),
+
+  /** Red Cycle (3.1): Assign Red (Foundations) program to athlete. PUT .../find-by-id/:programId/assign-red */
+  assignRedProgram: (
+    programId: number,
+    body: { userId: number; startDate?: string }
+  ) =>
+    api.put<{ statusCode: number; data: { assignment: unknown } }>(
+      `admin/program/find-by-id/${programId}/assign-red`,
+      body
+    ),
+
+  /** 3.2 Amber: Assign Amber (Operational Readiness) program to athlete. No start/end date; workouts by calendar date. PUT .../find-by-id/:programId/assign-amber */
+  assignAmberProgram: (programId: number, body: { userId: number }) =>
+    api.put<{ statusCode: number; data: { assignment: unknown } }>(
+      `admin/program/find-by-id/${programId}/assign-amber`,
       body
     ),
 
@@ -459,6 +503,33 @@ export const programService = {
       data: { enrollment: unknown }
       message?: string
     }>('athlete/program/resume'),
+
+  /**
+   * 3.4 Sustainment: Get coach-recommended sustainment program (if any). Athlete confirms by starting or dismissing.
+   * GET /api/v1/athlete/program/recommended-sustainment
+   */
+  getRecommendedSustainment: () =>
+    api.get<{
+      statusCode: number
+      data: {
+        program: {
+          id: number
+          name: string
+          description?: string
+          constraintCategory?: string
+          numberOfWeeks?: number
+        } | null
+      }
+    }>('athlete/program/recommended-sustainment'),
+
+  /**
+   * 3.4 Sustainment: Dismiss coach-recommended sustainment. Coach cannot force; athlete must confirm.
+   * POST /api/v1/athlete/program/recommended-sustainment/dismiss
+   */
+  dismissRecommendedSustainment: () =>
+    api.post<{ statusCode: number; data: { dismissed: boolean } }>(
+      'athlete/program/recommended-sustainment/dismiss'
+    ),
 
   /**
    * Upload video to S3

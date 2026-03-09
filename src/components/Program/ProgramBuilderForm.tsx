@@ -333,6 +333,11 @@ export function ProgramBuilderForm({
   )
   const [category, setCategory] = useState(program?.category ?? '')
   const [subCategory, setSubCategory] = useState(program?.subCategory ?? '')
+  /** 3.4 Sustainment: Constraint category for Sustainment Library (Travel, Limited Equipment, Rehab, Time, Deployed). */
+  const [constraintCategory, setConstraintCategory] = useState(
+    (program as { constraintCategory?: string | null })?.constraintCategory ??
+      ''
+  )
   const [isActive, setIsActive] = useState(program?.isActive ?? true)
   /** MASS 2.1: Published on create (optional; admin can publish later) */
   const [isPublished, setIsPublished] = useState(program?.isPublished ?? false)
@@ -340,6 +345,12 @@ export function ProgramBuilderForm({
   const [numberOfWeeks, setNumberOfWeeks] = useState(
     program?.programStructure?.weeks?.length ?? 4
   )
+  /** 3.3 Green: Duration in weeks for event-aligned scheduling. Green start = event date − durationWeeks. */
+  const [durationWeeks, setDurationWeeks] = useState<number>(() => {
+    const p = program as { durationWeeks?: number | null } | undefined
+    if (p?.durationWeeks != null) return p.durationWeeks
+    return program?.programStructure?.weeks?.length ?? 12
+  })
   /** MASS 2.8: Selected cell for Session Designer (Level 2) { weekIdx, dayIdx } */
   const [sessionDesignerCell, setSessionDesignerCell] = useState<{
     weekIdx: number
@@ -381,6 +392,7 @@ export function ProgramBuilderForm({
       programDayId: number
       dayName?: string
       dayIndex: number
+      weekIndex: number
       isRestDay: boolean
     }>
   >([])
@@ -397,6 +409,21 @@ export function ProgramBuilderForm({
   const [amberCopyFrom, setAmberCopyFrom] = useState('')
   const [amberCopyTo, setAmberCopyTo] = useState('')
   const [amberLoading, setAmberLoading] = useState(false)
+  /** 3.2 Amber: Assign from library — date + library session */
+  const [amberAssignFromLibraryDate, setAmberAssignFromLibraryDate] =
+    useState('')
+  const [amberAssignLibrarySessionId, setAmberAssignLibrarySessionId] =
+    useState('')
+  const [amberLibrarySessions, setAmberLibrarySessions] = useState<
+    Array<{ id: number; name: string }>
+  >([])
+  const [amberLibrarySessionsLoading, setAmberLibrarySessionsLoading] =
+    useState(false)
+  /** 3.2 Amber: Calendar view — month grid for assigning sessions to dates */
+  const [amberCalendarMonth, setAmberCalendarMonth] = useState(() => {
+    const d = new Date()
+    return { year: d.getFullYear(), month: d.getMonth() }
+  })
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   /** MASS 2.8: Multi-select cells "weekIdx-dayIdx" for Copy/Delete/Repeat */
   const [selectedCells, setSelectedCells] = useState<Set<string>>(new Set())
@@ -465,12 +492,53 @@ export function ProgramBuilderForm({
       : { weeks: [] }
   )
 
+  const programStructure = program?.programStructure
+  const programDurationWeeks = (
+    program as { durationWeeks?: number | null } | undefined
+  )?.durationWeeks
+  const programConstraintCategory = (
+    program as { constraintCategory?: string | null } | undefined
+  )?.constraintCategory
+
   /** Sync structure from program when program prop loads/updates (preserve week/day ids from API). MASS 2.8: support empty weeks. */
   useEffect(() => {
-    if (program?.id != null && program.programStructure) {
-      setStructure({ weeks: program.programStructure.weeks ?? [] })
+    if (program?.id != null && programStructure) {
+      setStructure({ weeks: programStructure.weeks ?? [] })
     }
-  }, [program?.id, program?.programStructure])
+  }, [program, program?.id, programStructure])
+
+  /** 3.3 Green: Sync durationWeeks from program when editing a Green program; when creating Green, default to numberOfWeeks. */
+  useEffect(() => {
+    if (program?.id && programDurationWeeks != null) {
+      setDurationWeeks(programDurationWeeks)
+    } else if (
+      !program &&
+      cycleId &&
+      cycles.some(c => c.id === cycleId && c.name === 'Green')
+    ) {
+      setDurationWeeks(prev => (numberOfWeeks >= 1 ? numberOfWeeks : prev))
+    }
+  }, [
+    program,
+    program?.id,
+    programDurationWeeks,
+    cycleId,
+    cycles,
+    numberOfWeeks,
+  ])
+
+  /** 3.4 Sustainment: Sync constraint category from program when editing. */
+  useEffect(() => {
+    if (program?.id && programConstraintCategory != null) {
+      setConstraintCategory(programConstraintCategory)
+    } else if (
+      !program &&
+      cycleId &&
+      cycles.some(c => c.id === cycleId && c.name === 'Sustainment')
+    ) {
+      setConstraintCategory(prev => prev || '')
+    }
+  }, [program, program?.id, programConstraintCategory, cycleId, cycles])
 
   /** MASS 2.1: When creating, pre-generate that many empty week rows on the calendar. Coach enters "12" → calendar immediately shows Week 1–12. */
   useEffect(() => {
@@ -620,6 +688,9 @@ export function ProgramBuilderForm({
     return () => document.removeEventListener('keydown', onKeyDown)
   }, [copiedDays.length, selectedCells, handlePasteAt])
 
+  const cycle = cycles.find(c => c.id === cycleId)
+  const isSustainmentCycle = cycle?.name === 'Sustainment'
+
   /** MASS 2.10: Debounced auto-save when program exists — any change (calendar or session designer) saves automatically */
   useEffect(() => {
     if (!program?.id) return
@@ -636,6 +707,9 @@ export function ProgramBuilderForm({
             subCategory: subCategory || null,
             isActive,
             programStructure: structure,
+            ...(isSustainmentCycle && {
+              constraintCategory: constraintCategory.trim() || null,
+            }),
           })
         } catch {
           // silent; user can save explicitly
@@ -654,11 +728,24 @@ export function ProgramBuilderForm({
     category,
     subCategory,
     isActive,
+    isSustainmentCycle,
+    constraintCategory,
   ])
 
-  const cycle = cycles.find(c => c.id === cycleId)
-  const showCategory = cycle?.name === 'Red' || cycle?.name === 'Green'
+  const showCategory =
+    cycle?.name === 'Red' || cycle?.name === 'Green' || cycle?.name === 'Amber'
   const isAmberCycle = cycle?.name === 'Amber'
+  /** 3.3 Green: Show Green duration (event-aligned scheduling). */
+  const isGreenCycle = cycle?.name === 'Green'
+  /** 3.5 Custom / 1:1: Coach-assigned program for one athlete; overrides roadmap until end date. */
+  const isCustomCycle = cycle?.name === 'Custom'
+  const SUSTAINMENT_CONSTRAINTS = [
+    'Travel',
+    'Limited Equipment',
+    'Rehab',
+    'Time',
+    'Deployed',
+  ] as const
   const categoryOptions = goalTypes
     .filter(g => g.category === category)
     .map(g => ({ value: g.subCategory, label: g.subCategory }))
@@ -1326,6 +1413,10 @@ export function ProgramBuilderForm({
     if (!cycleId) return 'Cycle is required'
     if (showCategory && (!category || !subCategory))
       return 'Category and Goal Type are required for this cycle'
+    if (isGreenCycle && (durationWeeks < 1 || !Number.isInteger(durationWeeks)))
+      return 'Green duration (weeks) must be at least 1'
+    if (isSustainmentCycle && !constraintCategory.trim())
+      return 'Constraint category is required for Sustainment (Travel, Limited Equipment, Rehab, Time, Deployed)'
     if (!program) return null
     if (!structureHasContent(structure))
       return 'Add at least one block with content to the program'
@@ -1343,6 +1434,13 @@ export function ProgramBuilderForm({
     setSaving(true)
     try {
       if (program) {
+        const cycleType = getCycleTypeFromName(cycle?.name)
+        const goalType =
+          cycleType === 'GREEN' && category && subCategory
+            ? goalTypes.find(
+                g => g.category === category && g.subCategory === subCategory
+              )
+            : undefined
         await programService.update(program.id, {
           program_name: name.trim(),
           program_description: description.trim(),
@@ -1351,12 +1449,25 @@ export function ProgramBuilderForm({
           subCategory: subCategory || null,
           isActive,
           programStructure: structure,
+          ...(goalType && { goalTypeId: goalType.id }),
+          ...(cycleType === 'GREEN' && {
+            durationWeeks:
+              durationWeeks >= 1
+                ? durationWeeks
+                : ((program as { numberOfWeeks?: number }).numberOfWeeks ??
+                  null),
+          }),
+          ...(cycleType === 'SUSTAINMENT' && {
+            constraintCategory: constraintCategory.trim() || null,
+          }),
         })
         showSuccess('Program updated')
       } else {
         const cycleType = getCycleTypeFromName(cycle?.name)
-        const resolvedWeeks =
-          numberOfWeeks >= 1 ? numberOfWeeks : (structure.weeks?.length ?? 1)
+        let resolvedWeeks: number
+        if (cycleType === 'AMBER') resolvedWeeks = 0
+        else if (numberOfWeeks >= 1) resolvedWeeks = numberOfWeeks
+        else resolvedWeeks = structure.weeks?.length ?? 1
         const goalType =
           cycleType === 'GREEN' && category && subCategory
             ? goalTypes.find(
@@ -1374,6 +1485,13 @@ export function ProgramBuilderForm({
           isActive,
           isPublished: isPublished ?? false,
           ...(goalType && { goalTypeId: goalType.id }),
+          ...(cycleType === 'GREEN' && {
+            durationWeeks: durationWeeks >= 1 ? durationWeeks : resolvedWeeks,
+          }),
+          ...(cycleType === 'SUSTAINMENT' &&
+            constraintCategory.trim() && {
+              constraintCategory: constraintCategory.trim(),
+            }),
         }
         payload.programStructure = undefined
         const res = await programService.create(payload)
@@ -1394,7 +1512,8 @@ export function ProgramBuilderForm({
   return (
     <div className="space-y-6 max-w-5xl">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {!program && (
+        {/* 3.2 Amber: No week count; assign sessions to calendar dates only. Red/Green use fixed weeks. */}
+        {!program && !isAmberCycle && (
           <div className="md:col-span-2">
             <Text variant="default" className="text-sm font-medium mb-1 block">
               Number of weeks *
@@ -1417,6 +1536,12 @@ export function ProgramBuilderForm({
               added or removed later.
             </p>
           </div>
+        )}
+        {!program && isAmberCycle && (
+          <p className="md:col-span-2 text-sm text-amber-800">
+            Amber programs use calendar dates only. After saving, use the Amber
+            Calendar below to assign sessions to dates (or from library).
+          </p>
         )}
         <div>
           <Text variant="default" className="text-sm font-medium mb-1 block">
@@ -1491,6 +1616,77 @@ export function ProgramBuilderForm({
           </div>
         </div>
       )}
+      {/* 3.3 Green: Configurable duration (weeks) for event-aligned scheduling. Green start = event date − durationWeeks. */}
+      {isGreenCycle && (
+        <div className="rounded border border-emerald-200 bg-emerald-50/30 p-4">
+          <Text
+            variant="default"
+            className="text-sm font-medium text-emerald-900 mb-1 block"
+          >
+            Green duration (weeks) *
+          </Text>
+          <p className="text-xs text-emerald-800 mb-2">
+            Used for onboarding and Amber→Green transition. Green start date =
+            event date − this many weeks. If athlete has less time to event,
+            they start at the appropriate week so the program ends on event day.
+          </p>
+          <input
+            type="number"
+            min={1}
+            max={52}
+            value={durationWeeks}
+            onChange={e =>
+              setDurationWeeks(
+                Math.max(1, Number.parseInt(e.target.value, 10) || 1)
+              )
+            }
+            className="w-24 rounded border border-emerald-300 px-3 py-2 text-sm"
+            placeholder="e.g. 12"
+          />
+        </div>
+      )}
+      {/* 3.4 Sustainment: Constraint category for Sustainment Library (Travel, Limited Equipment, Rehab, Time, Deployed). */}
+      {isSustainmentCycle && (
+        <div className="rounded border border-slate-200 bg-slate-50/30 p-4">
+          <Text
+            variant="default"
+            className="text-sm font-medium text-slate-900 mb-1 block"
+          >
+            Constraint category *
+          </Text>
+          <p className="text-xs text-slate-700 mb-2">
+            Tag for Sustainment Library so athletes can filter by constraint
+            type.
+          </p>
+          <select
+            value={constraintCategory}
+            onChange={e => setConstraintCategory(e.target.value)}
+            className="rounded border border-slate-300 px-3 py-2 text-sm min-w-[200px]"
+          >
+            <option value="">Select constraint type</option>
+            {SUSTAINMENT_CONSTRAINTS.map(c => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+      {/* 3.5 Custom / 1:1: Assign to athlete after save. Coach: My Athletes → Assign 1:1 program. Admin: Program Management → Custom → Assign. */}
+      {isCustomCycle && (
+        <div className="rounded-xl border border-violet-200 bg-violet-50/30 p-4">
+          <Text variant="default" className="font-medium text-violet-900">
+            Custom 1:1 program
+          </Text>
+          <p className="text-sm text-violet-800 mt-1">
+            Assign to one athlete from{' '}
+            <strong>My Athletes → Assign 1:1 program</strong> (coach) or{' '}
+            <strong>Program Management → Custom → Assign</strong> (admin). You
+            can build week-by-week or assign sessions to specific dates from My
+            Athletes → Assign session to date. Changes propagate immediately.
+          </p>
+        </div>
+      )}
       <div className="flex flex-wrap items-center gap-4">
         <label className="flex items-center gap-2 cursor-pointer">
           <input
@@ -1518,16 +1714,170 @@ export function ProgramBuilderForm({
 
       <hr className="border-gray-200" />
 
-      {/* MASS Phase 6: Amber Calendar — assign session to date */}
+      {/* 3.2 Amber: Calendar view — assign sessions to dates. One session per date; all athletes see same workout on same date. */}
+      {isAmberCycle && !program?.id && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50/30 p-4">
+          <Text variant="default" className="font-medium text-amber-900">
+            Amber Calendar
+          </Text>
+          <p className="text-sm text-amber-800 mt-1">
+            Save the program to unlock the Amber Calendar. Then assign sessions
+            to calendar dates (or from library); all athletes on this program
+            see the same workout on the same date.
+          </p>
+        </div>
+      )}
       {Boolean(program?.id && isAmberCycle) && (
         <div className="rounded-xl border border-amber-200 bg-amber-50/30 p-4 space-y-3">
           <Text variant="default" className="font-medium text-amber-900">
             Amber Calendar
           </Text>
           <p className="text-sm text-amber-800">
-            Assign a session (day) to a calendar date. Athletes see that session
-            on that date.
+            Assign a session to a calendar date. All athletes on this program
+            see that session on that date. One session per date; edits propagate
+            immediately.
           </p>
+          {/* 3.2 Amber: Calendar view — click a date to assign or create a session for that date */}
+          {(() => {
+            const { year, month } = amberCalendarMonth
+            const first = new Date(year, month, 1)
+            const last = new Date(year, month + 1, 0)
+            const startPad = first.getDay()
+            const daysInMonth = last.getDate()
+            const sessionDatesSet = new Set(
+              amberSessionsList.map(r => r.sessionDate)
+            )
+            const weeks: (number | null)[][] = []
+            let week: (number | null)[] = []
+            for (let i = 0; i < startPad; i++) week.push(null)
+            for (let d = 1; d <= daysInMonth; d++) {
+              week.push(d)
+              if (week.length === 7) {
+                weeks.push(week)
+                week = []
+              }
+            }
+            if (week.length) {
+              while (week.length < 7) week.push(null)
+              weeks.push(week)
+            }
+            const monthLabel = first.toLocaleString('default', {
+              month: 'long',
+              year: 'numeric',
+            })
+            return (
+              <div className="rounded border border-amber-200 bg-white p-2">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-amber-900">
+                    {monthLabel}
+                  </span>
+                  <span className="flex gap-1">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="small"
+                      className="h-7 w-7 p-0 text-amber-800"
+                      onClick={() =>
+                        setAmberCalendarMonth(s =>
+                          s.month === 0
+                            ? { year: s.year - 1, month: 11 }
+                            : { ...s, month: s.month - 1 }
+                        )
+                      }
+                    >
+                      ‹
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="small"
+                      className="h-7 w-7 p-0 text-amber-800"
+                      onClick={() =>
+                        setAmberCalendarMonth(s =>
+                          s.month === 11
+                            ? { year: s.year + 1, month: 0 }
+                            : { ...s, month: s.month + 1 }
+                        )
+                      }
+                    >
+                      ›
+                    </Button>
+                  </span>
+                </div>
+                <div className="grid grid-cols-7 text-center text-xs">
+                  {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(
+                    day => (
+                      <div
+                        key={day}
+                        className="font-medium text-amber-800 py-0.5"
+                      >
+                        {day}
+                      </div>
+                    )
+                  )}
+                  {weeks.map((row, ri) =>
+                    row.map((d, di) => {
+                      if (d === null)
+                        return <div key={`${ri}-${di}`} className="p-0.5" />
+                      const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+                      const hasSession = sessionDatesSet.has(dateStr)
+                      const isSelected = amberAssignDate === dateStr
+                      return (
+                        <div key={`${ri}-${di}`} className="p-0.5">
+                          <button
+                            type="button"
+                            className={`
+                              w-8 h-8 rounded text-sm border
+                              ${hasSession ? 'bg-amber-100 border-amber-300 text-amber-900' : 'border-gray-200 text-gray-700 hover:border-amber-300 hover:bg-amber-50'}
+                              ${isSelected ? 'ring-2 ring-amber-500 ring-offset-1' : ''}
+                            `}
+                            onClick={async () => {
+                              setAmberAssignDate(dateStr)
+                              if (
+                                !amberFrom ||
+                                !amberTo ||
+                                amberSessionsList.length === 0
+                              ) {
+                                setAmberFrom(dateStr)
+                                const end = new Date(year, month + 1, 0)
+                                setAmberTo(end.toISOString().slice(0, 10))
+                                if (program?.id) {
+                                  setAmberLoading(true)
+                                  try {
+                                    const res =
+                                      await programService.getAmberSessions(
+                                        program.id,
+                                        {
+                                          from: dateStr,
+                                          to: end.toISOString().slice(0, 10),
+                                        }
+                                      )
+                                    setAmberSessionsList(
+                                      res.data?.data?.rows ?? []
+                                    )
+                                  } catch {
+                                    setAmberSessionsList([])
+                                  } finally {
+                                    setAmberLoading(false)
+                                  }
+                                }
+                              }
+                            }}
+                          >
+                            {d}
+                          </button>
+                        </div>
+                      )
+                    })
+                  )}
+                </div>
+                <p className="text-xs text-amber-800 mt-2">
+                  Click a date to select it, then use &quot;Create new
+                  session&quot; or &quot;Assign to date&quot; below.
+                </p>
+              </div>
+            )
+          })()}
           <div className="flex flex-wrap items-center gap-2">
             <label htmlFor="program-builder-amber-from" className="sr-only">
               From date
@@ -1587,7 +1937,9 @@ export function ProgramBuilderForm({
                     <th className="border border-gray-200 px-2 py-1 text-left">
                       Session
                     </th>
-                    <th className="border border-gray-200 px-2 py-1 w-16" />
+                    <th className="border border-gray-200 px-2 py-1 text-right">
+                      Actions
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1601,7 +1953,35 @@ export function ProgramBuilderForm({
                           ? 'Rest'
                           : row.dayName || `Day ${row.dayIndex + 1}`}
                       </td>
-                      <td className="border border-gray-200 px-2 py-1">
+                      <td className="border border-gray-200 px-2 py-1 text-right space-x-1">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="small"
+                          className="text-gray-700 text-xs"
+                          onClick={() => {
+                            // 3.2 Amber: Open session designer for this date's session (find day by programDayId)
+                            let weekIdx = (row.weekIndex ?? 1) - 1
+                            let dayIdx = row.dayIndex ?? 0
+                            for (let w = 0; w < structure.weeks.length; w++) {
+                              const week = structure.weeks[w] as {
+                                days?: Array<{ id?: number }>
+                              }
+                              const days = week.days ?? []
+                              const dIdx = days.findIndex(
+                                d => d.id === row.programDayId
+                              )
+                              if (dIdx >= 0) {
+                                weekIdx = w
+                                dayIdx = dIdx
+                                break
+                              }
+                            }
+                            setSessionDesignerCell({ weekIdx, dayIdx })
+                          }}
+                        >
+                          Edit
+                        </Button>
                         <Button
                           type="button"
                           variant="ghost"
@@ -1635,80 +2015,119 @@ export function ProgramBuilderForm({
                 className="w-40"
               />
             </div>
-            <div>
-              <label
-                htmlFor="program-builder-amber-assign-day"
-                className="block text-xs font-medium text-gray-600 mb-1"
-              >
-                Session (day)
-              </label>
-              <Dropdown
-                placeholder="Select day"
-                value={amberAssignDayId}
-                onValueChange={v =>
-                  setAmberAssignDayId(
-                    Array.isArray(v) ? (v[0] ?? '') : (v ?? '')
-                  )
-                }
-                options={structure.weeks.flatMap(w =>
-                  (w.days ?? [])
-                    .map(d => ({
-                      id: (d as { id?: number }).id,
-                      dayName: d.dayName,
-                      weekIndex: w.weekIndex,
-                      dayIndex: d.dayIndex,
-                      isRestDay: d.isRestDay,
-                    }))
-                    .filter(d => d.id != null)
-                    .map(d => {
-                      const label = d.isRestDay
-                        ? `Rest - Week ${d.weekIndex} Day ${d.dayIndex + 1}`
-                        : d.dayName ||
-                          `Week ${d.weekIndex} Day ${d.dayIndex + 1}`
-                      return { value: String(d.id!), label }
-                    })
-                )}
-                size="small"
-                className="min-w-[180px]"
-              />
-            </div>
             <Button
               type="button"
-              variant="secondary"
+              variant="primary"
               size="small"
-              disabled={!amberAssignDate || !amberAssignDayId}
+              disabled={!amberAssignDate || amberLoading}
               onClick={async () => {
-                const dayId = Number(amberAssignDayId)
-                if (!dayId || !program?.id) return
+                if (!program?.id || !amberAssignDate) return
+                setAmberLoading(true)
                 try {
-                  await programService.setAmberSession(program.id, {
-                    date: amberAssignDate,
-                    programDayId: dayId,
-                  })
-                  setAmberSessionsList(prev => [
-                    ...prev,
-                    {
-                      id: 0,
-                      sessionDate: amberAssignDate,
-                      programDayId: dayId,
-                      dayName: structure.weeks
-                        .flatMap(w => w.days ?? [])
-                        .find(d => (d as { id?: number }).id === dayId)
-                        ?.dayName,
-                      dayIndex: 0,
-                      isRestDay: false,
-                    },
-                  ])
-                  setAmberAssignDate('')
-                  setAmberAssignDayId('')
-                  showSuccess('Session assigned')
+                  const res = await programService.createEmptyAmberSession(
+                    program.id,
+                    { date: amberAssignDate }
+                  )
+                  const data = res.data?.data as
+                    | {
+                        programDayId: number
+                        weekIndex: number
+                        dayIndex: number
+                      }
+                    | undefined
+                  if (data) {
+                    await refetchProgram()
+                    const listRes = await programService.getAmberSessions(
+                      program.id,
+                      { from: amberFrom, to: amberTo }
+                    )
+                    setAmberSessionsList(listRes.data?.data?.rows ?? [])
+                    setAmberAssignDate('')
+                    setSessionDesignerCell({
+                      weekIdx: data.weekIndex - 1,
+                      dayIdx: data.dayIndex,
+                    })
+                    showSuccess(
+                      'Session created — add blocks and exercises below'
+                    )
+                  }
                 } catch {
-                  showError('Failed to assign')
+                  showError('Failed to create session')
+                } finally {
+                  setAmberLoading(false)
                 }
               }}
             >
-              Assign
+              Create new session
             </Button>
+            {structure.weeks.length > 0 && (
+              <>
+                <div>
+                  <label
+                    htmlFor="program-builder-amber-assign-day"
+                    className="block text-xs font-medium text-gray-600 mb-1"
+                  >
+                    Or assign existing template
+                  </label>
+                  <Dropdown
+                    placeholder="Select template"
+                    value={amberAssignDayId}
+                    onValueChange={v =>
+                      setAmberAssignDayId(
+                        Array.isArray(v) ? (v[0] ?? '') : (v ?? '')
+                      )
+                    }
+                    options={structure.weeks.flatMap(w =>
+                      (w.days ?? [])
+                        .map(d => ({
+                          id: (d as { id?: number }).id,
+                          dayName: d.dayName,
+                          weekIndex: w.weekIndex,
+                          dayIndex: d.dayIndex,
+                          isRestDay: d.isRestDay,
+                        }))
+                        .filter(d => d.id != null)
+                        .map(d => {
+                          const label = d.isRestDay
+                            ? `Rest - ${d.dayName ?? `Day ${d.dayIndex + 1}`}`
+                            : (d.dayName ?? `Session ${d.dayIndex + 1}`)
+                          return { value: String(d.id!), label }
+                        })
+                    )}
+                    size="small"
+                    className="min-w-[180px]"
+                  />
+                </div>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="small"
+                  disabled={!amberAssignDate || !amberAssignDayId}
+                  onClick={async () => {
+                    const dayId = Number(amberAssignDayId)
+                    if (!dayId || !program?.id) return
+                    try {
+                      await programService.setAmberSession(program.id, {
+                        date: amberAssignDate,
+                        programDayId: dayId,
+                      })
+                      const res = await programService.getAmberSessions(
+                        program.id,
+                        { from: amberFrom, to: amberTo }
+                      )
+                      setAmberSessionsList(res.data?.data?.rows ?? [])
+                      setAmberAssignDate('')
+                      setAmberAssignDayId('')
+                      showSuccess('Session assigned')
+                    } catch {
+                      showError('Failed to assign')
+                    }
+                  }}
+                >
+                  Assign to date
+                </Button>
+              </>
+            )}
             <div className="flex flex-wrap items-end gap-2 pt-2 border-t border-amber-200 mt-2">
               <span className="text-xs font-medium text-amber-900">
                 Copy from date to date:
@@ -1755,6 +2174,106 @@ export function ProgramBuilderForm({
                 }}
               >
                 Copy
+              </Button>
+            </div>
+            {/* 3.2 Amber: Assign from library — one session per date; visible to all athletes on this program */}
+            <div className="flex flex-wrap items-end gap-2 pt-2 border-t border-amber-200 mt-2">
+              <span className="text-xs font-medium text-amber-900 w-full">
+                Assign from library
+              </span>
+              <Input
+                id="program-builder-amber-library-date"
+                type="date"
+                value={amberAssignFromLibraryDate}
+                onChange={e => setAmberAssignFromLibraryDate(e.target.value)}
+                size="small"
+                className="w-40"
+                placeholder="Date"
+              />
+              <Dropdown
+                placeholder={
+                  amberLibrarySessions.length === 0 &&
+                  !amberLibrarySessionsLoading
+                    ? 'Load sessions first'
+                    : 'Select session'
+                }
+                value={amberAssignLibrarySessionId}
+                onValueChange={v =>
+                  setAmberAssignLibrarySessionId(
+                    Array.isArray(v) ? (v[0] ?? '') : (v ?? '')
+                  )
+                }
+                options={amberLibrarySessions.map(s => ({
+                  value: String(s.id),
+                  label: s.name,
+                }))}
+                size="small"
+                className="min-w-[180px]"
+              />
+              <Button
+                type="button"
+                variant="secondary"
+                size="small"
+                disabled={amberLibrarySessionsLoading}
+                onClick={async () => {
+                  setAmberLibrarySessionsLoading(true)
+                  try {
+                    const res = await libraryService.search({
+                      type: 'sessions',
+                      limit: 100,
+                    })
+                    const rows = res.data?.data?.sessions?.rows ?? []
+                    setAmberLibrarySessions(
+                      rows.map(s => ({ id: s.id, name: s.name }))
+                    )
+                  } catch {
+                    setAmberLibrarySessions([])
+                  } finally {
+                    setAmberLibrarySessionsLoading(false)
+                  }
+                }}
+              >
+                {amberLibrarySessionsLoading ? 'Loading…' : 'Load sessions'}
+              </Button>
+              <Button
+                type="button"
+                variant="primary"
+                size="small"
+                disabled={
+                  !amberAssignFromLibraryDate ||
+                  !amberAssignLibrarySessionId ||
+                  amberLoading
+                }
+                onClick={async () => {
+                  const date = amberAssignFromLibraryDate
+                  const libId = Number(amberAssignLibrarySessionId)
+                  if (!program?.id || !date || !libId) return
+                  setAmberLoading(true)
+                  try {
+                    await programService.setAmberSessionFromLibrary(
+                      program.id,
+                      { date, librarySessionId: libId }
+                    )
+                    const res = await programService.getAmberSessions(
+                      program.id,
+                      { from: amberFrom, to: amberTo }
+                    )
+                    setAmberSessionsList(res.data?.data?.rows ?? [])
+                    setAmberAssignFromLibraryDate('')
+                    setAmberAssignLibrarySessionId('')
+                    showSuccess('Session assigned to date')
+                  } catch (e) {
+                    const err = e as AxiosError<{ message?: string }>
+                    showError(
+                      err.response?.data?.message ??
+                        'Failed to assign from library'
+                    )
+                  } finally {
+                    setAmberLoading(false)
+                  }
+                }}
+              >
+                Assign to date
               </Button>
             </div>
           </div>
@@ -1978,7 +2497,7 @@ export function ProgramBuilderForm({
                   <thead>
                     <tr className="bg-gray-50">
                       <th className="border border-gray-200 px-3 py-2 text-left text-sm font-medium text-gray-700 w-24">
-                        Week
+                        {isAmberCycle ? 'Session templates' : 'Week'}
                       </th>
                       {[1, 2, 3, 4, 5, 6, 7].map(d => (
                         <th
@@ -2198,17 +2717,19 @@ export function ProgramBuilderForm({
                     ))}
                   </tbody>
                 </table>
-                {/* MASS 2.8: Add Week at bottom */}
-                <div className="mt-2">
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="small"
-                    onClick={() => addWeek()}
-                  >
-                    + Add Week
-                  </Button>
-                </div>
+                {/* 3.2 Amber: No multi-week; only session templates. Red/Green: Add Week. */}
+                {!isAmberCycle && (
+                  <div className="mt-2">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="small"
+                      onClick={() => addWeek()}
+                    >
+                      + Add Week
+                    </Button>
+                  </div>
+                )}
               </div>
               {/* MASS 2.8: Hover preview tooltip */}
               {hoveredCell != null &&
