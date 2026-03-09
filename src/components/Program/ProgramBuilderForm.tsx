@@ -22,6 +22,7 @@ import type {
 } from '@/types/program'
 import type { Cycle } from '@/types/cycle'
 import type { GoalType, Category } from '@/types/goal-type'
+import { CATEGORY_LABELS } from '@/types/goal-type'
 import type { ExerciseListForBuilderItem } from '@/types/exercise'
 import {
   DEFAULT_PARAMETER_OPTIONS,
@@ -439,6 +440,11 @@ export function ProgramBuilderForm({
   const [saveAsProgramModalOpen, setSaveAsProgramModalOpen] = useState(false)
   const [saveAsProgramName, setSaveAsProgramName] = useState('')
   const [saveAsProgramSaving, setSaveAsProgramSaving] = useState(false)
+  /** Confirm remove week: weekIdx to remove, or null when modal closed */
+  const [removeWeekConfirmIdx, setRemoveWeekConfirmIdx] = useState<
+    number | null
+  >(null)
+  const [removeWeekLoading, setRemoveWeekLoading] = useState(false)
   const selectionAnchorRef = useRef<{ weekIdx: number; dayIdx: number } | null>(
     null
   )
@@ -500,12 +506,33 @@ export function ProgramBuilderForm({
     program as { constraintCategory?: string | null } | undefined
   )?.constraintCategory
 
-  /** Sync structure from program when program prop loads/updates (preserve week/day ids from API). MASS 2.8: support empty weeks. */
+  /** Sync structure from program when program prop loads/updates (preserve week names, days, blocks from API). MASS 2.8: support empty weeks. */
   useEffect(() => {
     if (program?.id != null && programStructure) {
       setStructure({ weeks: programStructure.weeks ?? [] })
     }
   }, [program, program?.id, programStructure])
+
+  /** When opening for edit, if program was passed without programStructure (e.g. from list), refetch once to populate calendar and all fields. */
+  const hasRefetchedForEdit = useRef(false)
+  useEffect(() => {
+    if (!program?.id || hasRefetchedForEdit.current) return
+    if (programStructure?.weeks === undefined) {
+      hasRefetchedForEdit.current = true
+      programService
+        .getById(program.id)
+        .then(res => {
+          const data = (
+            res.data as {
+              data?: Program & { programStructure?: ProgramStructure }
+            }
+          )?.data
+          const weeks = data?.programStructure?.weeks ?? []
+          setStructure({ weeks })
+        })
+        .catch(() => {})
+    }
+  }, [program?.id, programStructure?.weeks])
 
   /** 3.3 Green: Sync durationWeeks from program when editing a Green program; when creating Green, default to numberOfWeeks. */
   useEffect(() => {
@@ -540,6 +567,17 @@ export function ProgramBuilderForm({
     }
   }, [program, program?.id, programConstraintCategory, cycleId, cycles])
 
+  /** Goal Type (Green): When editing, sync category/subCategory from program.goalType if API returned goalType and category/subCategory are missing. */
+  useEffect(() => {
+    const p = program as
+      | (Program & { goalType?: { category: string; subCategory: string } })
+      | null
+    if (!p?.id || !p?.goalType) return
+    if (!p.category && p.goalType.category) setCategory(p.goalType.category)
+    if (!p.subCategory && p.goalType.subCategory)
+      setSubCategory(p.goalType.subCategory)
+  }, [program])
+
   /** MASS 2.1: When creating, pre-generate that many empty week rows on the calendar. Coach enters "12" → calendar immediately shows Week 1–12. */
   useEffect(() => {
     if (program?.id) return
@@ -562,7 +600,7 @@ export function ProgramBuilderForm({
     })
   }, [program?.id, numberOfWeeks])
 
-  /** MASS 2.8: Refetch program and sync structure. Returns new structure when successful. */
+  /** MASS 2.8: Refetch program and sync structure. Returns new structure when successful. Populates all fields (weeks, week names, days, blocks). */
   const refetchProgram =
     useCallback(async (): Promise<ProgramStructure | null> => {
       if (!program?.id) return null
@@ -571,12 +609,9 @@ export function ProgramBuilderForm({
         const data = (
           res.data as { data?: { programStructure?: ProgramStructure } }
         )?.data
-        const weeks = data?.programStructure?.weeks
-        if (weeks?.length) {
-          const next = { weeks }
-          setStructure(next)
-          return next
-        }
+        const weeks = data?.programStructure?.weeks ?? []
+        setStructure({ weeks })
+        return { weeks }
       } catch {
         showError('Failed to refresh program')
       }
@@ -751,7 +786,7 @@ export function ProgramBuilderForm({
     .map(g => ({ value: g.subCategory, label: g.subCategory }))
   const categoryLabels = [...new Set(goalTypes.map(g => g.category))]
     .filter((c): c is Category => Boolean(c))
-    .map(c => ({ value: c, label: c }))
+    .map(c => ({ value: c, label: CATEGORY_LABELS[c] ?? c }))
 
   const addWeek = async () => {
     if (program?.id) {
@@ -1000,16 +1035,18 @@ export function ProgramBuilderForm({
     setStructure({ weeks })
   }
 
-  const removeWeek = async (weekIdx: number) => {
-    if (
-      !globalThis.confirm(
-        'Remove this week and all its sessions? This cannot be undone.'
-      )
-    )
-      return
+  const removeWeek = (weekIdx: number) => {
+    setRemoveWeekConfirmIdx(weekIdx)
+  }
+
+  const confirmRemoveWeek = async () => {
+    const weekIdx = removeWeekConfirmIdx
+    if (weekIdx == null) return
     const week = structure.weeks[weekIdx]
-    if (program?.id && week?.id) {
-      try {
+    if (!week) return
+    setRemoveWeekLoading(true)
+    try {
+      if (program?.id && week?.id) {
         await programService.deleteWeek(week.id)
         await refetchProgram()
         setSelectedCells(prev => {
@@ -1019,13 +1056,18 @@ export function ProgramBuilderForm({
           })
           return next
         })
-      } catch (e) {
-        const err = e as AxiosError<{ message?: string }>
-        showError(err.response?.data?.message ?? 'Failed to remove week')
+      } else {
+        const nextWeeks = structure.weeks.filter((_, i) => i !== weekIdx)
+        setStructure({ weeks: nextWeeks })
+        if (!program?.id) setNumberOfWeeks(nextWeeks.length)
       }
-      return
+      setRemoveWeekConfirmIdx(null)
+    } catch (e) {
+      const err = e as AxiosError<{ message?: string }>
+      showError(err.response?.data?.message ?? 'Failed to remove week')
+    } finally {
+      setRemoveWeekLoading(false)
     }
-    setStructure({ weeks: structure.weeks.filter((_, i) => i !== weekIdx) })
   }
 
   /** MASS 2.3: Duplicate week (API when program exists, else local) */
@@ -1086,7 +1128,7 @@ export function ProgramBuilderForm({
   /** MASS 2.3: Save week name (inline edit) */
   const saveWeekName = (weekIdx: number) => {
     const week = structure.weeks[weekIdx]
-    const name = editingWeekNameValue.trim() || `Week ${week.weekIndex}`
+    const name = editingWeekNameValue.trim() || `Week ${weekIdx + 1}`
     if (program?.id && week?.id) {
       programService
         .updateWeek(week.id, { weekName: name })
@@ -1111,6 +1153,17 @@ export function ProgramBuilderForm({
   const getExerciseName = (exerciseId: number) =>
     exerciseList.find(e => e.id === exerciseId)?.name ??
     `Exercise #${exerciseId}`
+
+  /** Display label for a week: auto-renumber "Week N" by position; keep user-renamed names (e.g. "Ws") as-is. */
+  const getDisplayWeekName = (
+    week: { weekName?: string | null },
+    weekIdx: number
+  ): string => {
+    const name = week.weekName?.trim()
+    if (!name) return `Week ${weekIdx + 1}`
+    if (/^Week \d+$/.test(name)) return `Week ${weekIdx + 1}` // renumber after add/delete
+    return name // custom name, keep as-is
+  }
 
   /** MASS 2.8: Cell key for selection */
   const cellKey = (weekIdx: number, dayIdx: number) => `${weekIdx}-${dayIdx}`
@@ -1516,7 +1569,7 @@ export function ProgramBuilderForm({
         {!program && !isAmberCycle && (
           <div className="md:col-span-2">
             <Text variant="default" className="text-sm font-medium mb-1 block">
-              Number of weeks *
+              Number of weeks <span className="text-red-500">*</span>
             </Text>
             <input
               type="number"
@@ -1545,7 +1598,7 @@ export function ProgramBuilderForm({
         )}
         <div>
           <Text variant="default" className="text-sm font-medium mb-1 block">
-            Program name *
+            Program name <span className="text-red-500">*</span>
           </Text>
           <Input
             value={name}
@@ -1555,7 +1608,7 @@ export function ProgramBuilderForm({
         </div>
         <div>
           <Text variant="default" className="text-sm font-medium mb-1 block">
-            Cycle type *
+            Cycle type <span className="text-red-500">*</span>
           </Text>
           <Dropdown
             value={cycleId ? String(cycleId) : ''}
@@ -1565,9 +1618,16 @@ export function ProgramBuilderForm({
           />
         </div>
       </div>
+      <div className="rounded-md border border-blue-200 bg-blue-50/80 px-3 py-2">
+        <p className="text-sm text-gray-700">
+          <span className="font-medium text-gray-800">Program duration:</span>{' '}
+          Auto-calculated from the number of weeks in the calendar below. For
+          Amber, duration is ongoing (no fixed duration).
+        </p>
+      </div>
       <div>
         <Text variant="default" className="text-sm font-medium mb-1 block">
-          Description (optional)
+          Description
         </Text>
         <textarea
           className="w-full min-h-[80px] rounded border border-gray-300 px-3 py-2 text-sm"
@@ -1576,12 +1636,12 @@ export function ProgramBuilderForm({
           placeholder="Displayed to athletes when browsing programs"
         />
       </div>
-      {/* MASS 2.1: Category (required for cycle programs), Goal Type (required for Green) */}
+      {/* MASS 2.1: Category + Goal Type (required for Green). Goal Type links to Goal Type table; connects program to onboarding — e.g. Green program with Goal Type "SWAT Selection" is assigned to athletes whose primary goal is SWAT Selection. */}
       {showCategory && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <Text variant="default" className="text-sm font-medium mb-1 block">
-              Category *
+              Category <span className="text-red-500">*</span>
             </Text>
             <Dropdown
               value={category}
@@ -1591,16 +1651,13 @@ export function ProgramBuilderForm({
                 setSubCategory('')
               }}
               options={categoryLabels}
-              placeholder="Selection, School, Competition, Personal"
+              placeholder="Tactical Selection / School, Competition / Performance, Improve Operational Readiness"
               emptyMessage="please add goals first"
             />
           </div>
           <div>
             <Text variant="default" className="text-sm font-medium mb-1 block">
-              Goal Type *{' '}
-              <span className="text-gray-500 font-normal">
-                (required for Green)
-              </span>
+              Goal Type <span className="text-red-500">*</span>
             </Text>
             <Dropdown
               value={subCategory}
@@ -1609,7 +1666,7 @@ export function ProgramBuilderForm({
                 setSubCategory(s)
               }}
               options={categoryOptions}
-              placeholder="Goal Type (links to Goal Type table)"
+              placeholder="e.g. SWAT Selection (matches athlete primary goal)"
               emptyMessage="please add goals first"
               disabled={!category}
             />
@@ -2564,13 +2621,12 @@ export function ProgramBuilderForm({
                                     onClick={() => {
                                       setEditingWeekNameIdx(weekIdx)
                                       setEditingWeekNameValue(
-                                        week.weekName ??
-                                          `Week ${week.weekIndex}`
+                                        getDisplayWeekName(week, weekIdx)
                                       )
                                     }}
                                     title="Click to edit name"
                                   >
-                                    {week.weekName ?? `Week ${week.weekIndex}`}
+                                    {getDisplayWeekName(week, weekIdx)}
                                   </button>
                                   <Button
                                     type="button"
@@ -4064,6 +4120,34 @@ export function ProgramBuilderForm({
               </div>
             </Modal>
           )}
+
+          {/* Remove week confirmation — custom modal instead of native confirm */}
+          <Modal
+            visible={removeWeekConfirmIdx !== null}
+            title="Remove week"
+            onClose={() => {
+              if (!removeWeekLoading) setRemoveWeekConfirmIdx(null)
+            }}
+            size="small"
+            showCloseButton
+            primaryAction={{
+              label: removeWeekLoading ? 'Removing…' : 'Remove',
+              onPress: () => void confirmRemoveWeek(),
+              loading: removeWeekLoading,
+              disabled: removeWeekLoading,
+            }}
+            secondaryAction={{
+              label: 'Cancel',
+              onPress: () => setRemoveWeekConfirmIdx(null),
+              disabled: removeWeekLoading,
+            }}
+          >
+            <div className="p-4">
+              <p className="text-sm text-gray-600">
+                Remove this week and all its sessions? This cannot be undone.
+              </p>
+            </div>
+          </Modal>
 
           {/* MASS 2.10: Repeat sessions — modal to choose how many weeks to repeat into */}
           {repeatWeeksModalOpen && (

@@ -8,7 +8,7 @@ import { Input } from '@/components/Input'
 import { DataTable, type Column } from '@/components/DataTable'
 import { goalTypeService } from '@/api/goal-type.service'
 import { useSnackbar } from '@/components/Snackbar/useSnackbar'
-import { Category, type GoalType } from '@/types/goal-type'
+import { Category, CATEGORY_LABELS, type GoalType } from '@/types/goal-type'
 import { AxiosError } from 'axios'
 import { Icon } from '@/components/Icon'
 
@@ -151,20 +151,9 @@ const GoalTypes = () => {
     }
   }
 
-  const categoryOptions = [
-    {
-      value: Category.TacticalSelectionSchool,
-      label: 'Tactical Selection / School',
-    },
-    {
-      value: Category.CompetitionPerformance,
-      label: 'Competition / Performance',
-    },
-    {
-      value: Category.ImproveOperationalReadiness,
-      label: 'Improve Operational Readiness',
-    },
-  ]
+  const categoryOptions = (
+    Object.entries(CATEGORY_LABELS) as [Category, string][]
+  ).map(([value, label]) => ({ value, label }))
 
   const columns: Column<GoalType>[] = [
     {
@@ -184,7 +173,7 @@ const GoalTypes = () => {
       sortable: true,
       render: (_value, row) => (
         <Text variant="default" className="font-medium">
-          {row.category}
+          {CATEGORY_LABELS[row.category] ?? row.category}
         </Text>
       ),
     },
