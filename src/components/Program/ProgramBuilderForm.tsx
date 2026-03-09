@@ -1545,8 +1545,8 @@ export function ProgramBuilderForm({
             constraintCategory.trim() && {
               constraintCategory: constraintCategory.trim(),
             }),
+          programStructure: structure,
         }
-        payload.programStructure = undefined
         const res = await programService.create(payload)
         showSuccess('Program created')
         const created = res.data?.data ?? null
