@@ -6,6 +6,8 @@ import AdminRecoveryProtocols from '../admin/recovery-protocols'
 import RecoveryHub from '../train/RecoveryHub'
 import { useAuth } from '@/contexts/useAuth'
 import AthleteExerciseLibrary from '../train/AthleteExerciseLibrary'
+import AdminProgramManagement from '../admin/program-management'
+import { ProgramBrowser } from '../train/ProgramBrowser'
 
 export default function LibraryPage() {
   const { user } = useAuth()
@@ -15,28 +17,40 @@ export default function LibraryPage() {
   const tabItems = isAthlete
     ? [
         {
+          id: 'program',
+          label: 'Programs',
+          icon: 'clipboard-list',
+          content: <ProgramBrowser />,
+        },
+        {
           id: 'exercise',
-          label: 'Exercise Library',
+          label: 'Exercises',
           icon: 'dumbbell',
           content: <AthleteExerciseLibrary />,
         },
         {
           id: 'recovery-protocol',
-          label: 'Recovery Protocol',
+          label: 'Recovery Protocols',
           icon: 'spa',
           content: <RecoveryHub />,
         },
       ]
     : [
         {
+          id: 'program-management',
+          label: 'Programs',
+          icon: 'clipboard-list',
+          content: <AdminProgramManagement />,
+        },
+        {
           id: 'exercise',
-          label: 'Exercise Library',
+          label: 'Exercises',
           icon: 'dumbbell',
           content: <AdminExercises />,
         },
         {
           id: 'recovery-protocol',
-          label: 'Recovery Protocol',
+          label: 'Recovery Protocols',
           icon: 'spa',
           content: <AdminRecoveryProtocols />,
         },
@@ -45,7 +59,7 @@ export default function LibraryPage() {
   return (
     <Stack direction="vertical" spacing={16}>
       <Text as="h1" variant="secondary" className="text-3xl font-bold">
-        Profile
+        Library
       </Text>
       <Tabs items={tabItems} defaultActiveTab="exercise" />
     </Stack>
