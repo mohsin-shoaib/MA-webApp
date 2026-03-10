@@ -61,7 +61,7 @@ export default function LibraryPage() {
       <Text as="h1" variant="secondary" className="text-3xl font-bold">
         Library
       </Text>
-      <Tabs items={tabItems} defaultActiveTab="exercise" />
+      <Tabs items={tabItems} defaultActiveTab="program-management" />
     </Stack>
   )
 }
