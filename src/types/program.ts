@@ -58,7 +58,7 @@ export interface DailyExerciseDTO {
   exercises: ExerciseDTO[]
 }
 
-// --- Program Builder hierarchy: Program → Weeks → Days → Sections → Exercises (MASS Phase 4) ---
+// --- Program Builder hierarchy: Program → Weeks → Days → Blocks → Exercises (MASS 2.2). In code, blocks are typed as ProgramStructureSection (Section = Block). ---
 /** MASS Phase 4: per-set prescription row */
 export interface ProgramStructureSetRow {
   setIndex?: number
@@ -66,6 +66,8 @@ export interface ProgramStructureSetRow {
   repsDisplay?: string
   weightMode?: string
   weightValue?: number
+  /** Build to Heavy or other text (when weightMode is build_to_heavy) */
+  weightDisplay?: string
   rpe?: number
   tempo?: string
   restSeconds?: number

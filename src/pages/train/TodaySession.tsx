@@ -11,8 +11,12 @@ import type { ExerciseSwapItem, SetLog, SessionSummary } from '@/types/train'
 import type { AxiosError } from 'axios'
 import { useSnackbar } from '@/components/Snackbar/useSnackbar'
 import { WorkoutTimer } from '@/components/WorkoutTimer'
-import { ConditioningTimer } from '@/components/ConditioningTimer'
+import {
+  ConditioningTimer,
+  type ConditioningFormat,
+} from '@/components/ConditioningTimer'
 import { SetWorkingMaxModal } from '@/components/SetWorkingMaxModal'
+import { SanitizedHtml } from '@/components/SanitizedHtml'
 
 type TodayWorkoutData = {
   date: string
@@ -32,6 +36,8 @@ type TodayWorkoutData = {
   status?: string
   /** MASS Phase 7 */
   sessionNotes?: string
+  /** Estimated duration in minutes (for planning) */
+  estimatedDurationMinutes?: number
   dayStructure?: Record<string, unknown>
   exerciseSwaps?: ExerciseSwapItem[]
 }
@@ -71,6 +77,9 @@ function normalizeScheduledWorkout(
     sessionId: raw.sessionId as number | undefined,
     status,
     sessionNotes: raw.sessionNotes as string | undefined,
+    estimatedDurationMinutes: raw.estimatedDurationMinutes as
+      | number
+      | undefined,
     dayStructure: raw.dayStructure as Record<string, unknown> | undefined,
     exerciseSwaps: raw.exerciseSwaps as ExerciseSwapItem[] | undefined,
   }
@@ -516,17 +525,21 @@ export default function TodaySession() {
     return m
   }, [displayExercises])
 
-  /** Sections from dayStructure with display exercise data; empty if no dayStructure */
+  /** Sections from dayStructure with display exercise data; empty if no dayStructure. Top-level only; SUPERSET parent gets merged exercises from child sections. */
   const sectionsWithDisplay = useMemo(() => {
     const sections = (
       workout?.dayStructure as {
         sections?: Array<{
+          id?: number
+          orderIndex?: number
+          parentSectionId?: number | null
           blockType?: string
           name?: string
           instructions?: string
           resultTrackingType?: string
           videoUrls?: unknown
           conditioningFormat?: string
+          supersetRounds?: number
           restBetweenRounds?: string
           restBetweenExercises?: string
           exercises: Array<{
@@ -543,13 +556,97 @@ export default function TodaySession() {
       }
     )?.sections
     if (!sections?.length) return []
-    return sections.map(section => ({
-      ...section,
-      exercises: section.exercises.map(se => ({
-        ...se,
-        display: byOriginalExerciseId[se.exerciseId],
-      })),
-    }))
+    const topLevel = sections.filter(
+      (s: { parentSectionId?: number | null }) => s.parentSectionId == null
+    )
+    const withMergedSuperset = topLevel.map(
+      (section: {
+        id?: number
+        blockType?: string
+        orderIndex?: number
+        exercises: unknown[]
+        [key: string]: unknown
+      }) => {
+        if (
+          (section.blockType === 'SUPERSET' ||
+            section.blockType === 'superset') &&
+          section.id != null
+        ) {
+          const children = sections
+            .filter(
+              (s: { parentSectionId?: number | null }) =>
+                s.parentSectionId === section.id
+            )
+            .sort(
+              (a: { orderIndex?: number }, b: { orderIndex?: number }) =>
+                (a.orderIndex ?? 0) - (b.orderIndex ?? 0)
+            )
+          const mergedExercises = children.flatMap(
+            (c: { exercises?: unknown[] }) => c.exercises ?? []
+          )
+          return { ...section, exercises: mergedExercises }
+        }
+        return section
+      }
+    )
+    type SectionWithDisplay = {
+      exercises: Array<{
+        exerciseId: number
+        sectionExerciseId?: number
+        exercise: { id: number; name: string }
+        sets?: number
+        reps?: number
+        rest?: string
+        coachingNotes?: string
+        setsRows?: unknown[]
+        display?: ExerciseDTO & { _swappedFromId?: number }
+      }>
+      instructions?: string
+      restBetweenExercises?: string
+      restBetweenRounds?: string
+      name?: string
+      blockType?: string
+      resultTrackingType?: string
+      videoUrls?: unknown
+      conditioningFormat?: string
+      conditioningConfig?: unknown
+      supersetRounds?: number
+      orderIndex?: number
+      id?: number
+      parentSectionId?: number | null
+    }
+    type SectionExercise = {
+      exerciseId: number
+      sectionExerciseId?: number
+      exercise: { id: number; name: string }
+      sets?: number
+      reps?: number
+      rest?: string
+      coachingNotes?: string
+      setsRows?: unknown[]
+    }
+    return withMergedSuperset.map(
+      (section: {
+        exercises: unknown[]
+        instructions?: string
+        restBetweenExercises?: string
+        restBetweenRounds?: string
+        name?: string
+        blockType?: string
+        resultTrackingType?: string
+        videoUrls?: unknown
+        conditioningFormat?: string
+        conditioningConfig?: unknown
+        supersetRounds?: number
+        [key: string]: unknown
+      }) => ({
+        ...section,
+        exercises: (section.exercises as SectionExercise[]).map(se => ({
+          ...se,
+          display: byOriginalExerciseId[se.exerciseId],
+        })),
+      })
+    ) as SectionWithDisplay[]
   }, [workout?.dayStructure, byOriginalExerciseId])
 
   const useBlockView = sectionsWithDisplay.length > 0
@@ -834,14 +931,21 @@ export default function TodaySession() {
             <Text variant="default" className="font-semibold text-gray-900">
               {sessionLabel}
             </Text>
-            {workout.sessionNotes && (
-              <div className="mt-3 pt-3 border-t border-gray-200/80">
+            {workout.estimatedDurationMinutes != null &&
+              workout.estimatedDurationMinutes > 0 && (
                 <Text
                   variant="secondary"
-                  className="text-sm whitespace-pre-wrap"
+                  className="text-sm text-gray-500 mt-1"
                 >
-                  {workout.sessionNotes}
+                  ~{workout.estimatedDurationMinutes} min
                 </Text>
+              )}
+            {workout.sessionNotes && (
+              <div className="mt-3 pt-3 border-t border-gray-200/80">
+                <SanitizedHtml
+                  html={workout.sessionNotes}
+                  className="text-sm text-gray-600 [&_p]:mb-1 [&_ul]:list-disc [&_ol]:list-decimal [&_ul]:pl-4 [&_ol]:pl-4"
+                />
               </div>
             )}
             <div className="mt-3 pt-3 border-t border-gray-200/80 flex flex-wrap items-center gap-2">
@@ -905,16 +1009,23 @@ export default function TodaySession() {
           <div className="w-full space-y-6">
             {sectionsWithDisplay.map((section, sectionIdx) => (
               <div key={sectionIdx} className="space-y-3">
-                {section.conditioningFormat && (
-                  <ConditioningTimer
-                    format={section.conditioningFormat}
-                    durationSeconds={
-                      section.conditioningFormat?.toUpperCase() === 'AMRAP'
-                        ? 600
-                        : undefined
-                    }
-                  />
-                )}
+                {section.conditioningFormat &&
+                  section.conditioningFormat !== 'For Completion' &&
+                  section.conditioningFormat !== '' && (
+                    <ConditioningTimer
+                      format={section.conditioningFormat as ConditioningFormat}
+                      config={
+                        section.conditioningConfig as {
+                          timeCapSeconds?: number
+                          durationSeconds?: number
+                          intervalLengthSeconds?: number
+                          rounds?: number
+                          workSeconds?: number
+                          restSeconds?: number
+                        } | null
+                      }
+                    />
+                  )}
                 {section.blockType === 'CIRCUIT' ||
                 section.blockType === 'circuit' ? (
                   <Card className="p-0">
@@ -928,12 +1039,12 @@ export default function TodaySession() {
                         </Text>
                       )}
                       {section.instructions && (
-                        <Text
-                          variant="secondary"
-                          className="text-sm whitespace-pre-wrap mb-3"
-                        >
-                          {section.instructions}
-                        </Text>
+                        <div className="mb-3">
+                          <SanitizedHtml
+                            html={section.instructions}
+                            className="text-sm text-gray-700 [&_p]:mb-1 [&_ul]:list-disc [&_ol]:list-decimal [&_ul]:pl-4 [&_ol]:pl-4"
+                          />
+                        </div>
                       )}
                       {Array.isArray(section.videoUrls) &&
                         section.videoUrls.length > 0 && (
@@ -953,20 +1064,46 @@ export default function TodaySession() {
                               ))}
                           </div>
                         )}
-                      {section.resultTrackingType && (
-                        <div className="mt-3 pt-3 border-t border-gray-200">
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Result
-                          </label>
-                          <input
-                            type="text"
-                            placeholder="e.g. rounds, time, score"
-                            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
-                            readOnly
-                            aria-label="Circuit result"
-                          />
-                        </div>
-                      )}
+                      {(() => {
+                        const fmt = (
+                          section.conditioningFormat as string
+                        )?.toUpperCase()
+                        const resultType =
+                          fmt === 'AMRAP'
+                            ? 'Rounds+Reps'
+                            : fmt === 'FOR TIME'
+                              ? 'Time'
+                              : section.resultTrackingType
+                        const showResult = resultType && resultType !== 'None'
+                        if (!showResult) return null
+                        return (
+                          <div className="mt-3 pt-3 border-t border-gray-200">
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              {resultType === 'Time'
+                                ? 'Time'
+                                : resultType === 'Rounds+Reps'
+                                  ? 'Rounds + Reps'
+                                  : resultType}
+                            </label>
+                            <input
+                              type="text"
+                              placeholder={
+                                resultType === 'Time'
+                                  ? 'e.g. 3:45'
+                                  : resultType === 'Rounds+Reps'
+                                    ? 'e.g. 7+3'
+                                    : resultType === 'Calories'
+                                      ? 'e.g. 120'
+                                      : resultType === 'Distance'
+                                        ? 'e.g. 2000m'
+                                        : 'Your result'
+                              }
+                              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+                              aria-label={`Log ${resultType}`}
+                            />
+                          </div>
+                        )
+                      })()}
                       <div className="mt-3 text-sm text-gray-500">
                         Complete the circuit as prescribed.
                       </div>
@@ -982,78 +1119,213 @@ export default function TodaySession() {
                       >
                         Superset{section.name ? `: ${section.name}` : ''}
                       </Text>
-                      {section.restBetweenRounds && (
-                        <Text
-                          variant="secondary"
-                          className="text-xs mt-1 block"
-                        >
-                          Rest between rounds: {section.restBetweenRounds}
-                        </Text>
+                      <div className="text-xs mt-1 space-y-0.5 text-gray-600">
+                        {(section.supersetRounds != null ||
+                          section.restBetweenRounds != null) && (
+                          <span className="block">
+                            {section.supersetRounds != null &&
+                              `${section.supersetRounds} Rounds`}
+                            {section.supersetRounds != null &&
+                              section.restBetweenRounds != null &&
+                              section.restBetweenRounds !== '' &&
+                              ' | '}
+                            {section.restBetweenRounds != null &&
+                              section.restBetweenRounds !== '' &&
+                              `Rest between rounds: ${section.restBetweenRounds}s`}
+                          </span>
+                        )}
+                        {section.restBetweenExercises != null &&
+                          section.restBetweenExercises !== '' && (
+                            <span className="block">
+                              Rest between exercises:{' '}
+                              {section.restBetweenExercises}s
+                            </span>
+                          )}
+                      </div>
+                      {section.instructions && (
+                        <div className="mt-2 text-sm text-gray-700">
+                          <SanitizedHtml
+                            html={section.instructions}
+                            className="[&_p]:mb-1 [&_ul]:list-disc [&_ol]:list-decimal [&_ul]:pl-4 [&_ol]:pl-4"
+                          />
+                        </div>
                       )}
                     </div>
                     <div className="divide-y divide-gray-100">
                       {section.exercises.map((se, exIdx) => {
                         const display = se.display
+                        const label = `A${exIdx + 1}`
+                        const setsRows = Array.isArray(se.setsRows)
+                          ? (se.setsRows as Array<{
+                              setIndex?: number
+                              reps?: number
+                              repsDisplay?: string
+                              weightMode?: string
+                              weightValue?: number
+                              weightDisplay?: string
+                              rpe?: number
+                              tempo?: string
+                              restSeconds?: number
+                            }>)
+                          : []
                         return (
                           <div
                             key={se.sectionExerciseId ?? exIdx}
                             className="p-4"
                           >
                             {display ? (
-                              <button
-                                type="button"
-                                className="w-full flex items-center gap-4 cursor-pointer hover:bg-[#3AB8ED]/5 rounded-lg -m-2 p-2 transition-colors text-left"
-                                onClick={() => handleExerciseClick(display)}
-                              >
-                                <span className="flex-shrink-0 w-8 h-8 rounded-lg bg-[#3AB8ED]/10 text-[#2ea8db] font-semibold text-sm flex items-center justify-center">
-                                  {exIdx + 1}
-                                </span>
-                                <div className="min-w-0 flex-1">
-                                  <Text
-                                    variant="default"
-                                    className="font-medium text-gray-900"
-                                  >
-                                    {display.name}
-                                  </Text>
-                                  {(se.sets != null || se.reps != null) && (
+                              <>
+                                <button
+                                  type="button"
+                                  className="w-full flex items-center gap-4 cursor-pointer hover:bg-[#3AB8ED]/5 rounded-lg -m-2 p-2 transition-colors text-left"
+                                  onClick={() => handleExerciseClick(display)}
+                                >
+                                  <span className="flex-shrink-0 w-8 h-8 rounded-lg bg-[#3AB8ED]/10 text-[#2ea8db] font-semibold text-sm flex items-center justify-center">
+                                    {label}
+                                  </span>
+                                  <div className="min-w-0 flex-1">
                                     <Text
-                                      variant="secondary"
-                                      className="text-xs"
+                                      variant="default"
+                                      className="font-medium text-gray-900"
                                     >
-                                      {se.sets != null && `${se.sets} sets`}
-                                      {se.sets != null &&
-                                        se.reps != null &&
-                                        ' × '}
-                                      {se.reps != null && `${se.reps} reps`}
+                                      {display.name}
                                     </Text>
-                                  )}
-                                </div>
-                                {effectiveSessionId &&
-                                  workout.status !== 'completed' && (
-                                    <button
-                                      type="button"
-                                      onClick={e => {
-                                        e.stopPropagation()
-                                        handleSwapClick(display)
-                                      }}
-                                      className="shrink-0 p-2 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-                                      aria-label="Swap exercise"
-                                    >
-                                      <svg
-                                        className="w-5 h-5"
-                                        fill="currentColor"
-                                        viewBox="0 0 24 24"
-                                        aria-hidden
+                                    {display.video && (
+                                      <a
+                                        href={display.video}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-xs text-[#3AB8ED] hover:underline ml-2"
+                                        onClick={e => e.stopPropagation()}
                                       >
-                                        <path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9 2 2 2 .9 2 2 2z" />
-                                      </svg>
-                                    </button>
-                                  )}
-                                <span className="text-gray-400 text-sm">→</span>
-                              </button>
+                                        Video
+                                      </a>
+                                    )}
+                                  </div>
+                                  {effectiveSessionId &&
+                                    workout.status !== 'completed' && (
+                                      <button
+                                        type="button"
+                                        onClick={e => {
+                                          e.stopPropagation()
+                                          handleSwapClick(display)
+                                        }}
+                                        className="shrink-0 p-2 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                                        aria-label="Swap exercise"
+                                      >
+                                        <svg
+                                          className="w-5 h-5"
+                                          fill="currentColor"
+                                          viewBox="0 0 24 24"
+                                          aria-hidden
+                                        >
+                                          <path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9 2 2 2 .9 2 2 2z" />
+                                        </svg>
+                                      </button>
+                                    )}
+                                  <span className="text-gray-400 text-sm">
+                                    →
+                                  </span>
+                                </button>
+                                {se.coachingNotes && (
+                                  <Text
+                                    variant="secondary"
+                                    className="text-xs mt-1 block italic text-gray-600"
+                                  >
+                                    {se.coachingNotes}
+                                  </Text>
+                                )}
+                                {(section.restBetweenExercises != null &&
+                                  section.restBetweenExercises !== '' &&
+                                  exIdx < section.exercises.length - 1) ||
+                                (section.restBetweenRounds != null &&
+                                  section.restBetweenRounds !== '' &&
+                                  exIdx === section.exercises.length - 1) ? (
+                                  <Text
+                                    variant="secondary"
+                                    className="text-xs mt-0.5 block text-gray-500"
+                                  >
+                                    Rest after:{' '}
+                                    {exIdx < section.exercises.length - 1
+                                      ? `${section.restBetweenExercises ?? 0}s`
+                                      : `${section.restBetweenRounds ?? 0}s`}
+                                  </Text>
+                                ) : null}
+                                {setsRows.length > 0 && (
+                                  <div className="mt-2 overflow-x-auto">
+                                    <table className="w-full text-xs border border-gray-200 rounded">
+                                      <thead>
+                                        <tr className="bg-gray-50 text-gray-600">
+                                          <th className="text-left py-1 px-2 font-medium">
+                                            Set
+                                          </th>
+                                          <th className="text-left py-1 px-2 font-medium">
+                                            Reps
+                                          </th>
+                                          <th className="text-left py-1 px-2 font-medium">
+                                            Weight
+                                          </th>
+                                          <th className="text-left py-1 px-2 font-medium">
+                                            RPE
+                                          </th>
+                                          <th className="text-left py-1 px-2 font-medium">
+                                            Tempo
+                                          </th>
+                                          <th className="text-left py-1 px-2 font-medium">
+                                            Rest
+                                          </th>
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        {setsRows.map((row, ri) => (
+                                          <tr
+                                            key={ri}
+                                            className="border-t border-gray-100"
+                                          >
+                                            <td className="py-1 px-2">
+                                              {row.setIndex != null
+                                                ? row.setIndex + 1
+                                                : ri + 1}
+                                            </td>
+                                            <td className="py-1 px-2">
+                                              {row.repsDisplay ??
+                                                row.reps ??
+                                                '—'}
+                                            </td>
+                                            <td className="py-1 px-2">
+                                              {row.weightDisplay ??
+                                                (row.weightMode === 'percent' &&
+                                                row.weightValue != null
+                                                  ? `${row.weightValue}%`
+                                                  : row.weightMode ===
+                                                      'rpe_only'
+                                                    ? 'RPE'
+                                                    : row.weightValue != null
+                                                      ? String(row.weightValue)
+                                                      : '—')}
+                                            </td>
+                                            <td className="py-1 px-2">
+                                              {row.rpe ?? '—'}
+                                            </td>
+                                            <td className="py-1 px-2">
+                                              {row.tempo ?? '—'}
+                                            </td>
+                                            <td className="py-1 px-2">
+                                              {row.restSeconds != null
+                                                ? `${row.restSeconds}s`
+                                                : '—'}
+                                            </td>
+                                          </tr>
+                                        ))}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                )}
+                              </>
                             ) : (
                               <Text variant="secondary" className="text-sm">
-                                {se.exercise?.name ?? `Exercise ${exIdx + 1}`}
+                                {se.exercise?.name ??
+                                  `${label}: Exercise ${exIdx + 1}`}
                               </Text>
                             )}
                           </div>
@@ -1105,6 +1377,95 @@ export default function TodaySession() {
                                 {se.coachingNotes}
                               </Text>
                             )}
+                            {Array.isArray(se.setsRows) &&
+                              se.setsRows.length > 0 && (
+                                <div className="mt-2 overflow-x-auto">
+                                  <table className="w-full text-xs border border-gray-200 rounded">
+                                    <thead>
+                                      <tr className="bg-gray-50 text-gray-600">
+                                        <th className="text-left py-1 px-2 font-medium">
+                                          Set
+                                        </th>
+                                        <th className="text-left py-1 px-2 font-medium">
+                                          Reps
+                                        </th>
+                                        <th className="text-left py-1 px-2 font-medium">
+                                          Weight
+                                        </th>
+                                        <th className="text-left py-1 px-2 font-medium">
+                                          RPE
+                                        </th>
+                                        <th className="text-left py-1 px-2 font-medium">
+                                          Tempo
+                                        </th>
+                                        <th className="text-left py-1 px-2 font-medium">
+                                          Rest
+                                        </th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {(
+                                        se.setsRows as Array<{
+                                          setIndex?: number
+                                          reps?: number
+                                          repsDisplay?: string
+                                          weightMode?: string
+                                          weightValue?: number
+                                          weightDisplay?: string
+                                          rpe?: number
+                                          tempo?: string
+                                          restSeconds?: number
+                                        }>
+                                      ).map((row, ri) => (
+                                        <tr
+                                          key={ri}
+                                          className="border-t border-gray-100"
+                                        >
+                                          <td className="py-1 px-2">
+                                            {row.setIndex != null
+                                              ? row.setIndex + 1
+                                              : ri + 1}
+                                          </td>
+                                          <td className="py-1 px-2">
+                                            {row.repsDisplay ??
+                                              (row.reps != null
+                                                ? String(row.reps)
+                                                : '—')}
+                                          </td>
+                                          <td className="py-1 px-2">
+                                            {row.weightDisplay ??
+                                              (row.weightMode === 'percent' &&
+                                              row.weightValue != null
+                                                ? `${row.weightValue}%`
+                                                : row.weightMode === 'lwp' &&
+                                                    row.weightValue != null
+                                                  ? `LWP+${row.weightValue}`
+                                                  : row.weightValue != null
+                                                    ? String(row.weightValue)
+                                                    : row.weightMode ===
+                                                        'rpe_only'
+                                                      ? 'RPE'
+                                                      : '—')}
+                                          </td>
+                                          <td className="py-1 px-2">
+                                            {row.rpe != null
+                                              ? String(row.rpe)
+                                              : '—'}
+                                          </td>
+                                          <td className="py-1 px-2">
+                                            {row.tempo ?? '—'}
+                                          </td>
+                                          <td className="py-1 px-2">
+                                            {row.restSeconds != null
+                                              ? `${row.restSeconds}s`
+                                              : '—'}
+                                          </td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              )}
                             {(display.working_max != null ||
                               display.last_logged != null ||
                               display.prescribed_weight_lb != null ||

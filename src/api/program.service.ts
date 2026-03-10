@@ -265,6 +265,12 @@ export const programService = {
         prescriptionRows?: Array<{
           setIndex?: number
           reps?: number
+          repsDisplay?: string
+          weightMode?: string
+          weightValue?: number
+          weightDisplay?: string
+          rpe?: number
+          tempo?: string
           restSeconds?: number
         }>
       }>
@@ -312,6 +318,7 @@ export const programService = {
         repsDisplay?: string
         weightMode?: string
         weightValue?: number
+        weightDisplay?: string
         rpe?: number
         tempo?: string
         restSeconds?: number
@@ -335,43 +342,16 @@ export const programService = {
     ),
 
   /**
-   * MASS 2.5: Update block (section).
-   * PATCH admin/program/sections/:sectionId
+   * MASS 2.2: Delete block. DELETE admin/program/blocks/:blockId
    */
-  updateSection: (
-    sectionId: number,
-    body: {
-      blockType?: string
-      name?: string
-      blockCategory?: string
-      instructions?: string
-      resultTrackingType?: string
-      videoUrls?: unknown
-      conditioningFormat?: string
-      parentSectionId?: number | null
-      supersetRounds?: number
-      restBetweenExercises?: string
-      restBetweenRounds?: string
-      orderIndex?: number
-    }
-  ) =>
-    api.patch<{ statusCode: number; data: unknown; message?: string }>(
-      `admin/program/sections/${sectionId}`,
-      body
-    ),
-
-  /**
-   * MASS Phase 4: Delete block (section).
-   * DELETE admin/program/sections/:sectionId
-   */
-  deleteSection: (sectionId: number) =>
+  deleteBlock: (blockId: number) =>
     api.delete<{ statusCode: number; message?: string }>(
-      `admin/program/sections/${sectionId}`
+      `admin/program/blocks/${blockId}`
     ),
 
   /**
    * MASS 2.5: Add exercise to superset block.
-   * POST admin/program/supersets/:parentSectionId/exercises
+   * POST admin/program/supersets/:parentBlockId/exercises (parentBlockId = superset block id)
    */
   addExerciseToSuperset: (
     parentSectionId: number,
@@ -387,6 +367,7 @@ export const programService = {
         repsDisplay?: string
         weightMode?: string
         weightValue?: number
+        weightDisplay?: string
         rpe?: number
         tempo?: string
         restSeconds?: number
