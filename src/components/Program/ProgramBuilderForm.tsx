@@ -7,6 +7,7 @@ import { Input } from '@/components/Input'
 import { Dropdown } from '@/components/Dropdown'
 import { Icon } from '@/components/Icon'
 import { Modal } from '@/components/Modal'
+import { Drawer } from '@/components/Drawer'
 import { adminService } from '@/api/admin.service'
 import { goalTypeService } from '@/api/goal-type.service'
 import { programService } from '@/api/program.service'
@@ -532,6 +533,10 @@ export function ProgramBuilderForm({
     number | null
   >(null)
   const [removeWeekLoading, setRemoveWeekLoading] = useState(false)
+  /** Custom confirm modal for "Delete selected sessions" (replaces native confirm) */
+  const [deleteSelectedConfirmOpen, setDeleteSelectedConfirmOpen] =
+    useState(false)
+  const [deleteSelectedLoading, setDeleteSelectedLoading] = useState(false)
   const selectionAnchorRef = useRef<{ weekIdx: number; dayIdx: number } | null>(
     null
   )
@@ -2794,11 +2799,7 @@ export function ProgramBuilderForm({
                     type="button"
                     variant="secondary"
                     size="small"
-                    onClick={() => {
-                      if (globalThis.confirm('Delete selected sessions?')) {
-                        void handleDeleteSelected()
-                      }
-                    }}
+                    onClick={() => setDeleteSelectedConfirmOpen(true)}
                   >
                     Delete
                   </Button>
@@ -3907,7 +3908,7 @@ export function ProgramBuilderForm({
                     </div>
                   </div>
                   <p className="text-xs text-gray-500">
-                    Changes auto-save as you work (2.10). No manual save needed.
+                    Changes auto-save as you work. No manual save needed.
                   </p>
                 </div>
               )
@@ -3955,9 +3956,10 @@ export function ProgramBuilderForm({
             })()}
 
           {addBlockModalOpen && sessionDesignerCell && (
-            <Modal
+            <Drawer
               visible={true}
               title="Add Block"
+              width="lg"
               onClose={() => {
                 setAddBlockModalOpen(false)
                 setAddBlockType('')
@@ -3997,10 +3999,8 @@ export function ProgramBuilderForm({
                   ],
                 })
               }}
-              size="medium"
-              showCloseButton
             >
-              <div className="p-4 space-y-5">
+              <div className="space-y-5">
                 {addBlockType === '' ? (
                   <>
                     <div>
@@ -4038,7 +4038,7 @@ export function ProgramBuilderForm({
                     </p>
                   </>
                 ) : (
-                  <div className="flex justify-start pb-2 border-b border-gray-200">
+                  <div className="flex justify-start">
                     <Button
                       type="button"
                       variant="ghost"
@@ -4065,7 +4065,7 @@ export function ProgramBuilderForm({
                         htmlFor="add-block-category"
                         className="block text-xs font-medium text-gray-600 mb-1"
                       >
-                        Block category (optional)
+                        Block category
                       </label>
                       <Dropdown
                         placeholder="Uncategorized"
@@ -4156,7 +4156,7 @@ export function ProgramBuilderForm({
                           htmlFor="add-block-circuit-name"
                           className="block text-xs font-medium text-gray-600 mb-1"
                         >
-                          Circuit name (optional)
+                          Circuit name
                         </label>
                         <Input
                           id="add-block-circuit-name"
@@ -4176,7 +4176,7 @@ export function ProgramBuilderForm({
                           htmlFor="add-block-circuit-category"
                           className="block text-xs font-medium text-gray-600 mb-1"
                         >
-                          Block category (optional)
+                          Block category
                         </label>
                         <Dropdown
                           placeholder="Uncategorized"
@@ -4207,7 +4207,10 @@ export function ProgramBuilderForm({
                           htmlFor="add-block-instructions"
                           className="block text-xs font-medium text-gray-600 mb-1"
                         >
-                          Instructions (required, rich text)
+                          Instructions{' '}
+                          <span className="text-red-500" aria-hidden="true">
+                            *
+                          </span>
                         </label>
                         <RichTextEditor
                           key="add-circuit-instructions"
@@ -4229,7 +4232,7 @@ export function ProgramBuilderForm({
                           htmlFor="add-block-result-tracking"
                           className="block text-xs font-medium text-gray-600 mb-1"
                         >
-                          Result tracking (optional)
+                          Result tracking
                         </label>
                         <Dropdown
                           placeholder="None"
@@ -4255,7 +4258,7 @@ export function ProgramBuilderForm({
                           htmlFor="add-block-conditioning-format"
                           className="block text-xs font-medium text-gray-600 mb-1"
                         >
-                          Conditioning format (MASS 2.7)
+                          Conditioning format
                         </label>
                         <Dropdown
                           placeholder="Select format"
@@ -4476,7 +4479,7 @@ export function ProgramBuilderForm({
                           htmlFor="add-block-video-urls"
                           className="block text-xs font-medium text-gray-600 mb-1"
                         >
-                          Videos (optional)
+                          Videos
                         </label>
                         <Input
                           id="add-block-video-urls"
@@ -4550,7 +4553,7 @@ export function ProgramBuilderForm({
                           htmlFor="add-superset-category"
                           className="block text-xs font-medium text-gray-600 mb-1"
                         >
-                          Block category (optional)
+                          Block category
                         </label>
                         <Dropdown
                           placeholder="Uncategorized"
@@ -4634,7 +4637,7 @@ export function ProgramBuilderForm({
                           htmlFor="add-superset-notes"
                           className="block text-xs font-medium text-gray-600 mb-1"
                         >
-                          Superset notes (optional)
+                          Superset notes
                         </label>
                         <Input
                           id="add-superset-notes"
@@ -4791,7 +4794,7 @@ export function ProgramBuilderForm({
                   </div>
                 )}
               </div>
-            </Modal>
+            </Drawer>
           )}
 
           {editingExerciseBlock != null &&
@@ -4820,21 +4823,21 @@ export function ProgramBuilderForm({
                   ? section.blockCategory
                   : ''
               return (
-                <Modal
+                <Drawer
                   visible={true}
-                  title="Edit Exercise Block — Prescription Table"
+                  title="Exercise Block — Prescription Table"
                   onClose={() => setEditingExerciseBlock(null)}
-                  size="large"
-                  showCloseButton
+                  width="lg"
+                  className="max-w-3xl"
                 >
-                  <p className="text-sm text-gray-500 px-4 pt-1 pb-0">
+                  <p className="text-sm text-gray-500 pb-2">
                     Set, Reps, Weight, RPE, Tempo, Rest per set. Exercise notes
                     below.
                   </p>
-                  <div className="p-4 space-y-4 max-h-[80vh] overflow-y-auto">
+                  <div className="space-y-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Block category (optional)
+                        Block category
                       </label>
                       <Dropdown
                         placeholder="Uncategorized"
@@ -4924,32 +4927,32 @@ export function ProgramBuilderForm({
                         </Button>
                       </div>
                       <div className="border border-gray-200 rounded-lg overflow-hidden mt-2">
-                        <div className="overflow-x-auto">
-                          <table
-                            className="w-full text-sm"
-                            style={{ minWidth: '100%' }}
-                          >
+                        <div className="overflow-x-auto min-w-0">
+                          <table className="w-full min-w-[32rem] text-sm">
                             <thead>
                               <tr className="bg-gray-100 border-b border-gray-200">
-                                <th className="text-left py-2 px-2 font-medium text-gray-700 w-10">
+                                <th className="text-left py-2 px-2 font-medium text-gray-700 w-10 shrink-0">
                                   Set
                                 </th>
-                                <th className="text-left py-2 px-2 font-medium text-gray-700 min-w-[7rem]">
+                                <th className="text-left py-2 px-2 font-medium text-gray-700 min-w-24">
                                   Reps
                                 </th>
-                                <th className="text-left py-2 px-2 font-medium text-gray-700 min-w-[8rem]">
+                                <th className="text-left py-2 px-2 font-medium text-gray-700 min-w-28">
                                   Weight
                                 </th>
-                                <th className="text-left py-2 px-2 font-medium text-gray-700 w-14">
+                                <th className="text-left py-2 px-2 font-medium text-gray-700 w-14 shrink-0">
                                   RPE
                                 </th>
-                                <th className="text-left py-2 px-2 font-medium text-gray-700 min-w-[5.5rem]">
+                                <th className="text-left py-2 px-2 font-medium text-gray-700 min-w-24">
                                   Tempo
                                 </th>
-                                <th className="text-left py-2 px-2 font-medium text-gray-700 w-16">
+                                <th className="text-left py-2 px-2 font-medium text-gray-700 w-16 shrink-0">
                                   Rest (s)
                                 </th>
-                                <th className="w-9" aria-label="Remove set" />
+                                <th
+                                  className="w-9 shrink-0"
+                                  aria-label="Remove set"
+                                />
                               </tr>
                             </thead>
                             <tbody>
@@ -5266,7 +5269,7 @@ export function ProgramBuilderForm({
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Exercise notes (optional)
+                        Exercise notes
                       </label>
                       <textarea
                         className="w-full min-h-[60px] rounded border border-gray-300 px-3 py-2 text-sm"
@@ -5294,7 +5297,7 @@ export function ProgramBuilderForm({
                       </Button>
                     </div>
                   </div>
-                </Modal>
+                </Drawer>
               )
             })()}
 
@@ -5332,7 +5335,7 @@ export function ProgramBuilderForm({
                   <div className="p-4 space-y-4 max-h-[80vh] overflow-y-auto">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Circuit name (optional)
+                        Circuit name
                       </label>
                       <Input
                         value={section?.name ?? ''}
@@ -5347,7 +5350,7 @@ export function ProgramBuilderForm({
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Block category (optional)
+                        Block category
                       </label>
                       <Dropdown
                         placeholder="Uncategorized"
@@ -5609,7 +5612,13 @@ export function ProgramBuilderForm({
                     )}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Instructions (required, rich text)
+                        Instructions{' '}
+                        <span className="text-red-500" aria-hidden="true">
+                          *
+                        </span>
+                        <span className="text-gray-500 font-normal ml-1">
+                          (rich text)
+                        </span>
                       </label>
                       <RichTextEditor
                         key={`edit-circuit-instructions-${w}-${d}-${sectionIdx}`}
@@ -5626,7 +5635,7 @@ export function ProgramBuilderForm({
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Result tracking (optional)
+                        Result tracking
                       </label>
                       <Dropdown
                         placeholder="None"
@@ -5705,7 +5714,7 @@ export function ProgramBuilderForm({
                   <div className="p-4 space-y-4 max-h-[80vh] overflow-y-auto">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Block category (optional)
+                        Block category
                       </label>
                       <Dropdown
                         placeholder="Uncategorized"
@@ -5799,7 +5808,7 @@ export function ProgramBuilderForm({
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Superset notes (optional)
+                        Superset notes
                       </label>
                       <Input
                         value={parentSection?.instructions ?? ''}
@@ -5941,7 +5950,7 @@ export function ProgramBuilderForm({
                               </div>
                               <div className="mb-2">
                                 <label className="block text-xs text-gray-600 mb-1">
-                                  Exercise notes (optional)
+                                  Exercise notes
                                 </label>
                                 <Input
                                   value={ex0?.coachingNotes ?? ''}
@@ -6555,6 +6564,44 @@ export function ProgramBuilderForm({
             <div className="p-4">
               <p className="text-sm text-gray-600">
                 Remove this week and all its sessions? This cannot be undone.
+              </p>
+            </div>
+          </Modal>
+
+          {/* Delete selected sessions — custom modal instead of native confirm */}
+          <Modal
+            visible={deleteSelectedConfirmOpen}
+            title="Delete selected sessions"
+            onClose={() => {
+              if (!deleteSelectedLoading) setDeleteSelectedConfirmOpen(false)
+            }}
+            size="small"
+            showCloseButton
+            primaryAction={{
+              label: deleteSelectedLoading ? 'Deleting…' : 'Delete',
+              onPress: () => {
+                setDeleteSelectedLoading(true)
+                void (async () => {
+                  try {
+                    await handleDeleteSelected()
+                    setDeleteSelectedConfirmOpen(false)
+                  } finally {
+                    setDeleteSelectedLoading(false)
+                  }
+                })()
+              },
+              loading: deleteSelectedLoading,
+              disabled: deleteSelectedLoading,
+            }}
+            secondaryAction={{
+              label: 'Cancel',
+              onPress: () => setDeleteSelectedConfirmOpen(false),
+              disabled: deleteSelectedLoading,
+            }}
+          >
+            <div className="p-4">
+              <p className="text-sm text-gray-600">
+                Delete the selected sessions? This cannot be undone.
               </p>
             </div>
           </Modal>

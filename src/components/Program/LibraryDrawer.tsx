@@ -152,43 +152,66 @@ export function LibraryDrawer({
             </button>
           ))}
         </div>
-        <div className="flex flex-wrap gap-2 items-center">
-          <Input
-            placeholder="Search..."
-            value={q}
-            onChange={e => setQ(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && setSearchQ(q.trim())}
-          />
-          <Button
-            type="button"
-            variant="secondary"
-            size="small"
-            onClick={() => setSearchQ(q.trim())}
-          >
-            Search
-          </Button>
-          {activeTab === 'exercises' && (
-            <>
+        <div className="rounded-lg border border-gray-200 bg-gray-50/50 p-3 space-y-3">
+          <span className="text-xs font-medium text-gray-600 uppercase tracking-wide">
+            Search & filter
+          </span>
+          <div className="flex flex-wrap gap-2 items-end">
+            <div className="flex-1 min-w-[140px] space-y-1">
+              <label htmlFor="library-search" className="sr-only">
+                Search by name
+              </label>
               <Input
-                placeholder="Filter by tags (comma-separated)"
-                value={tagsStr}
-                onChange={e => setTagsStr(e.target.value)}
-                onKeyDown={e =>
-                  e.key === 'Enter' &&
-                  setTagsApplied(
-                    tagsStr
-                      .split(',')
-                      .map(s => s.trim())
-                      .filter(Boolean)
-                  )
-                }
-                className="max-w-[200px]"
+                id="library-search"
+                placeholder="Search by name..."
+                value={q}
+                onChange={e => setQ(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') {
+                    setSearchQ(q.trim())
+                    if (activeTab === 'exercises') {
+                      setTagsApplied(
+                        tagsStr
+                          .split(',')
+                          .map(s => s.trim())
+                          .filter(Boolean)
+                      )
+                    }
+                  }
+                }}
               />
-              <Button
-                type="button"
-                variant="secondary"
-                size="small"
-                onClick={() =>
+            </div>
+            {activeTab === 'exercises' && (
+              <div className="flex-1 min-w-[140px] space-y-1">
+                <label htmlFor="library-tags" className="sr-only">
+                  Filter by tags
+                </label>
+                <Input
+                  id="library-tags"
+                  placeholder="Tags (comma-separated)"
+                  value={tagsStr}
+                  onChange={e => setTagsStr(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') {
+                      setSearchQ(q.trim())
+                      setTagsApplied(
+                        tagsStr
+                          .split(',')
+                          .map(s => s.trim())
+                          .filter(Boolean)
+                      )
+                    }
+                  }}
+                />
+              </div>
+            )}
+            <Button
+              type="button"
+              variant="primary"
+              size="small"
+              onClick={() => {
+                setSearchQ(q.trim())
+                if (activeTab === 'exercises') {
                   setTagsApplied(
                     tagsStr
                       .split(',')
@@ -196,11 +219,16 @@ export function LibraryDrawer({
                       .filter(Boolean)
                   )
                 }
-              >
-                Apply tags
-              </Button>
-            </>
-          )}
+              }}
+            >
+              Search
+            </Button>
+          </div>
+          <p className="text-xs text-gray-500">
+            {activeTab === 'exercises'
+              ? 'Search and optional tags apply together. Press Enter or click Search.'
+              : 'Press Enter or click Search to run.'}
+          </p>
         </div>
 
         {loading && (
