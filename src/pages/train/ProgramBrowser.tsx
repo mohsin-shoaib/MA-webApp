@@ -10,10 +10,12 @@ import type { Program } from '@/types/program'
 
 const CYCLE_NAMES = ['Red', 'Amber', 'Green', 'Sustainment'] as const
 
+/** 3.2 Amber: Calendar-synced; no program list to enroll in—workouts are assigned to dates by admin/coach and appear on Train by date. */
 function getEmptyCycleMessage(cycleName: string): string {
-  if (cycleName === 'Amber') return 'Amber program will be added later.'
+  if (cycleName === 'Amber')
+    return 'Amber (Warfighter) is assigned via onboarding or your coach. Workouts appear on the Train calendar by date—use the Train page to see today’s session.'
   if (cycleName === 'Sustainment')
-    return 'No sustainment programs available yet.'
+    return 'Browse the Sustainment Library (by constraint type) to start a temporary override. Your roadmap stays unchanged.'
   return 'No programs in this cycle.'
 }
 
@@ -256,12 +258,22 @@ export function ProgramBrowser() {
                   : ''
               }
             >
-              <div className="flex items-center gap-2 mb-4">
+              <div className="flex items-center justify-between gap-2 mb-4 flex-wrap">
                 <span
                   className={`inline-block px-3 py-1 rounded-lg border text-sm font-medium ${badgeClass}`}
                 >
                   {cycleName} cycle
                 </span>
+                {cycleName === 'Sustainment' && (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="small"
+                    onClick={() => navigate('/train/sustainment')}
+                  >
+                    Open Sustainment Library
+                  </Button>
+                )}
               </div>
               {loading && (
                 <div className="flex items-center gap-2 py-4">

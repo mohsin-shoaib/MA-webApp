@@ -390,7 +390,7 @@ export default function RoadmapStep({
                         title:
                           safeStr(week) === '[object Object]' &&
                           cycle.cycleName === 'Amber'
-                            ? 'Amber program will be added later'
+                            ? 'Sessions by date (Warfighter)'
                             : safeStr(week),
                         content: (
                           <div className="rounded-lg bg-white border border-gray-100 p-4 space-y-4">
@@ -409,7 +409,8 @@ export default function RoadmapStep({
                                     variant="secondary"
                                     className="text-sm py-2"
                                   >
-                                    Amber program will be added later
+                                    Sessions appear on the Train calendar by
+                                    date.
                                   </Text>
                                 ) : (
                                   <ul className="list-none space-y-2">
@@ -419,7 +420,7 @@ export default function RoadmapStep({
                                         const display =
                                           label === '[object Object]'
                                             ? cycle.cycleName === 'Amber'
-                                              ? 'Amber program will be added later'
+                                              ? 'Sessions by date'
                                               : '—'
                                             : label
                                         return (
@@ -487,7 +488,7 @@ export default function RoadmapStep({
                           <span className="text-gray-500">Program: </span>
                           <span className="font-medium text-gray-800">
                             {cycle.cycleName === 'Amber'
-                              ? 'Amber program will be added later'
+                              ? 'Warfighter (sessions by date)'
                               : safeStr(cycle.programName)}
                           </span>
                         </div>
@@ -576,7 +577,7 @@ export default function RoadmapStep({
                                 title:
                                   safeStr(week) === '[object Object]' &&
                                   cycleType === 'Amber'
-                                    ? 'Amber program will be added later'
+                                    ? 'Sessions by date (Warfighter)'
                                     : safeStr(week),
                                 content: (
                                   <div className="rounded-lg bg-white border border-gray-100 p-4 space-y-4">
@@ -596,7 +597,8 @@ export default function RoadmapStep({
                                             variant="secondary"
                                             className="text-sm py-2"
                                           >
-                                            Amber program will be added later
+                                            Sessions appear on the Train
+                                            calendar by date.
                                           </Text>
                                         ) : (
                                           <ul className="list-none space-y-2">
@@ -609,7 +611,7 @@ export default function RoadmapStep({
                                                 const display =
                                                   label === '[object Object]'
                                                     ? cycleType === 'Amber'
-                                                      ? 'Amber program will be added later'
+                                                      ? 'Sessions by date'
                                                       : '—'
                                                     : label
                                                 return (

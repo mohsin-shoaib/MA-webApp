@@ -11,7 +11,7 @@ import { AxiosError } from 'axios'
 
 /**
  * Coach Create Program page.
- * Uses the same Program Builder (Weeks → Days → Sections → Exercises) as admin.
+ * Uses the same Program Builder (Weeks → Days → Blocks → Exercises) as admin.
  * Coach selects a cycle first, then creates a program (saved as unpublished until admin approves).
  */
 const Program = () => {

@@ -6,6 +6,13 @@ export const Category = {
 
 export type Category = (typeof Category)[keyof typeof Category]
 
+/** Primary Goal display labels (same as onboarding; do not use legacy "Selection, School, Competition, Personal"). */
+export const CATEGORY_LABELS: Record<Category, string> = {
+  TacticalSelectionSchool: 'Tactical Selection / School',
+  CompetitionPerformance: 'Competition / Performance',
+  ImproveOperationalReadiness: 'Improve Operational Readiness',
+}
+
 export interface GoalType extends Record<string, unknown> {
   id: number
   category: Category

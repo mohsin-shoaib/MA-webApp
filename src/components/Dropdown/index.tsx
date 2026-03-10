@@ -934,7 +934,7 @@ function getDropdownSizeStyles(size: DropdownSize) {
       }
     case 'medium':
       return {
-        button: 'px-4 py-2 min-h-[44px]',
+        button: 'px-4 py-3 min-h-11',
         text: 'text-base',
         option: 'py-2',
       }

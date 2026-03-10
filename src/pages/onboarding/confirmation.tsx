@@ -44,6 +44,10 @@ export default function ConfirmationStep({
   )
   const [programsForCycle, setProgramsForCycle] = useState<Program[]>([])
   const [loadingPrograms, setLoadingPrograms] = useState(false)
+  /** Red Cycle (3.1): Optional start date at assignment (ISO date string). */
+  const [redStartDate, setRedStartDate] = useState<string>(() =>
+    new Date().toISOString().slice(0, 10)
+  )
 
   const requiresProgram =
     cycleName && CYCLES_REQUIRING_PROGRAM.includes(cycleName)
@@ -56,6 +60,7 @@ export default function ConfirmationStep({
     setCycleName('')
     setSelectedProgramId(null)
     setProgramsForCycle([])
+    setRedStartDate(new Date().toISOString().slice(0, 10))
   }, [])
 
   // Ensure modal is closed when component mounts
@@ -106,18 +111,22 @@ export default function ConfirmationStep({
 
   const callConfirmOnboarding = async (
     cycleNameToUse: string,
-    programId?: number
+    programId?: number,
+    startDate?: string
   ) => {
     setError(null)
     setLoading(true)
     setShowModal(false)
 
     try {
-      const response = await onboardingService.confirmOnboarding({
-        onboarding: onboardData,
-        cycleName: cycleNameToUse,
-        programId,
-      })
+      const payload: Parameters<typeof onboardingService.confirmOnboarding>[0] =
+        {
+          onboarding: onboardData,
+          cycleName: cycleNameToUse,
+          programId,
+        }
+      if (cycleNameToUse === 'Red' && startDate) payload.startDate = startDate
+      const response = await onboardingService.confirmOnboarding(payload)
       const apiResponse = response.data
       if (apiResponse.statusCode === 200) {
         setShowModal(false)
@@ -177,7 +186,8 @@ export default function ConfirmationStep({
     }
     await callConfirmOnboarding(
       cycleName,
-      requiresProgram ? (selectedProgramId ?? undefined) : undefined
+      requiresProgram ? (selectedProgramId ?? undefined) : undefined,
+      cycleName === 'Red' ? redStartDate : undefined
     )
     resetManualState()
   }
@@ -189,8 +199,13 @@ export default function ConfirmationStep({
     { label: 'Sustainment', value: 'Sustainment' },
   ]
 
+  /** 3.3 Green: Show duration in label (event-aligned weeks). */
   const programOptions = programsForCycle.map(p => ({
-    label: p.name,
+    label:
+      cycleName === 'Green' &&
+      (p as { durationWeeks?: number | null }).durationWeeks != null
+        ? `${p.name} (${(p as { durationWeeks: number }).durationWeeks} weeks to event)`
+        : p.name,
     value: String(p.id),
   }))
 
@@ -331,6 +346,27 @@ export default function ConfirmationStep({
                     fullWidth
                     placeholder="Select a program"
                   />
+                )}
+                {cycleName === 'Red' && (
+                  <div>
+                    <label
+                      htmlFor="red-start-date"
+                      className="block text-sm font-medium text-gray-700 mb-1"
+                    >
+                      Program start date (optional)
+                    </label>
+                    <input
+                      id="red-start-date"
+                      type="date"
+                      value={redStartDate}
+                      onChange={e => setRedStartDate(e.target.value)}
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#3AB8ED] focus:ring-1 focus:ring-[#3AB8ED]"
+                    />
+                    <p className="mt-1 text-xs text-gray-500">
+                      Red program starts this day; end date = start + program
+                      weeks.
+                    </p>
+                  </div>
                 )}
               </>
             )}

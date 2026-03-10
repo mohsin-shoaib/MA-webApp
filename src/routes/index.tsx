@@ -31,6 +31,7 @@ import ExerciseLibrary from '@/pages/train/ExerciseLibrary'
 import AthleteExerciseLibrary from '@/pages/train/AthleteExerciseLibrary'
 import { ProgramBrowser } from '@/pages/train/ProgramBrowser'
 import { ProgramDetail } from '@/pages/train/ProgramDetail'
+import { SustainmentLibrary } from '@/pages/train/SustainmentLibrary'
 import NutritionHub from '@/pages/train/NutritionHub'
 import RecoveryHub from '@/pages/train/RecoveryHub'
 import AthleteDashboard from '@/pages/athleteDashboard'
@@ -477,6 +478,16 @@ export const routes = [
       <ProtectedRoute allowedRoles={['ATHLETE']}>
         <AppLayout>
           <ProgramBrowser />
+        </AppLayout>
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/train/sustainment',
+    element: (
+      <ProtectedRoute allowedRoles={['ATHLETE']}>
+        <AppLayout>
+          <SustainmentLibrary />
         </AppLayout>
       </ProtectedRoute>
     ),

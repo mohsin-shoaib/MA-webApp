@@ -117,6 +117,8 @@ export interface ConfirmOnboardingPayload {
   onboarding: CreateOnboardingDTO
   cycleName: string
   programId?: number
+  /** Red Cycle (3.1): Start date at assignment (ISO date). Defaults to today if omitted. */
+  startDate?: string
 }
 
 /** Response from POST /athlete/onboarding/confirm (optional; backend may return onboarding + message) */

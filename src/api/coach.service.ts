@@ -65,6 +65,18 @@ export const coachService = {
       body
     ),
 
+  /** 3.5 Custom / 1:1: Assign a program day to an athlete's calendar date (ad-hoc session). POST coach/custom-session/assign */
+  assignCustomSessionToDate: (body: {
+    athleteId: number
+    programId: number
+    date: string
+    programDayId: number
+  }) =>
+    api.post<{ statusCode: number; data: { session: unknown } }>(
+      'coach/custom-session/assign',
+      body
+    ),
+
   /** List active 1:1 program assignments for coach's athletes. GET coach/user-program/active-1to1 */
   listActive1to1: () =>
     api.get<{ statusCode: number; data: { assignments: unknown[] } }>(

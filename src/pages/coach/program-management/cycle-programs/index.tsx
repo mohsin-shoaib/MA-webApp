@@ -8,7 +8,6 @@ import { DataTable, type Column } from '@/components/DataTable'
 import { Modal } from '@/components/Modal'
 import { Tooltip } from '@/components/Tooltip'
 import { Dropdown } from '@/components/Dropdown'
-import { ProgramForm } from '@/components/Program/ProgramForm'
 import { ProgramBuilderForm } from '@/components/Program/ProgramBuilderForm'
 import { adminService } from '@/api/admin.service'
 import { programService } from '@/api/program.service'
@@ -119,7 +118,21 @@ const CoachCyclePrograms = () => {
     setIsCreateModalOpen(false)
   }
 
-  const handleFormSuccess = () => {
+  const handleFormSuccess = async (createdProgram?: Program | null) => {
+    if (createdProgram?.id) {
+      setIsCreateModalOpen(false)
+      try {
+        const response = await programService.getById(createdProgram.id)
+        const fullProgram = response.data?.data ?? createdProgram
+        setEditingProgram(fullProgram as Program)
+        setIsEditModalOpen(true)
+      } catch {
+        setEditingProgram(null)
+      }
+      showSuccess('Program created and submitted for admin approval.')
+      fetchPrograms()
+      return
+    }
     setIsCreateModalOpen(false)
     setIsEditModalOpen(false)
     setEditingProgram(null)
@@ -399,21 +412,12 @@ const CoachCyclePrograms = () => {
             showCloseButton={true}
           >
             <div className="p-6">
-              {editingProgram.programStructure?.weeks?.length ? (
-                <ProgramBuilderForm
-                  initialCycleId={cycleId ? Number(cycleId) : undefined}
-                  program={editingProgram}
-                  onSuccess={handleFormSuccess}
-                  onCancel={handleCloseEditModal}
-                />
-              ) : (
-                <ProgramForm
-                  initialCycleId={cycleId ? Number(cycleId) : undefined}
-                  program={editingProgram}
-                  onSuccess={handleFormSuccess}
-                  onCancel={handleCloseEditModal}
-                />
-              )}
+              <ProgramBuilderForm
+                initialCycleId={cycleId ? Number(cycleId) : undefined}
+                program={editingProgram}
+                onSuccess={handleFormSuccess}
+                onCancel={handleCloseEditModal}
+              />
             </div>
           </Modal>
         )}

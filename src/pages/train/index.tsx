@@ -320,6 +320,36 @@ export default function TrainPage() {
             </div>
           </Card>
 
+          {/* 3.4 Sustainment Library: temporary override (travel, limited equipment, rehab, time, deployed). */}
+          <Card className="p-0">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <Text variant="default" className="font-semibold">
+                  Sustainment Library
+                </Text>
+                <Tooltip
+                  content="Temporary programs for travel, limited equipment, rehab, or time constraints. Starting one pauses your current cycle; roadmap unchanged."
+                  position="top"
+                >
+                  <span
+                    className="inline-flex text-gray-500 cursor-help"
+                    aria-label="More info"
+                  >
+                    <Icon name="circle-info" family="solid" size={16} />
+                  </span>
+                </Tooltip>
+              </div>
+              <Button
+                type="button"
+                variant="secondary"
+                size="small"
+                onClick={() => navigate('/train/sustainment')}
+              >
+                Browse sustainment
+              </Button>
+            </div>
+          </Card>
+
           {/* Nutrition Hub */}
           <Card className="p-0">
             <div className="flex items-center justify-between gap-3">

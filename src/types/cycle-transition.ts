@@ -12,6 +12,8 @@ export interface CycleTransition {
   status: 'PENDING' | 'APPROVED' | 'REJECTED'
   reason?: string | null
   requestedAt: string
+  /** 3.3 Green: when set, transition is scheduled (e.g. Amber→Green) and requires athlete confirmation */
+  scheduledAt?: string | null
   approvedAt?: string | null
   approvedBy?: number | null
   fromCycle?: {
@@ -45,4 +47,11 @@ export interface CycleTransitionResponse {
   statusCode: number
   data: CycleTransition | CycleTransition[]
   message: string
+}
+
+/** 3.3 Green: GET pending-scheduled response */
+export interface PendingScheduledTransitionResponse {
+  statusCode: number
+  data: { transition: CycleTransition | null }
+  message?: string
 }
