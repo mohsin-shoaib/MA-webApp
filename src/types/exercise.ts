@@ -96,6 +96,8 @@ export interface ExerciseListForBuilderItem {
   defaultParameter1?: string | null
   defaultParameter2?: string | null
   tags?: string[] | null
+  /** YouTube/Vimeo URL for video thumbnail in program builder picker */
+  videoUrl?: string | null
 }
 
 export interface ListForProgramBuilderResponse {

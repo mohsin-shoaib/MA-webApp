@@ -112,6 +112,18 @@ function getBlockDisplayName(
   return first ? getExerciseName(first.exerciseId) : section.name || 'Block'
 }
 
+/** YouTube thumbnail URL from video URL (for exercise picker). Returns null for non-YouTube or invalid. */
+function getExerciseThumbnailUrl(
+  videoUrl: string | null | undefined
+): string | null {
+  if (!videoUrl?.trim()) return null
+  const u = videoUrl.trim()
+  const ytMatch =
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/.exec(u)
+  if (ytMatch) return `https://img.youtube.com/vi/${ytMatch[1]}/mqdefault.jpg`
+  return null
+}
+
 /** Returns true if structure has at least one non-rest day with a block that has exercises (for submit validation). */
 function structureHasContent(structure: ProgramStructure): boolean {
   for (const w of structure.weeks) {
@@ -215,10 +227,11 @@ function CalendarDayCell(
   const isRest = day?.isRestDay ?? false
   const canMoveSession = day?.id != null && week.id != null
 
+  /* Published = solid border; Draft = dashed (2.8 calendar view) */
   const borderStyle =
     program && !program.isPublished
-      ? 'border-dashed border-gray-300'
-      : 'border-transparent'
+      ? 'border-dashed border-gray-300 bg-gray-50/30'
+      : 'border-solid border-gray-300'
   const selectedStyle = isSelected
     ? 'border-[#3AB8ED] bg-blue-100 ring-2 ring-[#3AB8ED] ring-offset-1'
     : 'hover:border-[#3AB8ED] hover:bg-blue-50/50'
@@ -227,38 +240,45 @@ function CalendarDayCell(
     ? 'border-[#3AB8ED] bg-blue-100 ring-2 ring-[#3AB8ED] ring-offset-1 text-[#3AB8ED]'
     : 'border-dashed border-gray-300 text-gray-500 hover:border-[#3AB8ED] hover:text-[#3AB8ED]'
 
-  const buttonClass = day
-    ? `w-full min-h-[80px] rounded-lg border-2 p-2 text-left transition-colors ${dragStyle} ${borderStyle} ${selectedStyle}`
-    : `w-full min-h-[80px] rounded-lg border flex items-center justify-center text-sm ${emptyCellSelectedStyle}`
+  /* Session card: card-style container for content (2.8 Level 1) */
+  const sessionCardClass = day
+    ? `w-full min-h-[88px] rounded-lg border-2 p-2.5 text-left transition-colors shadow-sm bg-white ${dragStyle} ${borderStyle} ${selectedStyle}`
+    : `relative w-full min-h-[88px] rounded-lg border-2 flex items-center justify-center text-sm transition-colors group ${emptyCellSelectedStyle}`
 
   const dayCellContent = isRest ? (
-    <span className="text-xs text-gray-500 font-medium">Rest</span>
+    <span className="text-sm text-gray-400 font-medium" aria-label="Rest day">
+      Rest
+    </span>
   ) : (
     <>
+      {/* Session name + status indicator (draft/published) */}
       <div className="flex items-center gap-1.5 flex-wrap">
-        <span className="text-xs font-medium text-gray-900 truncate">
+        <span className="text-xs font-semibold text-gray-900 truncate">
           {day?.dayName || `Day ${dayIdx + 1}`}
         </span>
         {program && (
           <span
             className={
               program.isPublished
-                ? 'text-[10px] px-1.5 py-0.5 rounded bg-green-100 text-green-700'
-                : 'text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700'
+                ? 'text-[10px] px-1.5 py-0.5 rounded bg-green-100 text-green-700 shrink-0'
+                : 'text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 shrink-0'
             }
+            aria-label={program.isPublished ? 'Published' : 'Draft'}
           >
             {program.isPublished ? 'Published' : 'Draft'}
           </span>
         )}
       </div>
+      {/* Exercise names */}
       {exerciseNames.length > 0 && (
         <div
-          className="text-[11px] text-gray-600 mt-0.5 truncate"
+          className="text-[11px] text-gray-600 mt-1 truncate"
           title={exerciseNames.join(', ')}
         >
           {exerciseNames.join(', ')}
         </div>
       )}
+      {/* Set counts + block category labels */}
       {(setCounts.length > 0 || blockCategories.length > 0) && (
         <div className="text-[11px] text-gray-500 mt-0.5">
           {setCounts.length > 0 && setCounts.join(', ')}
@@ -268,8 +288,9 @@ function CalendarDayCell(
       )}
       {exerciseNames.length === 0 &&
         setCounts.length === 0 &&
-        blockCategories.length === 0 && (
-          <div className="text-xs text-gray-500 mt-0.5">
+        blockCategories.length === 0 &&
+        !isRest && (
+          <div className="text-xs text-gray-500 mt-1">
             {blockCount} block(s)
           </div>
         )}
@@ -278,7 +299,7 @@ function CalendarDayCell(
 
   return (
     <td
-      className="border border-gray-200 p-1 align-top"
+      className="border border-gray-200 p-1.5 align-top"
       data-week-idx={weekIdx}
       data-day-idx={dayIdx}
       onMouseEnter={onMouseEnter}
@@ -295,7 +316,8 @@ function CalendarDayCell(
           onMouseDown={onMouseDown}
           onClick={onClick}
           onContextMenu={onContextMenu}
-          className={buttonClass}
+          className={sessionCardClass}
+          aria-label={`Session: ${day?.dayName || `Day ${dayIdx + 1}`}${isRest ? ', Rest day' : ''}`}
         >
           {dayCellContent}
         </button>
@@ -305,9 +327,15 @@ function CalendarDayCell(
           onMouseDown={onMouseDown}
           onClick={onAddDay}
           onContextMenu={onContextMenu}
-          className={buttonClass}
+          className={sessionCardClass}
+          aria-label="Add session"
         >
-          + Add Session
+          <span className="opacity-40 group-hover:opacity-0 transition-opacity">
+            +
+          </span>
+          <span className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+            + Add Session
+          </span>
         </button>
       )}
     </td>
@@ -383,9 +411,6 @@ export function ProgramBuilderForm({
   } | null>(null)
   const [previewSessionOpen, setPreviewSessionOpen] = useState(false)
   const [addBlockModalOpen, setAddBlockModalOpen] = useState(false)
-  const [addBlockExerciseCategory, setAddBlockExerciseCategory] = useState('')
-  const [addBlockExerciseCategoryCustom, setAddBlockExerciseCategoryCustom] =
-    useState('')
   /** MASS 2.5.1: Edit exercise block (prescription table, notes). { weekIdx, dayIdx, sectionIdx } */
   const [editingExerciseBlock, setEditingExerciseBlock] = useState<{
     weekIdx: number
@@ -411,10 +436,16 @@ export function ProgramBuilderForm({
   })
   const [addBlockCircuitCategoryCustom, setAddBlockCircuitCategoryCustom] =
     useState('')
+  /** Add Block: search query for "Select Exercise or Circuit" (debounced fetch) */
+  const [addBlockSearchQuery, setAddBlockSearchQuery] = useState('')
   /** Add Block modal: selected type so we show only the relevant form */
   const [addBlockType, setAddBlockType] = useState<
     '' | 'EXERCISE' | 'CIRCUIT' | 'SUPERSET'
   >('')
+  /** Add Block drawer: show New Exercise form inside drawer instead of modal */
+  const [addBlockStep, setAddBlockStep] = useState<'search' | 'newExercise'>(
+    'search'
+  )
   /** MASS 2.5.3: Add superset form (rounds, rest, notes, 2+ exercises with prescription) */
   const [addBlockSupersetForm, setAddBlockSupersetForm] = useState<{
     supersetRounds: number
@@ -753,6 +784,20 @@ export function ProgramBuilderForm({
     fetchExercises()
   }, [fetchCycles, fetchGoalTypes, fetchExercises])
 
+  /** Add Block: debounced search — when drawer is open, fetch exercises by query */
+  useEffect(() => {
+    if (!addBlockModalOpen || !sessionDesignerCell) return
+    const t = setTimeout(() => {
+      fetchExercises(addBlockSearchQuery.trim() || undefined)
+    }, 300)
+    return () => clearTimeout(t)
+  }, [
+    addBlockModalOpen,
+    addBlockSearchQuery,
+    fetchExercises,
+    sessionDesignerCell,
+  ])
+
   /** MASS 2.8: Global mouseup to end click-drag selection */
   useEffect(() => {
     const onMouseUp = () => {
@@ -803,6 +848,12 @@ export function ProgramBuilderForm({
   /** MASS 2.8: Ctrl+V paste when calendar has selection and copied days */
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement
+      const inInput =
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.isContentEditable
+      if (inInput) return
       if (
         (e.ctrlKey || e.metaKey) &&
         e.key === 'v' &&
@@ -913,7 +964,7 @@ export function ProgramBuilderForm({
             {
               dayIndex: 0,
               dayName: defaultFirstDayName,
-              sections: [{ sectionType: 'normal', exercises: [] }],
+              sections: [],
             },
           ],
         },
@@ -955,7 +1006,7 @@ export function ProgramBuilderForm({
     w.days.push({
       dayIndex: nextDayIdx,
       dayName: defaultDayName,
-      sections: [{ sectionType: 'normal', exercises: [] }],
+      sections: [],
     })
     weeks[weekIdx] = w
     setStructure({ weeks })
@@ -1548,6 +1599,29 @@ export function ProgramBuilderForm({
         : 'No sessions with ID to copy'
     )
   }, [selectedCells, structure.weeks, showSuccess])
+
+  /** MASS 2.8: Ctrl+C copy when calendar has selection (not when typing in input/textarea) */
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement
+      const inInput =
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.isContentEditable
+      if (inInput) return
+      if (
+        (e.ctrlKey || e.metaKey) &&
+        e.key === 'c' &&
+        selectedCells.size > 0 &&
+        sessionDesignerCell == null
+      ) {
+        e.preventDefault()
+        handleCopy()
+      }
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  }, [selectedCells.size, sessionDesignerCell, handleCopy])
 
   /** Delete selected sessions (only those with day id when program exists) */
   const handleDeleteSelected = useCallback(async () => {
@@ -2767,8 +2841,9 @@ export function ProgramBuilderForm({
                           setPublishingToggle(false)
                         }
                       }}
+                      title="Publish program (makes all sessions visible to athletes)"
                     >
-                      {publishingToggle ? 'Publishing...' : 'Publish'}
+                      {publishingToggle ? 'Publishing...' : 'Publish program'}
                     </Button>
                   )
                 )}
@@ -2781,7 +2856,7 @@ export function ProgramBuilderForm({
                   Add from Library
                 </Button>
               </div>
-              {/* Toolbar when cells selected: Copy, Delete, Repeat */}
+              {/* Toolbar when cells selected: Copy, Delete, Repeat, Save as Program, Publish/Unpublish (2.8) */}
               {selectedCells.size > 0 && (
                 <div className="flex flex-wrap items-center gap-2 p-2 rounded-lg bg-gray-100 border border-gray-200">
                   <span className="text-sm text-gray-600 mr-2">
@@ -2889,6 +2964,16 @@ export function ProgramBuilderForm({
                   </Button>
                 </div>
               )}
+              {/* MASS 2.8 Level 1: Program Calendar View (Overview) — rows = weeks, columns = days */}
+              <h2 className="text-lg font-semibold text-gray-900 mb-2 mt-4">
+                Program Calendar
+              </h2>
+              <p className="text-sm text-gray-600 mb-3">
+                Click a session to open it. Hover to preview contents. Drag to
+                multi-select; toolbar: Copy, Delete, Save as Program, Repeat,
+                Publish/Unpublish. Right-click for Copy / Paste / Open.
+                Shortcuts: Ctrl+C copy, Ctrl+V paste (with cell selected).
+              </p>
               <div className="overflow-x-auto">
                 <table className="w-full border-collapse border border-gray-200 rounded-lg overflow-hidden bg-white">
                   <thead>
@@ -3166,30 +3251,54 @@ export function ProgramBuilderForm({
                   </div>
                 )}
               </div>
-              {/* MASS 2.8: Hover preview tooltip */}
+              {/* MASS 2.8: Hover preview — session contents without opening */}
               {hoveredCell != null &&
                 (() => {
                   const week = structure.weeks[hoveredCell.weekIdx]
                   const day = week?.days?.[hoveredCell.dayIdx]
                   if (!day) return null
                   const sections = day.sections ?? []
-                  const summary = day.isRestDay
-                    ? 'Rest'
-                    : sections
-                        .map(s => getBlockDisplayName(s, getExerciseName))
-                        .slice(0, 6)
-                        .join(' · ')
+                  const { exerciseNames, setCounts, blockCategories } =
+                    getCellSummary(sections, getExerciseName)
+                  const blockNames = sections
+                    .map(s => getBlockDisplayName(s, getExerciseName))
+                    .slice(0, 6)
                   return (
                     <div
-                      className="fixed z-40 max-w-xs rounded-lg border border-gray-200 bg-white px-3 py-2 shadow-lg text-left pointer-events-none"
+                      className="fixed z-40 max-w-sm rounded-lg border border-gray-200 bg-white px-3 py-2.5 shadow-lg text-left pointer-events-none"
                       style={{ left: hoveredCell.x, top: hoveredCell.y }}
                     >
-                      <div className="text-xs font-medium text-gray-900">
+                      <div className="text-xs font-semibold text-gray-900">
                         {day.dayName || `Day ${hoveredCell.dayIdx + 1}`}
                       </div>
-                      <div className="text-[11px] text-gray-600 mt-0.5">
-                        {summary}
-                      </div>
+                      {day.isRestDay ? (
+                        <div className="text-[11px] text-gray-500 mt-1">
+                          Rest day
+                        </div>
+                      ) : (
+                        <div className="text-[11px] text-gray-600 mt-1 space-y-0.5">
+                          {exerciseNames.length > 0 && (
+                            <div title={exerciseNames.join(', ')}>
+                              {exerciseNames.join(', ')}
+                            </div>
+                          )}
+                          {(setCounts.length > 0 ||
+                            blockCategories.length > 0) && (
+                            <div className="text-gray-500">
+                              {setCounts.length > 0 && setCounts.join(', ')}
+                              {setCounts.length > 0 &&
+                                blockCategories.length > 0 &&
+                                ' · '}
+                              {blockCategories.length > 0 &&
+                                blockCategories.join(', ')}
+                            </div>
+                          )}
+                          {blockNames.length > 0 &&
+                            exerciseNames.length === 0 && (
+                              <div>{blockNames.join(' · ')}</div>
+                            )}
+                        </div>
+                      )}
                     </div>
                   )
                 })()}
@@ -3403,49 +3512,49 @@ export function ProgramBuilderForm({
                       Preview Session
                     </Button>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label
-                        htmlFor="session-name-input"
-                        className="block text-sm font-medium text-gray-700 mb-1"
-                      >
-                        Session name
-                      </label>
-                      <Input
-                        id="session-name-input"
-                        value={day.dayName ?? ''}
-                        onChange={e => {
-                          const weeks = [...structure.weeks]
-                          weeks[w].days[d] = { ...day, dayName: e.target.value }
-                          setStructure({ weeks })
-                        }}
-                        placeholder="e.g. Day 1"
-                      />
-                    </div>
-                    <div>
-                      <label
-                        htmlFor="session-notes-input"
-                        className="block text-sm font-medium text-gray-700 mb-1"
-                      >
-                        Session notes
-                      </label>
-                      <RichTextEditor
-                        key={`session-notes-w${w}-d${d}`}
-                        id="session-notes-input"
-                        value={day.sessionNotes ?? ''}
-                        onChange={html => {
-                          const weeks = [...structure.weeks]
-                          weeks[w].days[d] = {
-                            ...day,
-                            sessionNotes: html,
-                          }
-                          setStructure({ weeks })
-                        }}
-                        placeholder="Shown to the athlete before they start. Intent, goals, mindset (e.g. Today is a heavy day. Goal is to hit a new 3RM on the squat.)"
-                        minHeight="100px"
-                        className="mt-1"
-                      />
-                    </div>
+                  {/* Session name at top (editable) */}
+                  <div>
+                    <label
+                      htmlFor="session-name-input"
+                      className="block text-sm font-medium text-gray-700 mb-1"
+                    >
+                      Session name
+                    </label>
+                    <Input
+                      id="session-name-input"
+                      value={day.dayName ?? ''}
+                      onChange={e => {
+                        const weeks = [...structure.weeks]
+                        weeks[w].days[d] = { ...day, dayName: e.target.value }
+                        setStructure({ weeks })
+                      }}
+                      placeholder="e.g. Day 1"
+                    />
+                  </div>
+                  {/* Session notes below the name (coach instructions to athletes) */}
+                  <div>
+                    <label
+                      htmlFor="session-notes-input"
+                      className="block text-sm font-medium text-gray-700 mb-1"
+                    >
+                      Session notes
+                    </label>
+                    <RichTextEditor
+                      key={`session-notes-w${w}-d${d}`}
+                      id="session-notes-input"
+                      value={day.sessionNotes ?? ''}
+                      onChange={html => {
+                        const weeks = [...structure.weeks]
+                        weeks[w].days[d] = {
+                          ...day,
+                          sessionNotes: html,
+                        }
+                        setStructure({ weeks })
+                      }}
+                      placeholder="Shown to the athlete before they start. Intent, goals, mindset (e.g. Today is a heavy day. Goal is to hit a new 3RM on the squat.)"
+                      minHeight="100px"
+                      className="mt-1"
+                    />
                   </div>
                   {/* MASS 2.4: Rest day and Estimated duration */}
                   <div className="flex flex-wrap items-center gap-6">
@@ -3459,7 +3568,7 @@ export function ProgramBuilderForm({
                           const defaultSections: ProgramStructureSection[] =
                             (day.sections?.length ?? 0) > 0
                               ? (day.sections ?? [])
-                              : [{ sectionType: 'normal', exercises: [] }]
+                              : []
                           weeks[w].days[d] = {
                             ...day,
                             isRestDay: isRest,
@@ -3506,23 +3615,13 @@ export function ProgramBuilderForm({
                       </div>
                     )}
                   </div>
+                  {/* Vertical list of blocks, clearly separated and labeled */}
                   <div>
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-sm font-medium text-gray-700">
                         Blocks
                       </span>
                       <div className="flex items-center gap-2">
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          size="small"
-                          leftIcon={
-                            <Icon name="plus" family="solid" size={12} />
-                          }
-                          onClick={() => setAddBlockModalOpen(true)}
-                        >
-                          Add Block
-                        </Button>
                         <Button
                           type="button"
                           variant="secondary"
@@ -3546,7 +3645,7 @@ export function ProgramBuilderForm({
                         </Button>
                       </div>
                     </div>
-                    <div className="space-y-2">
+                    <div className="space-y-3">
                       {(() => {
                         const secs = day.sections ?? []
                         const blockRanges = getTopLevelBlockRanges(secs)
@@ -3566,345 +3665,464 @@ export function ProgramBuilderForm({
                                     (section as { id?: number }).id
                               )
                             : []
+                          const isGroupedSuperset =
+                            isSuperset && childSections.length > 0
+                          const rowClassName = isGroupedSuperset
+                            ? `flex items-center justify-between gap-2 rounded-t-xl border-2 border-sky-200 border-b border-sky-200/70 bg-sky-50/50 p-3 ${blockRanges.length > 1 ? 'cursor-grab active:cursor-grabbing' : ''} ${draggedBlock?.weekIdx === w && draggedBlock?.dayIdx === d && draggedBlock?.logicalIdx === logicalIdx ? 'opacity-50' : ''}`
+                            : `flex items-center justify-between gap-2 rounded-lg border border-gray-200 bg-gray-50/50 p-3 ${blockRanges.length > 1 ? 'cursor-grab active:cursor-grabbing' : ''} ${draggedBlock?.weekIdx === w && draggedBlock?.dayIdx === d && draggedBlock?.logicalIdx === logicalIdx ? 'opacity-50' : ''}`
                           return (
                             <div
                               key={sectionIdx}
-                              id={`session-block-${w}-${d}-${sectionIdx}`}
-                              className={`flex items-center justify-between gap-2 rounded-lg border border-gray-200 bg-gray-50/50 p-3 ${blockRanges.length > 1 ? 'cursor-grab active:cursor-grabbing' : ''} ${draggedBlock?.weekIdx === w && draggedBlock?.dayIdx === d && draggedBlock?.logicalIdx === logicalIdx ? 'opacity-50' : ''}`}
-                              draggable={blockRanges.length > 1}
-                              title={
-                                blockRanges.length > 1
-                                  ? 'Drag to reorder blocks'
-                                  : undefined
+                              className={
+                                isGroupedSuperset
+                                  ? 'rounded-xl border-2 border-sky-200 bg-sky-50/50 overflow-hidden'
+                                  : ''
                               }
-                              onDragStart={e => {
-                                e.dataTransfer.setData(
-                                  'application/json',
-                                  JSON.stringify({
+                            >
+                              <div
+                                id={`session-block-${w}-${d}-${sectionIdx}`}
+                                className={rowClassName}
+                                draggable={blockRanges.length > 1}
+                                title={
+                                  blockRanges.length > 1
+                                    ? 'Drag to reorder blocks'
+                                    : undefined
+                                }
+                                onDragStart={e => {
+                                  e.dataTransfer.setData(
+                                    'application/json',
+                                    JSON.stringify({
+                                      weekIdx: w,
+                                      dayIdx: d,
+                                      logicalIdx,
+                                    })
+                                  )
+                                  setDraggedBlock({
                                     weekIdx: w,
                                     dayIdx: d,
                                     logicalIdx,
                                   })
-                                )
-                                setDraggedBlock({
-                                  weekIdx: w,
-                                  dayIdx: d,
-                                  logicalIdx,
-                                })
-                                e.dataTransfer.effectAllowed = 'move'
-                              }}
-                              onDragEnd={() => setDraggedBlock(null)}
-                              onDragOver={e => {
-                                e.preventDefault()
-                                e.dataTransfer.dropEffect = 'move'
-                              }}
-                              onDrop={e => {
-                                e.preventDefault()
-                                if (
-                                  draggedBlock &&
-                                  draggedBlock.weekIdx === w &&
-                                  draggedBlock.dayIdx === d &&
-                                  draggedBlock.logicalIdx !== logicalIdx
-                                ) {
-                                  moveBlockToIndex(
-                                    w,
-                                    d,
-                                    draggedBlock.logicalIdx,
-                                    logicalIdx
-                                  )
-                                  setBlockMenuOpen(null)
-                                }
-                                setDraggedBlock(null)
-                              }}
-                            >
-                              <div className="flex items-center gap-2 min-w-0 flex-1">
-                                <span className="text-xs font-medium text-gray-500 uppercase shrink-0">
-                                  {(section.blockType ?? 'EXERCISE').slice(
-                                    0,
-                                    1
-                                  )}
-                                </span>
-                                <div className="min-w-0">
-                                  <span className="text-sm font-medium truncate block">
-                                    {isSuperset
-                                      ? `Superset${section.name ? `: ${section.name}` : ''}${section.supersetRounds != null ? ` — ${section.supersetRounds} Rounds` : ''}${section.restBetweenRounds ? ` | Rest ${section.restBetweenRounds}s` : ''}`
-                                      : section.name ||
-                                        getBlockDisplayName(
-                                          section,
-                                          getExerciseName
-                                        )}
-                                  </span>
-                                  {isSuperset && childSections.length > 0 && (
-                                    <span className="text-xs text-gray-500 block truncate">
-                                      {childSections
-                                        .map((ch, i) => {
-                                          const ex0 = ch.exercises?.[0]
-                                          return `A${i + 1}: ${ex0 ? getExerciseName(ex0.exerciseId) : '—'}`
-                                        })
-                                        .join(' · ')}
+                                  e.dataTransfer.effectAllowed = 'move'
+                                }}
+                                onDragEnd={() => setDraggedBlock(null)}
+                                onDragOver={e => {
+                                  e.preventDefault()
+                                  e.dataTransfer.dropEffect = 'move'
+                                }}
+                                onDrop={e => {
+                                  e.preventDefault()
+                                  if (
+                                    draggedBlock &&
+                                    draggedBlock.weekIdx === w &&
+                                    draggedBlock.dayIdx === d &&
+                                    draggedBlock.logicalIdx !== logicalIdx
+                                  ) {
+                                    moveBlockToIndex(
+                                      w,
+                                      d,
+                                      draggedBlock.logicalIdx,
+                                      logicalIdx
+                                    )
+                                    setBlockMenuOpen(null)
+                                  }
+                                  setDraggedBlock(null)
+                                }}
+                              >
+                                <div className="flex items-center gap-2 min-w-0 flex-1">
+                                  {blockRanges.length > 1 && (
+                                    <span
+                                      className="shrink-0 text-gray-400 cursor-grab active:cursor-grabbing"
+                                      title="Drag to reorder"
+                                    >
+                                      <Icon
+                                        name="grip-vertical"
+                                        family="solid"
+                                        size={14}
+                                      />
                                     </span>
                                   )}
-                                </div>
-                                {section.blockCategory && (
-                                  <span className="text-xs text-gray-500 shrink-0">
-                                    · {section.blockCategory}
-                                  </span>
-                                )}
-                              </div>
-                              <div className="flex items-center gap-1 relative">
-                                {sectionIdx < (day.sections ?? []).length - 1 &&
-                                  section.parentSectionIndex == null &&
-                                  (day.sections ?? [])[sectionIdx + 1] &&
-                                  (day.sections ?? [])[sectionIdx + 1]
-                                    .parentSectionIndex == null && (
-                                    <Button
-                                      type="button"
-                                      variant="ghost"
-                                      size="small"
-                                      title="Link with next block as superset"
-                                      onClick={() => {
-                                        const weeks = [...structure.weeks]
-                                        const secs = [
-                                          ...(weeks[w].days[d].sections ?? []),
-                                        ]
-                                        const a = structuredClone(
-                                          secs[sectionIdx]
-                                        )
-                                        const b = structuredClone(
-                                          secs[sectionIdx + 1]
-                                        )
-                                        const parent: ProgramStructureSection =
-                                          {
-                                            blockType: 'SUPERSET',
-                                            sectionType: 'superset',
-                                            name: 'Superset',
-                                            exercises: [],
-                                          }
-                                        a.parentSectionIndex = sectionIdx
-                                        b.parentSectionIndex = sectionIdx
-                                        secs.splice(sectionIdx, 2, parent, a, b)
-                                        weeks[w].days[d] = {
-                                          ...day,
-                                          sections: secs,
-                                        }
-                                        setStructure({ weeks })
-                                      }}
-                                    >
-                                      Link as superset
-                                    </Button>
-                                  )}
-                                <button
-                                  type="button"
-                                  className="p-1 rounded hover:bg-gray-200 text-gray-600"
-                                  title="Block actions"
-                                  onClick={e => {
-                                    e.stopPropagation()
-                                    setBlockMenuOpen(
-                                      blockMenuOpen ===
-                                        `${w}-${d}-${sectionIdx}`
-                                        ? null
-                                        : `${w}-${d}-${sectionIdx}`
-                                    )
-                                  }}
-                                >
-                                  <Icon
-                                    name="ellipsis-vertical"
-                                    family="solid"
-                                    size={14}
-                                  />
-                                </button>
-                                {blockMenuOpen ===
-                                  `${w}-${d}-${sectionIdx}` && (
-                                  <>
-                                    <div
-                                      className="fixed inset-0 z-10"
-                                      aria-hidden
-                                      onClick={() => setBlockMenuOpen(null)}
-                                    />
-                                    <div className="absolute right-0 top-full mt-1 z-20 min-w-[160px] rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
-                                      <button
-                                        type="button"
-                                        className="w-full px-3 py-1.5 text-left text-sm hover:bg-gray-100"
-                                        onClick={() => {
-                                          setBlockMenuOpen(null)
-                                          if (
-                                            section.blockType === 'EXERCISE'
-                                          ) {
-                                            setEditingExerciseBlock({
-                                              weekIdx: w,
-                                              dayIdx: d,
-                                              sectionIdx,
-                                            })
-                                          } else if (
-                                            section.blockType === 'CIRCUIT'
-                                          ) {
-                                            setEditingCircuitBlock({
-                                              weekIdx: w,
-                                              dayIdx: d,
-                                              sectionIdx,
-                                            })
-                                          } else if (
-                                            section.blockType === 'SUPERSET' ||
+                                  <span
+                                    className="shrink-0 text-gray-500"
+                                    title={
+                                      section.blockType === 'CIRCUIT'
+                                        ? 'Circuit'
+                                        : section.blockType === 'SUPERSET' ||
                                             section.sectionType === 'superset'
-                                          ) {
-                                            setEditingSupersetBlock({
-                                              weekIdx: w,
-                                              dayIdx: d,
-                                              sectionIdx,
-                                            })
-                                          } else {
-                                            document
-                                              .getElementById(
-                                                `session-block-${w}-${d}-${sectionIdx}`
-                                              )
-                                              ?.scrollIntoView({
-                                                behavior: 'smooth',
-                                                block: 'center',
-                                              })
-                                          }
-                                        }}
-                                      >
-                                        Edit
-                                      </button>
+                                          ? 'Superset'
+                                          : 'Exercise'
+                                    }
+                                  >
+                                    <Icon
+                                      name={
+                                        section.blockType === 'CIRCUIT'
+                                          ? 'list'
+                                          : section.blockType === 'SUPERSET' ||
+                                              section.sectionType === 'superset'
+                                            ? 'link'
+                                            : 'dumbbell'
+                                      }
+                                      family="solid"
+                                      size={16}
+                                    />
+                                  </span>
+                                  {section.blockCategory && (
+                                    <span className="text-xs font-medium text-gray-500 uppercase shrink-0">
+                                      {section.blockCategory}
+                                    </span>
+                                  )}
+                                  <div className="min-w-0">
+                                    <span className="text-sm font-medium truncate block">
+                                      {isSuperset
+                                        ? `Superset${section.name ? `: ${section.name}` : ''}${section.supersetRounds != null ? ` — ${section.supersetRounds} Rounds` : ''}${section.restBetweenRounds ? ` | Rest ${section.restBetweenRounds}s` : ''}`
+                                        : section.name ||
+                                          getBlockDisplayName(
+                                            section,
+                                            getExerciseName
+                                          )}
+                                    </span>
+                                    {isSuperset && childSections.length > 0 && (
+                                      <span className="text-xs text-gray-500 block truncate">
+                                        {childSections
+                                          .map((ch, i) => {
+                                            const ex0 = ch.exercises?.[0]
+                                            return `A${i + 1}: ${ex0 ? getExerciseName(ex0.exerciseId) : '—'}`
+                                          })
+                                          .join(' · ')}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-1 relative">
+                                  {sectionIdx <
+                                    (day.sections ?? []).length - 1 &&
+                                    section.parentSectionIndex == null &&
+                                    (() => {
+                                      const nextSec = (day.sections ?? [])[
+                                        sectionIdx + 1
+                                      ] as ProgramStructureSection | undefined
+                                      const isExerciseBlock = (
+                                        s: ProgramStructureSection
+                                      ) =>
+                                        s.blockType === 'EXERCISE' ||
+                                        (s.sectionType === 'normal' &&
+                                          (s.exercises?.length ?? 0) > 0)
+                                      return (
+                                        nextSec &&
+                                        nextSec.parentSectionIndex == null &&
+                                        isExerciseBlock(section) &&
+                                        isExerciseBlock(nextSec)
+                                      )
+                                    })() && (
                                       <button
                                         type="button"
-                                        className="w-full px-3 py-1.5 text-left text-sm hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-                                        disabled={logicalIdx === 0}
-                                        title="Move block up"
-                                        onClick={() => {
-                                          moveBlockToIndex(
-                                            w,
-                                            d,
-                                            logicalIdx,
-                                            logicalIdx - 1
-                                          )
-                                          setBlockMenuOpen(null)
-                                        }}
-                                      >
-                                        Move up
-                                      </button>
-                                      <button
-                                        type="button"
-                                        className="w-full px-3 py-1.5 text-left text-sm hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-                                        disabled={
-                                          logicalIdx === blockRanges.length - 1
-                                        }
-                                        title="Move block down"
-                                        onClick={() => {
-                                          moveBlockToIndex(
-                                            w,
-                                            d,
-                                            logicalIdx,
-                                            logicalIdx + 1
-                                          )
-                                          setBlockMenuOpen(null)
-                                        }}
-                                      >
-                                        Move down
-                                      </button>
-                                      <button
-                                        type="button"
-                                        className="w-full px-3 py-1.5 text-left text-sm hover:bg-gray-100"
+                                        className="p-1.5 rounded hover:bg-gray-200 text-gray-500 hover:text-gray-700"
+                                        title="Link with next block as superset"
+                                        aria-label="Link with next block as superset"
                                         onClick={() => {
                                           const weeks = [...structure.weeks]
                                           const secs = [
                                             ...(weeks[w].days[d].sections ??
                                               []),
                                           ]
-                                          const copy = structuredClone(
+                                          const a = structuredClone(
                                             secs[sectionIdx]
                                           )
-                                          secs.splice(sectionIdx + 1, 0, copy)
+                                          const b = structuredClone(
+                                            secs[sectionIdx + 1]
+                                          )
+                                          const parent: ProgramStructureSection =
+                                            {
+                                              blockType: 'SUPERSET',
+                                              sectionType: 'superset',
+                                              name: 'Superset',
+                                              exercises: [],
+                                            }
+                                          a.parentSectionIndex = sectionIdx
+                                          b.parentSectionIndex = sectionIdx
+                                          secs.splice(
+                                            sectionIdx,
+                                            2,
+                                            parent,
+                                            a,
+                                            b
+                                          )
                                           weeks[w].days[d] = {
                                             ...day,
                                             sections: secs,
                                           }
                                           setStructure({ weeks })
-                                          setBlockMenuOpen(null)
                                         }}
                                       >
-                                        Copy block
+                                        <Icon
+                                          name="link"
+                                          family="solid"
+                                          size={16}
+                                        />
                                       </button>
-                                      <button
-                                        type="button"
-                                        className="w-full px-3 py-1.5 text-left text-sm text-red-600 hover:bg-red-50"
-                                        onClick={() => {
-                                          removeSection(w, d, sectionIdx)
-                                          setBlockMenuOpen(null)
-                                        }}
-                                      >
-                                        Delete
-                                      </button>
-                                      {section.blockType === 'CIRCUIT' ? (
+                                    )}
+                                  <button
+                                    type="button"
+                                    className="p-1 rounded hover:bg-gray-200 text-gray-600"
+                                    title="Block actions"
+                                    onClick={e => {
+                                      e.stopPropagation()
+                                      setBlockMenuOpen(
+                                        blockMenuOpen ===
+                                          `${w}-${d}-${sectionIdx}`
+                                          ? null
+                                          : `${w}-${d}-${sectionIdx}`
+                                      )
+                                    }}
+                                  >
+                                    <Icon
+                                      name="ellipsis-vertical"
+                                      family="solid"
+                                      size={14}
+                                    />
+                                  </button>
+                                  {blockMenuOpen ===
+                                    `${w}-${d}-${sectionIdx}` && (
+                                    <>
+                                      <div
+                                        className="fixed inset-0 z-10"
+                                        aria-hidden
+                                        onClick={() => setBlockMenuOpen(null)}
+                                      />
+                                      <div className="absolute right-0 top-full mt-1 z-20 min-w-[180px] rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
                                         <button
                                           type="button"
                                           className="w-full px-3 py-1.5 text-left text-sm hover:bg-gray-100"
-                                          onClick={async () => {
+                                          onClick={() => {
                                             setBlockMenuOpen(null)
-                                            try {
-                                              await libraryService.createCircuit(
-                                                {
-                                                  name:
-                                                    section.name || 'Circuit',
-                                                  instructions:
-                                                    section.instructions ??
-                                                    undefined,
-                                                  resultTrackingType:
-                                                    section.resultTrackingType ??
-                                                    undefined,
-                                                  blockCategory:
-                                                    section.blockCategory ??
-                                                    undefined,
-                                                  conditioningFormat:
-                                                    section.conditioningFormat ??
-                                                    undefined,
-                                                  conditioningConfig:
-                                                    section.conditioningConfig as
-                                                      | Record<string, number>
-                                                      | undefined,
-                                                  videoUrls: section.videoUrls,
-                                                }
-                                              )
-                                              showSuccess(
-                                                'Circuit saved to library'
-                                              )
-                                            } catch (e) {
-                                              const err = e as AxiosError<{
-                                                message?: string
-                                              }>
-                                              showError(
-                                                err.response?.data?.message ??
-                                                  'Failed to save circuit to library'
-                                              )
+                                            if (
+                                              section.blockType === 'EXERCISE'
+                                            ) {
+                                              setEditingExerciseBlock({
+                                                weekIdx: w,
+                                                dayIdx: d,
+                                                sectionIdx,
+                                              })
+                                            } else if (
+                                              section.blockType === 'CIRCUIT'
+                                            ) {
+                                              setEditingCircuitBlock({
+                                                weekIdx: w,
+                                                dayIdx: d,
+                                                sectionIdx,
+                                              })
+                                            } else if (
+                                              section.blockType ===
+                                                'SUPERSET' ||
+                                              section.sectionType === 'superset'
+                                            ) {
+                                              setEditingSupersetBlock({
+                                                weekIdx: w,
+                                                dayIdx: d,
+                                                sectionIdx,
+                                              })
+                                            } else {
+                                              document
+                                                .getElementById(
+                                                  `session-block-${w}-${d}-${sectionIdx}`
+                                                )
+                                                ?.scrollIntoView({
+                                                  behavior: 'smooth',
+                                                  block: 'center',
+                                                })
                                             }
                                           }}
                                         >
-                                          Save to library
+                                          {section.blockType === 'SUPERSET' ||
+                                          section.sectionType === 'superset'
+                                            ? 'Edit (rounds, rest, notes)'
+                                            : 'Edit'}
                                         </button>
-                                      ) : (
                                         <button
                                           type="button"
-                                          className="w-full px-3 py-1.5 text-left text-sm text-gray-400 cursor-not-allowed"
-                                          title="Only circuit blocks can be saved to library"
-                                          disabled
+                                          className="w-full px-3 py-1.5 text-left text-sm text-red-600 hover:bg-red-50"
+                                          onClick={() => {
+                                            removeSection(w, d, sectionIdx)
+                                            setBlockMenuOpen(null)
+                                          }}
                                         >
-                                          Save to library
+                                          Delete
                                         </button>
-                                      )}
-                                    </div>
-                                  </>
-                                )}
+                                        <button
+                                          type="button"
+                                          className="w-full px-3 py-1.5 text-left text-sm hover:bg-gray-100"
+                                          onClick={() => {
+                                            const weeks = [...structure.weeks]
+                                            const secs = [
+                                              ...(weeks[w].days[d].sections ??
+                                                []),
+                                            ]
+                                            const copy = structuredClone(
+                                              secs[sectionIdx]
+                                            ) as ProgramStructureSection & {
+                                              id?: number
+                                              parentSectionId?: number
+                                            }
+                                            delete copy.id
+                                            delete copy.parentSectionId
+                                            if (copy.exercises) {
+                                              copy.exercises =
+                                                copy.exercises.map(ex => {
+                                                  const e = { ...ex }
+                                                  delete (
+                                                    e as {
+                                                      sectionExerciseId?: number
+                                                    }
+                                                  ).sectionExerciseId
+                                                  return e
+                                                })
+                                            }
+                                            secs.splice(sectionIdx + 1, 0, copy)
+                                            weeks[w].days[d] = {
+                                              ...day,
+                                              sections: secs,
+                                            }
+                                            setStructure({ weeks })
+                                            setBlockMenuOpen(null)
+                                          }}
+                                        >
+                                          Duplicate
+                                        </button>
+                                        {section.blockType === 'CIRCUIT' ? (
+                                          <button
+                                            type="button"
+                                            className="w-full px-3 py-1.5 text-left text-sm hover:bg-gray-100"
+                                            onClick={async () => {
+                                              setBlockMenuOpen(null)
+                                              try {
+                                                await libraryService.createCircuit(
+                                                  {
+                                                    name:
+                                                      section.name || 'Circuit',
+                                                    instructions:
+                                                      section.instructions ??
+                                                      undefined,
+                                                    resultTrackingType:
+                                                      section.resultTrackingType ??
+                                                      undefined,
+                                                    blockCategory:
+                                                      section.blockCategory ??
+                                                      undefined,
+                                                    conditioningFormat:
+                                                      section.conditioningFormat ??
+                                                      undefined,
+                                                    conditioningConfig:
+                                                      section.conditioningConfig as
+                                                        | Record<string, number>
+                                                        | undefined,
+                                                    videoUrls:
+                                                      section.videoUrls,
+                                                  }
+                                                )
+                                                showSuccess(
+                                                  'Circuit saved to library'
+                                                )
+                                              } catch (e) {
+                                                const err = e as AxiosError<{
+                                                  message?: string
+                                                }>
+                                                showError(
+                                                  err.response?.data?.message ??
+                                                    'Failed to save circuit to library'
+                                                )
+                                              }
+                                            }}
+                                          >
+                                            Save to library
+                                          </button>
+                                        ) : (
+                                          <button
+                                            type="button"
+                                            className="w-full px-3 py-1.5 text-left text-sm text-gray-400 cursor-not-allowed"
+                                            title="Only circuit blocks can be saved to library"
+                                            disabled
+                                          >
+                                            Save to library
+                                          </button>
+                                        )}
+                                        <button
+                                          type="button"
+                                          className="w-full px-3 py-1.5 text-left text-sm hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                                          disabled={logicalIdx === 0}
+                                          title="Move block up"
+                                          onClick={() => {
+                                            moveBlockToIndex(
+                                              w,
+                                              d,
+                                              logicalIdx,
+                                              logicalIdx - 1
+                                            )
+                                            setBlockMenuOpen(null)
+                                          }}
+                                        >
+                                          Move up
+                                        </button>
+                                        <button
+                                          type="button"
+                                          className="w-full px-3 py-1.5 text-left text-sm hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                                          disabled={
+                                            logicalIdx ===
+                                            blockRanges.length - 1
+                                          }
+                                          title="Move block down"
+                                          onClick={() => {
+                                            moveBlockToIndex(
+                                              w,
+                                              d,
+                                              logicalIdx,
+                                              logicalIdx + 1
+                                            )
+                                            setBlockMenuOpen(null)
+                                          }}
+                                        >
+                                          Move down
+                                        </button>
+                                      </div>
+                                    </>
+                                  )}
+                                </div>
                               </div>
+                              {isGroupedSuperset &&
+                                childSections.map((childSec, ci) => (
+                                  <div
+                                    key={ci}
+                                    className="flex items-center gap-2 border-t border-sky-200/70 bg-white/60 pl-4 pr-3 py-2.5"
+                                  >
+                                    <span className="text-xs font-semibold text-sky-600 w-6">
+                                      A{ci + 1}
+                                    </span>
+                                    <span className="text-sm text-gray-800 truncate">
+                                      {getBlockDisplayName(
+                                        childSec,
+                                        getExerciseName
+                                      )}
+                                    </span>
+                                  </div>
+                                ))}
                             </div>
                           )
                         })
                       })()}
                       {(day.sections ?? []).length === 0 && (
                         <p className="text-sm text-gray-500 py-2">
-                          No blocks. Click &quot;Add Block&quot; to add an
-                          exercise, circuit, or superset block.
+                          No blocks. Click &quot;+ Add Block&quot; below to add
+                          an exercise, circuit, or superset block.
                         </p>
                       )}
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="small"
+                        leftIcon={<Icon name="plus" family="solid" size={12} />}
+                        onClick={() => setAddBlockModalOpen(true)}
+                        className="mt-2"
+                      >
+                        + Add Block
+                      </Button>
                     </div>
                   </div>
                   <p className="text-xs text-gray-500">
@@ -3921,6 +4139,10 @@ export function ProgramBuilderForm({
                 structure.weeks[sessionDesignerCell.weekIdx]?.days?.[
                   sessionDesignerCell.dayIdx
                 ]
+              const topLevelSections = (day?.sections ?? []).filter(
+                (s: ProgramStructureSection) =>
+                  s.parentSectionIndex == null && s.parentSectionId == null
+              )
               return (
                 <Modal
                   visible={true}
@@ -3929,27 +4151,158 @@ export function ProgramBuilderForm({
                   size="medium"
                   showCloseButton
                 >
-                  <div className="p-4 space-y-2">
-                    <p className="font-medium">{day?.dayName || 'Session'}</p>
-                    {day?.sessionNotes && (
-                      <SanitizedHtml
-                        html={day.sessionNotes}
-                        className="text-sm text-gray-600 [&_p]:mb-1 [&_ul]:list-disc [&_ol]:list-decimal [&_ul]:pl-4 [&_ol]:pl-4"
-                      />
+                  <p className="text-sm text-gray-500 px-4 pt-1 pb-2">
+                    This is what the athlete will see. Check formatting and
+                    clarity before publishing.
+                  </p>
+                  <div className="p-4 space-y-4 max-h-[70vh] overflow-y-auto">
+                    <div>
+                      <p className="font-medium text-gray-900">
+                        {day?.dayName || 'Session'}
+                      </p>
+                      {day?.sessionNotes && (
+                        <div className="mt-2 pt-2 border-t border-gray-100">
+                          <SanitizedHtml
+                            html={day.sessionNotes}
+                            className="text-sm text-gray-600 [&_p]:mb-1 [&_ul]:list-disc [&_ol]:list-decimal [&_ul]:pl-4 [&_ol]:pl-4"
+                          />
+                        </div>
+                      )}
+                    </div>
+                    {(day?.sections ?? []).map(
+                      (
+                        section: ProgramStructureSection,
+                        sectionIdx: number
+                      ) => {
+                        if (
+                          section.parentSectionIndex != null ||
+                          section.parentSectionId != null
+                        )
+                          return null
+                        const isCircuit =
+                          section.blockType === 'CIRCUIT' ||
+                          (section as { blockType?: string }).blockType ===
+                            'circuit'
+                        const isSuperset =
+                          section.blockType === 'SUPERSET' ||
+                          section.sectionType === 'superset'
+                        const childSections = isSuperset
+                          ? (day?.sections ?? []).filter(
+                              (s: ProgramStructureSection) =>
+                                s.parentSectionIndex === sectionIdx ||
+                                s.parentSectionId ===
+                                  (section as { id?: number }).id
+                            )
+                          : []
+                        if (isCircuit) {
+                          return (
+                            <div
+                              key={sectionIdx}
+                              className="rounded-lg border border-gray-200 bg-white p-4 space-y-2"
+                            >
+                              {section.name && (
+                                <p className="font-semibold text-gray-900">
+                                  {section.name}
+                                </p>
+                              )}
+                              {section.instructions && (
+                                <SanitizedHtml
+                                  html={section.instructions}
+                                  className="text-sm text-gray-700 [&_p]:mb-1 [&_ul]:list-disc [&_ol]:list-decimal [&_ul]:pl-4 [&_ol]:pl-4"
+                                />
+                              )}
+                              {Array.isArray(section.videoUrls) &&
+                                section.videoUrls.length > 0 && (
+                                  <div className="flex flex-wrap gap-2 text-sm">
+                                    {(section.videoUrls as string[])
+                                      .filter(Boolean)
+                                      .map((url, j) => (
+                                        <a
+                                          key={j}
+                                          href={url}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="text-[#3AB8ED] hover:underline"
+                                        >
+                                          Video {j + 1}
+                                        </a>
+                                      ))}
+                                  </div>
+                                )}
+                              {section.resultTrackingType &&
+                                section.resultTrackingType !== 'None' && (
+                                  <p className="text-xs text-gray-500 pt-1 border-t border-gray-100">
+                                    Athlete logs: {section.resultTrackingType}
+                                  </p>
+                                )}
+                              {section.blockCategory && (
+                                <p className="text-xs text-gray-500">
+                                  {section.blockCategory}
+                                </p>
+                              )}
+                            </div>
+                          )
+                        }
+                        if (isSuperset) {
+                          return (
+                            <div
+                              key={sectionIdx}
+                              className="rounded-lg border border-gray-200 bg-gray-50/50 p-4"
+                            >
+                              <p className="font-semibold text-gray-900">
+                                Superset
+                                {section.name ? `: ${section.name}` : ''}
+                                {section.supersetRounds != null
+                                  ? ` — ${section.supersetRounds} Rounds`
+                                  : ''}
+                              </p>
+                              {childSections.length > 0 && (
+                                <ul className="text-sm text-gray-700 mt-2 list-disc pl-4 space-y-0.5">
+                                  {childSections.map(
+                                    (
+                                      ch: ProgramStructureSection,
+                                      j: number
+                                    ) => {
+                                      const ex0 = ch.exercises?.[0]
+                                      return (
+                                        <li key={j}>
+                                          A{j + 1}:{' '}
+                                          {ex0
+                                            ? getExerciseName(ex0.exerciseId)
+                                            : '—'}
+                                        </li>
+                                      )
+                                    }
+                                  )}
+                                </ul>
+                              )}
+                            </div>
+                          )
+                        }
+                        return (
+                          <div
+                            key={sectionIdx}
+                            className="rounded-lg border border-gray-200 bg-white p-3"
+                          >
+                            <p className="text-sm font-medium text-gray-900">
+                              {section.exercises
+                                ?.map(e => getExerciseName(e.exerciseId))
+                                .join(', ') || 'Exercise block'}
+                            </p>
+                            {section.blockCategory && (
+                              <p className="text-xs text-gray-500 mt-0.5">
+                                {section.blockCategory}
+                              </p>
+                            )}
+                          </div>
+                        )
+                      }
                     )}
-                    {(day?.sections ?? []).map((s, i) => (
-                      <div
-                        key={i}
-                        className="text-sm border-l-2 border-gray-200 pl-2"
-                      >
-                        {s.blockType === 'CIRCUIT'
-                          ? 'Circuit'
-                          : s.exercises
-                              ?.map(e => getExerciseName(e.exerciseId))
-                              .join(', ')}{' '}
-                        {s.blockCategory && `· ${s.blockCategory}`}
-                      </div>
-                    ))}
+                    {topLevelSections.length === 0 && (
+                      <p className="text-sm text-gray-500">
+                        No blocks in this session.
+                      </p>
+                    )}
                   </div>
                 </Modal>
               )
@@ -3963,8 +4316,16 @@ export function ProgramBuilderForm({
               onClose={() => {
                 setAddBlockModalOpen(false)
                 setAddBlockType('')
-                setAddBlockExerciseCategory('')
-                setAddBlockExerciseCategoryCustom('')
+                setAddBlockStep('search')
+                setAddBlockSearchQuery('')
+                setNewExerciseForm({
+                  name: '',
+                  videoUrl: '',
+                  defaultParameter1: 'Reps',
+                  defaultParameter2: '-',
+                  pointsOfPerformance: '',
+                  tagsStr: '',
+                })
                 setAddBlockCircuitForm({
                   name: '',
                   instructions: '',
@@ -4001,41 +4362,333 @@ export function ProgramBuilderForm({
               }}
             >
               <div className="space-y-5">
-                {addBlockType === '' ? (
+                {addBlockStep === 'newExercise' ? (
+                  <>
+                    <div className="flex justify-start">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="small"
+                        leftIcon={
+                          <Icon name="arrow-left" family="solid" size={12} />
+                        }
+                        onClick={() => setAddBlockStep('search')}
+                      >
+                        Back
+                      </Button>
+                    </div>
+                    <div className="border-t border-gray-200 pt-4 space-y-4">
+                      <p className="text-sm font-medium text-gray-700">
+                        New Exercise
+                      </p>
+                      <div>
+                        <label
+                          htmlFor="new-exercise-title-drawer"
+                          className="block text-xs font-medium text-gray-600 mb-1"
+                        >
+                          Title (required)
+                        </label>
+                        <Input
+                          id="new-exercise-title-drawer"
+                          value={newExerciseForm.name}
+                          onChange={e =>
+                            setNewExerciseForm(f => ({
+                              ...f,
+                              name: e.target.value,
+                            }))
+                          }
+                          placeholder="e.g. Barbell Back Squat"
+                          size="small"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">
+                            Default Parameter 1
+                          </label>
+                          <Dropdown
+                            placeholder="Select"
+                            value={
+                              newExerciseForm.defaultParameter1 || undefined
+                            }
+                            onValueChange={v =>
+                              setNewExerciseForm(f => ({
+                                ...f,
+                                defaultParameter1:
+                                  (Array.isArray(v) ? v[0] : v) ?? '',
+                              }))
+                            }
+                            options={DEFAULT_PARAMETER_OPTIONS.map(o => ({
+                              value: o.value,
+                              label: o.label,
+                            }))}
+                            size="small"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">
+                            Default Parameter 2
+                          </label>
+                          <Dropdown
+                            placeholder="— or —"
+                            value={
+                              newExerciseForm.defaultParameter2 || undefined
+                            }
+                            onValueChange={v =>
+                              setNewExerciseForm(f => ({
+                                ...f,
+                                defaultParameter2:
+                                  (Array.isArray(v) ? v[0] : v) ?? '',
+                              }))
+                            }
+                            options={PARAMETER_2_OPTIONS.map(o => ({
+                              value: o.value,
+                              label: o.label,
+                            }))}
+                            size="small"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">
+                          Video URL (optional)
+                        </label>
+                        <Input
+                          value={newExerciseForm.videoUrl}
+                          onChange={e =>
+                            setNewExerciseForm(f => ({
+                              ...f,
+                              videoUrl: e.target.value,
+                            }))
+                          }
+                          placeholder="https://..."
+                          size="small"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">
+                          Points of Performance (optional)
+                        </label>
+                        <textarea
+                          className="w-full min-h-[60px] rounded border border-gray-300 px-3 py-2 text-sm"
+                          value={newExerciseForm.pointsOfPerformance}
+                          onChange={e =>
+                            setNewExerciseForm(f => ({
+                              ...f,
+                              pointsOfPerformance: e.target.value.slice(
+                                0,
+                                10000
+                              ),
+                            }))
+                          }
+                          placeholder="Coaching cues..."
+                          maxLength={10000}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">
+                          Tags (comma-separated)
+                        </label>
+                        <Input
+                          value={newExerciseForm.tagsStr}
+                          onChange={e =>
+                            setNewExerciseForm(f => ({
+                              ...f,
+                              tagsStr: e.target.value,
+                            }))
+                          }
+                          placeholder="e.g. lower, compound"
+                          size="small"
+                        />
+                      </div>
+                      <Button
+                        type="button"
+                        variant="primary"
+                        size="small"
+                        disabled={
+                          newExerciseSaving || !newExerciseForm.name.trim()
+                        }
+                        onClick={async () => {
+                          if (!newExerciseForm.name.trim()) return
+                          setNewExerciseSaving(true)
+                          try {
+                            const tags = newExerciseForm.tagsStr
+                              .split(',')
+                              .map(t => t.trim())
+                              .filter(Boolean)
+                            const res = await exerciseService.create({
+                              name: newExerciseForm.name.trim(),
+                              videoUrl:
+                                newExerciseForm.videoUrl.trim() || undefined,
+                              defaultParameter1:
+                                newExerciseForm.defaultParameter1 || undefined,
+                              defaultParameter2:
+                                newExerciseForm.defaultParameter2 === '-'
+                                  ? undefined
+                                  : newExerciseForm.defaultParameter2 ||
+                                    undefined,
+                              pointsOfPerformance:
+                                newExerciseForm.pointsOfPerformance.trim() ||
+                                undefined,
+                              tags: tags.length ? tags : undefined,
+                              isActive: true,
+                            })
+                            const data = res.data?.data
+                            if (data?.id != null && sessionDesignerCell) {
+                              await fetchExercises()
+                              const newEx: ExerciseListForBuilderItem = {
+                                id: data.id,
+                                name: data.name ?? newExerciseForm.name.trim(),
+                              }
+                              const w = sessionDesignerCell.weekIdx
+                              const d = sessionDesignerCell.dayIdx
+                              const sectionIdx =
+                                structure.weeks[w]?.days?.[d]?.sections
+                                  ?.length ?? 0
+                              addBlockAsExercise(w, d, newEx)
+                              showSuccess(
+                                'Exercise created and added to session'
+                              )
+                              setAddBlockStep('search')
+                              setAddBlockModalOpen(false)
+                              setNewExerciseForm({
+                                name: '',
+                                videoUrl: '',
+                                defaultParameter1: 'Reps',
+                                defaultParameter2: '-',
+                                pointsOfPerformance: '',
+                                tagsStr: '',
+                              })
+                              setEditingExerciseBlock({
+                                weekIdx: w,
+                                dayIdx: d,
+                                sectionIdx,
+                              })
+                            }
+                          } catch (err) {
+                            const e = err as AxiosError<{ message?: string }>
+                            showError(
+                              e.response?.data?.message ??
+                                'Failed to create exercise'
+                            )
+                          } finally {
+                            setNewExerciseSaving(false)
+                          }
+                        }}
+                      >
+                        {newExerciseSaving
+                          ? 'Creating...'
+                          : 'Create and add to session'}
+                      </Button>
+                    </div>
+                  </>
+                ) : addBlockType === '' ? (
                   <>
                     <div>
                       <label
-                        htmlFor="add-block-type-select"
+                        htmlFor="add-block-search"
                         className="block text-sm font-medium text-gray-700 mb-1"
                       >
-                        Block type
+                        Select Exercise or Circuit
                       </label>
-                      <Dropdown
-                        placeholder="Select block type..."
-                        value={addBlockType}
-                        onValueChange={v => {
-                          const val = (Array.isArray(v) ? v[0] : v) ?? ''
-                          setAddBlockType(
-                            val === 'EXERCISE' ||
-                              val === 'CIRCUIT' ||
-                              val === 'SUPERSET'
-                              ? val
-                              : ''
-                          )
-                        }}
-                        options={[
-                          { value: '', label: 'Select block type...' },
-                          { value: 'EXERCISE', label: 'Exercise Block' },
-                          { value: 'CIRCUIT', label: 'Circuit Block' },
-                          { value: 'SUPERSET', label: 'Superset Block' },
-                        ]}
-                        className="max-w-full"
+                      <Input
+                        id="add-block-search"
+                        placeholder="Search by name..."
+                        value={addBlockSearchQuery}
+                        onChange={e => setAddBlockSearchQuery(e.target.value)}
+                        size="medium"
+                        className="w-full"
                       />
                     </div>
-                    <p className="text-sm text-gray-500 py-4 text-center border border-dashed border-gray-200 rounded-lg bg-gray-50/50">
-                      Choose a block type above to add an exercise, circuit, or
-                      superset to this session.
-                    </p>
+                    <div className="max-h-[280px] overflow-y-auto border border-gray-200 rounded-lg divide-y divide-gray-100">
+                      {exerciseList.length === 0 ? (
+                        <p className="text-sm text-gray-500 py-4 px-3 text-center">
+                          {addBlockSearchQuery.trim()
+                            ? 'No exercises match your search.'
+                            : 'Type to search the exercise library.'}
+                        </p>
+                      ) : (
+                        exerciseList.map(ex => {
+                          const thumb = getExerciseThumbnailUrl(ex.videoUrl)
+                          return (
+                            <button
+                              key={ex.id}
+                              type="button"
+                              className="w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-gray-50 focus:bg-gray-50 focus:outline-none"
+                              onClick={() => {
+                                const w = sessionDesignerCell.weekIdx
+                                const d = sessionDesignerCell.dayIdx
+                                const sectionIdx =
+                                  structure.weeks[w]?.days?.[d]?.sections
+                                    ?.length ?? 0
+                                addBlockAsExercise(w, d, ex)
+                                setAddBlockModalOpen(false)
+                                setAddBlockSearchQuery('')
+                                setEditingExerciseBlock({
+                                  weekIdx: w,
+                                  dayIdx: d,
+                                  sectionIdx,
+                                })
+                              }}
+                            >
+                              <span className="shrink-0 w-14 h-14 rounded bg-gray-100 overflow-hidden flex items-center justify-center">
+                                {thumb ? (
+                                  <img
+                                    src={thumb}
+                                    alt=""
+                                    className="w-full h-full object-cover"
+                                  />
+                                ) : (
+                                  <Icon
+                                    name="dumbbell"
+                                    family="solid"
+                                    size={20}
+                                    className="text-gray-400"
+                                  />
+                                )}
+                              </span>
+                              <div className="min-w-0 flex-1">
+                                <span className="text-sm font-medium text-gray-900 block truncate">
+                                  {ex.name}
+                                </span>
+                                {ex.tags && ex.tags.length > 0 && (
+                                  <span className="text-xs text-gray-500 block truncate">
+                                    {ex.tags.join(', ')}
+                                  </span>
+                                )}
+                              </div>
+                            </button>
+                          )
+                        })
+                      )}
+                    </div>
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="small"
+                        leftIcon={<Icon name="plus" family="solid" size={12} />}
+                        onClick={() => setAddBlockStep('newExercise')}
+                      >
+                        New Exercise
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="small"
+                        leftIcon={<Icon name="list" family="solid" size={12} />}
+                        onClick={() => setAddBlockType('CIRCUIT')}
+                      >
+                        New Circuit
+                      </Button>
+                      <button
+                        type="button"
+                        className="text-xs text-gray-500 hover:text-gray-700 underline"
+                        onClick={() => setAddBlockType('SUPERSET')}
+                      >
+                        Add superset block
+                      </button>
+                    </div>
                   </>
                 ) : (
                   <div className="flex justify-start">
@@ -4049,96 +4702,6 @@ export function ProgramBuilderForm({
                       onClick={() => setAddBlockType('')}
                     >
                       Back
-                    </Button>
-                  </div>
-                )}
-                {addBlockType === 'EXERCISE' && (
-                  <div className="pt-1 border-t border-gray-200">
-                    <Text
-                      variant="default"
-                      className="text-sm font-medium mb-2 block"
-                    >
-                      Exercise block
-                    </Text>
-                    <div className="mb-2">
-                      <label
-                        htmlFor="add-block-category"
-                        className="block text-xs font-medium text-gray-600 mb-1"
-                      >
-                        Block category
-                      </label>
-                      <Dropdown
-                        placeholder="Uncategorized"
-                        value={addBlockExerciseCategory || ''}
-                        onValueChange={v =>
-                          setAddBlockExerciseCategory(
-                            (Array.isArray(v) ? v[0] : v) ?? ''
-                          )
-                        }
-                        options={BLOCK_CATEGORY_OPTIONS}
-                      />
-                      {addBlockExerciseCategory === '__custom__' && (
-                        <Input
-                          placeholder="Custom category name"
-                          value={addBlockExerciseCategoryCustom}
-                          onChange={e =>
-                            setAddBlockExerciseCategoryCustom(e.target.value)
-                          }
-                          className="mt-2"
-                          size="small"
-                        />
-                      )}
-                    </div>
-                    <Dropdown
-                      placeholder="Search and select exercise..."
-                      searchable
-                      searchPlaceholder="Search exercises..."
-                      options={exerciseList.map(ex => ({
-                        value: String(ex.id),
-                        label: ex.name,
-                      }))}
-                      onValueChange={v => {
-                        const id = Array.isArray(v) ? v[0] : v
-                        if (!id) return
-                        const ex = exerciseList.find(e => String(e.id) === id)
-                        if (ex) {
-                          const resolvedCategory =
-                            addBlockExerciseCategory === '__custom__'
-                              ? addBlockExerciseCategoryCustom?.trim()
-                              : addBlockExerciseCategory || undefined
-                          const w = sessionDesignerCell.weekIdx
-                          const d = sessionDesignerCell.dayIdx
-                          const sectionIdx =
-                            structure.weeks[w]?.days?.[d]?.sections?.length ?? 0
-                          addBlockAsExercise(
-                            w,
-                            d,
-                            ex,
-                            resolvedCategory || undefined
-                          )
-                          setAddBlockModalOpen(false)
-                          setAddBlockExerciseCategory('')
-                          setAddBlockExerciseCategoryCustom('')
-                          setEditingExerciseBlock({
-                            weekIdx: w,
-                            dayIdx: d,
-                            sectionIdx,
-                          })
-                        }
-                      }}
-                      fullWidth={false}
-                      className="max-w-full"
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="small"
-                      className="mt-2"
-                      onClick={() => {
-                        setNewExerciseModalOpen(true)
-                      }}
-                    >
-                      New Exercise
                     </Button>
                   </div>
                 )}
@@ -4207,7 +4770,7 @@ export function ProgramBuilderForm({
                           htmlFor="add-block-instructions"
                           className="block text-xs font-medium text-gray-600 mb-1"
                         >
-                          Instructions{' '}
+                          Instructions (free-form){' '}
                           <span className="text-red-500" aria-hidden="true">
                             *
                           </span>
@@ -4226,6 +4789,10 @@ export function ProgramBuilderForm({
                           minHeight="120px"
                           className="mt-1"
                         />
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          Free-form text for the athlete. Use lists and
+                          formatting as needed.
+                        </p>
                       </div>
                       <div>
                         <label
@@ -5713,32 +6280,37 @@ export function ProgramBuilderForm({
                   </p>
                   <div className="p-4 space-y-4 max-h-[80vh] overflow-y-auto">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Block category
-                      </label>
-                      <Dropdown
-                        placeholder="Uncategorized"
-                        value={
-                          parentSection?.blockCategory &&
-                          BLOCK_CATEGORY_OPTIONS.some(
-                            o => o.value === parentSection?.blockCategory
-                          )
-                            ? parentSection.blockCategory
-                            : parentSection?.blockCategory
-                              ? '__custom__'
-                              : ''
+                      {(() => {
+                        const cat = parentSection?.blockCategory
+                        const isInOptions =
+                          cat != null &&
+                          BLOCK_CATEGORY_OPTIONS.some(o => o.value === cat)
+                        let blockCategoryValue: string
+                        if (isInOptions) {
+                          blockCategoryValue = cat ?? ''
+                        } else if (cat) {
+                          blockCategoryValue = '__custom__'
+                        } else {
+                          blockCategoryValue = ''
                         }
-                        onValueChange={v => {
-                          const val = (Array.isArray(v) ? v[0] : v) ?? ''
-                          updateSupersetBlockSection(w, d, parentIdx, {
-                            blockCategory:
-                              val === '__custom__'
-                                ? (parentSection?.blockCategory ?? '')
-                                : val || undefined,
-                          })
-                        }}
-                        options={BLOCK_CATEGORY_OPTIONS}
-                      />
+                        return (
+                          <Dropdown
+                            label="Block category"
+                            placeholder="Uncategorized"
+                            value={blockCategoryValue}
+                            onValueChange={v => {
+                              const val = (Array.isArray(v) ? v[0] : v) ?? ''
+                              updateSupersetBlockSection(w, d, parentIdx, {
+                                blockCategory:
+                                  val === '__custom__'
+                                    ? (parentSection?.blockCategory ?? '')
+                                    : val || undefined,
+                              })
+                            }}
+                            options={BLOCK_CATEGORY_OPTIONS}
+                          />
+                        )
+                      })()}
                       {(parentSection?.blockCategory === '' ||
                         (parentSection?.blockCategory != null &&
                           !BLOCK_CATEGORY_OPTIONS.some(
@@ -5877,6 +6449,23 @@ export function ProgramBuilderForm({
                             (ex0?.setsRows?.length ?? 0) > 0
                               ? [...(ex0.setsRows ?? [])]
                               : [{ setIndex: 0 }]
+                          const applySetsRowsUpdate = (
+                            nextRows: typeof rows
+                          ) => {
+                            updateExerciseBlockSection(w, d, childIdx, {
+                              exercises: [{ ...ex0!, setsRows: nextRows }],
+                            })
+                          }
+                          const updateRowAt = (
+                            ri: number,
+                            patch: Partial<(typeof rows)[0]>
+                          ) => {
+                            applySetsRowsUpdate(
+                              rows.map((r, i) =>
+                                i === ri ? { ...r, ...patch } : r
+                              )
+                            )
+                          }
                           return (
                             <div
                               key={childIdx}
@@ -6005,30 +6594,15 @@ export function ProgramBuilderForm({
                                             type="number"
                                             min={0}
                                             value={row.reps ?? ''}
-                                            onChange={e => {
-                                              const next = rows.map((r, i) =>
-                                                i === ri
-                                                  ? {
-                                                      ...r,
-                                                      reps:
-                                                        Number.parseInt(
-                                                          e.target.value,
-                                                          10
-                                                        ) || undefined,
-                                                    }
-                                                  : r
-                                              )
-                                              updateExerciseBlockSection(
-                                                w,
-                                                d,
-                                                childIdx,
-                                                {
-                                                  exercises: [
-                                                    { ...ex0!, setsRows: next },
-                                                  ],
-                                                }
-                                              )
-                                            }}
+                                            onChange={e =>
+                                              updateRowAt(ri, {
+                                                reps:
+                                                  Number.parseInt(
+                                                    e.target.value,
+                                                    10
+                                                  ) || undefined,
+                                              })
+                                            }
                                             size="small"
                                             className="w-14"
                                           />
@@ -6036,25 +6610,12 @@ export function ProgramBuilderForm({
                                         <td className="py-1 px-2">
                                           <select
                                             value={row.weightMode ?? ''}
-                                            onChange={e => {
-                                              const mode =
-                                                e.target.value || undefined
-                                              const next = rows.map((r, i) =>
-                                                i === ri
-                                                  ? { ...r, weightMode: mode }
-                                                  : r
-                                              )
-                                              updateExerciseBlockSection(
-                                                w,
-                                                d,
-                                                childIdx,
-                                                {
-                                                  exercises: [
-                                                    { ...ex0!, setsRows: next },
-                                                  ],
-                                                }
-                                              )
-                                            }}
+                                            onChange={e =>
+                                              updateRowAt(ri, {
+                                                weightMode:
+                                                  e.target.value || undefined,
+                                              })
+                                            }
                                             className="border rounded px-1 py-0.5 text-xs w-24"
                                           >
                                             <option value="">—</option>
@@ -6083,30 +6644,11 @@ export function ProgramBuilderForm({
                                                 const n = Number.parseFloat(
                                                   e.target.value
                                                 )
-                                                const next = rows.map((r, i) =>
-                                                  i === ri
-                                                    ? {
-                                                        ...r,
-                                                        weightValue:
-                                                          Number.isNaN(n)
-                                                            ? undefined
-                                                            : n,
-                                                      }
-                                                    : r
-                                                )
-                                                updateExerciseBlockSection(
-                                                  w,
-                                                  d,
-                                                  childIdx,
-                                                  {
-                                                    exercises: [
-                                                      {
-                                                        ...ex0!,
-                                                        setsRows: next,
-                                                      },
-                                                    ],
-                                                  }
-                                                )
+                                                updateRowAt(ri, {
+                                                  weightValue: Number.isNaN(n)
+                                                    ? undefined
+                                                    : n,
+                                                })
                                               }}
                                               size="small"
                                               className="w-14 inline-block ml-1"
@@ -6117,31 +6659,12 @@ export function ProgramBuilderForm({
                                             <Input
                                               placeholder="Build to Heavy"
                                               value={row.weightDisplay ?? ''}
-                                              onChange={e => {
-                                                const next = rows.map((r, i) =>
-                                                  i === ri
-                                                    ? {
-                                                        ...r,
-                                                        weightDisplay:
-                                                          e.target.value ||
-                                                          undefined,
-                                                      }
-                                                    : r
-                                                )
-                                                updateExerciseBlockSection(
-                                                  w,
-                                                  d,
-                                                  childIdx,
-                                                  {
-                                                    exercises: [
-                                                      {
-                                                        ...ex0!,
-                                                        setsRows: next,
-                                                      },
-                                                    ],
-                                                  }
-                                                )
-                                              }}
+                                              onChange={e =>
+                                                updateRowAt(ri, {
+                                                  weightDisplay:
+                                                    e.target.value || undefined,
+                                                })
+                                              }
                                               size="small"
                                               className="w-24 inline-block ml-1"
                                             />
@@ -6157,26 +6680,11 @@ export function ProgramBuilderForm({
                                               const n = Number.parseFloat(
                                                 e.target.value
                                               )
-                                              const next = rows.map((r, i) =>
-                                                i === ri
-                                                  ? {
-                                                      ...r,
-                                                      rpe: Number.isNaN(n)
-                                                        ? undefined
-                                                        : n,
-                                                    }
-                                                  : r
-                                              )
-                                              updateExerciseBlockSection(
-                                                w,
-                                                d,
-                                                childIdx,
-                                                {
-                                                  exercises: [
-                                                    { ...ex0!, setsRows: next },
-                                                  ],
-                                                }
-                                              )
+                                              updateRowAt(ri, {
+                                                rpe: Number.isNaN(n)
+                                                  ? undefined
+                                                  : n,
+                                              })
                                             }}
                                             size="small"
                                             className="w-12"
@@ -6185,28 +6693,12 @@ export function ProgramBuilderForm({
                                         <td className="py-1 px-2">
                                           <Input
                                             value={row.tempo ?? ''}
-                                            onChange={e => {
-                                              const next = rows.map((r, i) =>
-                                                i === ri
-                                                  ? {
-                                                      ...r,
-                                                      tempo:
-                                                        e.target.value ||
-                                                        undefined,
-                                                    }
-                                                  : r
-                                              )
-                                              updateExerciseBlockSection(
-                                                w,
-                                                d,
-                                                childIdx,
-                                                {
-                                                  exercises: [
-                                                    { ...ex0!, setsRows: next },
-                                                  ],
-                                                }
-                                              )
-                                            }}
+                                            onChange={e =>
+                                              updateRowAt(ri, {
+                                                tempo:
+                                                  e.target.value || undefined,
+                                              })
+                                            }
                                             size="small"
                                             className="w-20"
                                           />
@@ -6221,28 +6713,11 @@ export function ProgramBuilderForm({
                                                 e.target.value,
                                                 10
                                               )
-                                              const next = rows.map((r, i) =>
-                                                i === ri
-                                                  ? {
-                                                      ...r,
-                                                      restSeconds: Number.isNaN(
-                                                        n
-                                                      )
-                                                        ? undefined
-                                                        : n,
-                                                    }
-                                                  : r
-                                              )
-                                              updateExerciseBlockSection(
-                                                w,
-                                                d,
-                                                childIdx,
-                                                {
-                                                  exercises: [
-                                                    { ...ex0!, setsRows: next },
-                                                  ],
-                                                }
-                                              )
+                                              updateRowAt(ri, {
+                                                restSeconds: Number.isNaN(n)
+                                                  ? undefined
+                                                  : n,
+                                              })
                                             }}
                                             size="small"
                                             className="w-14"
@@ -6337,10 +6812,17 @@ export function ProgramBuilderForm({
               addBlockFromLibraryCircuit(weekIdx, dayIdx, circuit)
             }}
             onAddSession={content => {
+              if (structure.weeks.length === 0) {
+                showError(
+                  'Add a week to the program first, then add a session from the library.'
+                )
+                return
+              }
               const weekIdx =
                 sessionDesignerCell?.weekIdx ??
                 structure.weeks.findIndex(w => (w.days?.length ?? 0) < 7)
-              const targetWeek = Math.max(0, weekIdx ?? 0)
+              const targetWeek =
+                weekIdx >= 0 ? weekIdx : structure.weeks.length - 1
               addDayFromLibrarySession(targetWeek, content)
             }}
             onCreateExercise={() => {
@@ -6910,20 +7392,25 @@ export function ProgramBuilderForm({
                         isActive: true,
                       })
                       const data = res.data?.data
-                      if (data?.id != null) {
+                      if (data?.id != null && sessionDesignerCell) {
                         await fetchExercises()
                         const newEx: ExerciseListForBuilderItem = {
                           id: data.id,
                           name: data.name ?? newExerciseForm.name.trim(),
                         }
-                        addBlockAsExercise(
-                          sessionDesignerCell.weekIdx,
-                          sessionDesignerCell.dayIdx,
-                          newEx
-                        )
+                        const w = sessionDesignerCell.weekIdx
+                        const d = sessionDesignerCell.dayIdx
+                        const sectionIdx =
+                          structure.weeks[w]?.days?.[d]?.sections?.length ?? 0
+                        addBlockAsExercise(w, d, newEx)
                         showSuccess('Exercise created and added to session')
                         setNewExerciseModalOpen(false)
                         setAddBlockModalOpen(false)
+                        setEditingExerciseBlock({
+                          weekIdx: w,
+                          dayIdx: d,
+                          sectionIdx,
+                        })
                         setNewExerciseForm({
                           name: '',
                           videoUrl: '',
