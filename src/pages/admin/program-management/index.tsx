@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { Text } from '@/components/Text'
 import { Stack } from '@/components/Stack'
 import { Button } from '@/components/Button'
@@ -63,6 +64,13 @@ const AdminProgramManagement = () => {
   const [assignRedLoading, setAssignRedLoading] = useState(false)
   const [assignCustomLoading, setAssignCustomLoading] = useState(false)
   const { showError, showSuccess } = useSnackbar()
+  const [openActionsMenuId, setOpenActionsMenuId] = useState<number | null>(
+    null
+  )
+  const [actionsMenuPosition, setActionsMenuPosition] = useState<{
+    top: number
+    left: number
+  } | null>(null)
 
   const hasActiveFilters =
     filterCycleId !== '' || filterCategory !== '' || filterStatus !== 'all'
@@ -399,58 +407,121 @@ const AdminProgramManagement = () => {
       label: 'Actions',
       sortable: false,
       align: 'center',
-      width: '240px',
-      render: (_value, row) => {
-        const isRed = (row as { cycleType?: string }).cycleType === 'RED'
-        const isCustom = (row as { cycleType?: string }).cycleType === 'CUSTOM'
+      width: '80px',
+      render: (_value, row: Program) => {
+        const isMenuOpen = openActionsMenuId === row.id
         return (
-          <div className="flex items-center justify-center gap-1.5 flex-wrap">
-            {!row.isPublished && (
-              <Button
-                variant="primary"
-                size="small"
-                onClick={() => handleApproveProgram(row)}
-                leftIcon={<Icon name="check" family="solid" size={14} />}
-              >
-                Publish
-              </Button>
-            )}
-            {isRed && (
-              <Button
-                variant="outline"
-                size="small"
-                onClick={() => openAssignRed(row)}
-                leftIcon={<Icon name="user-plus" family="solid" size={14} />}
-              >
-                Assign Red
-              </Button>
-            )}
-            {isCustom && (
-              <Button
-                variant="outline"
-                size="small"
-                onClick={() => openAssignCustom(row)}
-                leftIcon={<Icon name="user-plus" family="solid" size={14} />}
-              >
-                Assign
-              </Button>
-            )}
-            <Button
-              variant="outline"
-              size="small"
-              onClick={() => handleEditProgram(row)}
-              leftIcon={<Icon name="edit" family="solid" size={14} />}
+          <div className="flex items-center justify-center">
+            <button
+              type="button"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-full hover:bg-gray-100 text-gray-600"
+              aria-label="Program actions"
+              onClick={e => {
+                e.stopPropagation()
+                if (isMenuOpen) {
+                  setOpenActionsMenuId(null)
+                  setActionsMenuPosition(null)
+                } else {
+                  const rect = (e.target as HTMLElement).getBoundingClientRect()
+                  setActionsMenuPosition({
+                    top: rect.bottom + 4,
+                    left: Math.min(rect.right - 180, window.innerWidth - 200),
+                  })
+                  setOpenActionsMenuId(row.id)
+                }
+              }}
             >
-              Edit
-            </Button>
+              <Icon name="ellipsis-vertical" family="solid" size={14} />
+            </button>
           </div>
         )
       },
     },
   ]
 
+  const openActionsRow =
+    openActionsMenuId != null
+      ? programs.find(p => p.id === openActionsMenuId)
+      : null
+  const closeActionsMenu = () => {
+    setOpenActionsMenuId(null)
+    setActionsMenuPosition(null)
+  }
+
   return (
     <div className="p-6">
+      {actionsMenuPosition != null &&
+        openActionsRow != null &&
+        createPortal(
+          <>
+            <div
+              className="fixed inset-0 z-[100]"
+              aria-hidden
+              onClick={closeActionsMenu}
+            />
+            <div
+              className="fixed z-[101] min-w-[180px] rounded-lg border border-gray-200 bg-white py-1 shadow-lg"
+              style={{
+                top: actionsMenuPosition.top,
+                left: actionsMenuPosition.left,
+              }}
+            >
+              {!openActionsRow.isPublished && (
+                <button
+                  type="button"
+                  className="w-full px-3 py-1.5 text-left text-sm hover:bg-gray-100"
+                  onClick={e => {
+                    e.stopPropagation()
+                    closeActionsMenu()
+                    handleApproveProgram(openActionsRow)
+                  }}
+                >
+                  Publish
+                </button>
+              )}
+              {(openActionsRow as { cycleType?: string }).cycleType ===
+                'RED' && (
+                <button
+                  type="button"
+                  className="w-full px-3 py-1.5 text-left text-sm hover:bg-gray-100"
+                  onClick={e => {
+                    e.stopPropagation()
+                    closeActionsMenu()
+                    openAssignRed(openActionsRow)
+                  }}
+                >
+                  Assign Red
+                </button>
+              )}
+              {(openActionsRow as { cycleType?: string }).cycleType ===
+                'CUSTOM' && (
+                <button
+                  type="button"
+                  className="w-full px-3 py-1.5 text-left text-sm hover:bg-gray-100"
+                  onClick={e => {
+                    e.stopPropagation()
+                    closeActionsMenu()
+                    openAssignCustom(openActionsRow)
+                  }}
+                >
+                  Assign
+                </button>
+              )}
+              <button
+                type="button"
+                className="w-full px-3 py-1.5 text-left text-sm hover:bg-gray-100"
+                onClick={e => {
+                  e.stopPropagation()
+                  closeActionsMenu()
+                  handleEditProgram(openActionsRow)
+                }}
+              >
+                Edit
+              </button>
+            </div>
+          </>,
+          document.body
+        )}
       <Stack direction="vertical" spacing={6}>
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
