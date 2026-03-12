@@ -518,6 +518,29 @@ function structureHasBlockMissingName(structure: ProgramStructure): boolean {
   return false
 }
 
+/** Strip heavy embedded exercise details from ProgramStructure before saving.
+ * We keep exerciseId and prescription fields, but drop the nested `exercise`
+ * object so the payload stays small; exercise details are fetched separately.
+ */
+function getStructureForSave(structure: ProgramStructure): ProgramStructure {
+  return {
+    weeks: (structure.weeks ?? []).map(week => ({
+      ...week,
+      days: (week.days ?? []).map(day => ({
+        ...day,
+        sections: (day.sections ?? []).map(section => ({
+          ...section,
+          exercises: (section.exercises ?? []).map(ex => {
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            const { exercise, ...rest } = ex
+            return rest
+          }),
+        })),
+      })),
+    })),
+  }
+}
+
 /** Compute calendar cell summary (exercise names, set counts, block categories) to reduce complexity in map. */
 function getCellSummary(
   sections: ProgramStructureSection[],
@@ -3730,7 +3753,7 @@ export function ProgramBuilderForm({
       category: category || null,
       subCategory: subCategory || null,
       isActive,
-      programStructure: structure,
+      programStructure: getStructureForSave(structure),
       ...(goalType && { goalTypeId: goalType.id }),
       ...(cycleType === 'GREEN' && { durationWeeks: greenDuration }),
       ...(cycleType === 'SUSTAINMENT' && {
@@ -3772,7 +3795,7 @@ export function ProgramBuilderForm({
         sustainmentCategory && {
           constraintCategory: sustainmentCategory,
         }),
-      programStructure: structure,
+      programStructure: getStructureForSave(structure),
     }
   }
 
