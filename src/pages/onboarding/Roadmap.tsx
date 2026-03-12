@@ -327,6 +327,11 @@ export default function RoadmapStep({
               {roadmap.sustainmentNote}
             </p>
           )}
+          {roadmap.customNote && (
+            <p className="text-xs text-gray-600 mt-4 pt-4 border-t border-gray-100 bg-violet-50/50 rounded p-3">
+              {roadmap.customNote}
+            </p>
+          )}
           {roadmap.cycles?.some(c => c.cycleName === 'Amber') && (
             <p className="text-xs text-gray-500 mt-4 pt-4 border-t border-gray-100">
               Amber workouts are set by your coach by date; you’ll see each
@@ -367,6 +372,19 @@ export default function RoadmapStep({
                 You are in a Sustainment block — limited time or equipment. This
                 is not part of the main Red → Amber → Green progression. Switch
                 to a main cycle when ready from Goals or cycle transition.
+              </Text>
+            </Card>
+          )}
+        {expandedView &&
+          (roadmap.isCustomCycle || roadmap.currentCycle === 'Custom') && (
+            <Card className="p-6 rounded-xl border-2 border-dashed border-violet-400 bg-violet-50/80">
+              <h3 className="text-lg font-semibold text-violet-800">
+                3.5 Custom / 1:1
+              </h3>
+              <Text variant="secondary" className="text-sm mt-1">
+                You are on a coach-assigned Custom program (90 Unchained or 1:1
+                S&C). Roadmap and event date unchanged. When your 1:1 engagement
+                ends, you return to your roadmap-driven cycle.
               </Text>
             </Card>
           )}

@@ -15,7 +15,7 @@ function getEmptyCycleMessage(cycleName: string): string {
   if (cycleName === 'Amber')
     return 'Amber (Warfighter) is assigned via onboarding or your coach. Workouts appear on the Train calendar by date—use the Train page to see today’s session.'
   if (cycleName === 'Sustainment')
-    return 'Browse the Sustainment Library (by constraint type) to start a temporary override. Your roadmap stays unchanged.'
+    return '3.4 Sustainment: Browse the Sustainment Library (by constraint: Travel, Limited Equipment, Rehab, Time, Deployed) to start a temporary override. Roadmap and event date unchanged; when you finish or stop, resume your prior program.'
   return 'No programs in this cycle.'
 }
 

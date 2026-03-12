@@ -107,6 +107,10 @@ export interface Roadmap {
   sustainmentNote?: string | null
   /** PRD 6.3.3: true when current cycle is Sustainment (show as distinct overlay) */
   isSustainmentCycle?: boolean
+  /** 3.5 Custom / 1:1: true when current cycle is Custom (coach-assigned override) */
+  isCustomCycle?: boolean
+  /** 3.5 Custom / 1:1: Note when in Custom program; roadmap unchanged, return to roadmap when engagement ends */
+  customNote?: string | null
   /** PRD 6.4.1: Personal records from SetLog */
   prList?: Array<{
     exerciseName: string

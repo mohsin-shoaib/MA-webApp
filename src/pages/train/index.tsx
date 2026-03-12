@@ -328,7 +328,7 @@ export default function TrainPage() {
                   Sustainment Library
                 </Text>
                 <Tooltip
-                  content="Temporary programs for travel, limited equipment, rehab, or time constraints. Starting one pauses your current cycle; roadmap unchanged."
+                  content="3.4 Sustainment: Temporary programs for travel, limited equipment, rehab, time, or deployed. Starting one pauses your current cycle; roadmap and event date unchanged. When you finish or stop, resume your prior program."
                   position="top"
                 >
                   <span

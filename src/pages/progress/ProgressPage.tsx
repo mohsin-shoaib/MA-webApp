@@ -182,6 +182,11 @@ export default function ProgressPage() {
             {roadmap.sustainmentNote}
           </Text>
         )}
+        {roadmap?.customNote && (
+          <Text variant="secondary" className="text-sm mt-3 block">
+            {roadmap.customNote}
+          </Text>
+        )}
       </Card>
 
       {roadmap && (

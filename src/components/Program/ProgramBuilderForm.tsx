@@ -1472,6 +1472,7 @@ function AddBlockSupersetPanel(
 function ProgramMetadataSection(
   props: Readonly<{
     program: ProgramBuilderFormProps['program']
+    isRedCycle: boolean
     isAmberCycle: boolean
     isGreenCycle: boolean
     isSustainmentCycle: boolean
@@ -1504,6 +1505,7 @@ function ProgramMetadataSection(
 ) {
   const {
     program,
+    isRedCycle,
     isAmberCycle,
     isGreenCycle,
     isSustainmentCycle,
@@ -1533,6 +1535,20 @@ function ProgramMetadataSection(
     isPublished,
     setIsPublished,
   } = props
+
+  function getProgramDurationDescription(): string {
+    if (isRedCycle)
+      return 'Red (Foundations): Fixed-length, sequential. Set number of weeks below; athlete starts Week 1 Day 1 and progresses linearly. End date = start date + number of weeks.'
+    if (isAmberCycle)
+      return 'Amber (Operational Readiness): Calendar-synced; no fixed end date. Assign sessions to calendar dates below; all athletes on this program see the same workout on the same date. New athletes start on the current date.'
+    if (isGreenCycle)
+      return 'Green (Mission-Specific Readiness): Event-aligned. Set number of weeks and Green duration below. Green start = event date − duration; if athlete has less time to event, they start at the appropriate week so the program ends on event day. Completion recommends transition to Red.'
+    if (isSustainmentCycle)
+      return '3.4 Sustainment (Constraint-Based Override): Fixed-length, sequential (same as Red). Week → Day → Block → Exercise. Does not change athlete roadmap or event date; when active it pauses the current cycle program. When sustainment ends, athlete returns to prior program. Tag with constraint category below for Sustainment Library.'
+    if (isCustomCycle)
+      return '3.5 Custom / 1:1 (Coach-Assigned): Individualized program for one athlete (90 Unchained or 1:1 S&C). Structure is flexible: build Week → Day → Block → Exercise (like Red) or assign sessions per date (like Amber). Assign to exactly one athlete; overrides current cycle; roadmap and event date unchanged. When engagement ends, athlete returns to roadmap-driven cycle. Changes propagate immediately.'
+    return 'Auto-calculated from the number of weeks in the calendar below.'
+  }
   return (
     <>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1562,8 +1578,10 @@ function ProgramMetadataSection(
         )}
         {!program && isAmberCycle && (
           <p className="md:col-span-2 text-sm text-amber-800">
-            Amber programs use calendar dates only. After saving, use the Amber
-            Calendar below to assign sessions to dates (or from library).
+            3.2 Amber: No Week→Day hierarchy. After saving, use the Amber
+            Calendar to assign sessions to calendar dates (or from library). One
+            session per date; all athletes see the same workout on the same
+            date; edits propagate immediately.
           </p>
         )}
         <div>
@@ -1591,8 +1609,7 @@ function ProgramMetadataSection(
       <div className="rounded-md border border-blue-200 bg-blue-50/80 px-3 py-2">
         <p className="text-sm text-gray-700">
           <span className="font-medium text-gray-800">Program duration:</span>{' '}
-          Auto-calculated from the number of weeks in the calendar below. For
-          Amber, duration is ongoing (no fixed duration).
+          {getProgramDurationDescription()}
         </p>
       </div>
       <div>
@@ -1648,12 +1665,14 @@ function ProgramMetadataSection(
             variant="default"
             className="text-sm font-medium text-emerald-900 mb-1 block"
           >
-            Green duration (weeks) *
+            Green duration (weeks) * — 3.3 Mission-Specific Readiness
           </Text>
           <p className="text-xs text-emerald-800 mb-2">
-            Used for onboarding and Amber→Green transition. Green start date =
-            event date − this many weeks. If athlete has less time to event,
-            they start at the appropriate week so the program ends on event day.
+            Configurable per program. Green start date = event date − this many
+            weeks. Used for onboarding and Amber→Green transition. If athlete
+            has less time to event than full duration, they start at the
+            appropriate week so the program end aligns with event day.
+            Completion recommends transition to Red.
           </p>
           <input
             type="number"
@@ -1676,11 +1695,12 @@ function ProgramMetadataSection(
             variant="default"
             className="text-sm font-medium text-slate-900 mb-1 block"
           >
-            Constraint category *
+            Constraint category * — 3.4 Sustainment Library
           </Text>
           <p className="text-xs text-slate-700 mb-2">
-            Tag for Sustainment Library so athletes can filter by constraint
-            type.
+            Tag for Sustainment Library: Travel, Limited Equipment, Rehab, Time,
+            Deployed. Athletes browse by constraint; coach can recommend;
+            athlete must confirm to start.
           </p>
           <select
             value={constraintCategory}
@@ -1699,14 +1719,17 @@ function ProgramMetadataSection(
       {isCustomCycle && (
         <div className="rounded-xl border border-violet-200 bg-violet-50/30 p-4">
           <Text variant="default" className="font-medium text-violet-900">
-            Custom 1:1 program
+            3.5 Custom / 1:1 (Coach-Assigned)
           </Text>
           <p className="text-sm text-violet-800 mt-1">
-            Assign to one athlete from{' '}
-            <strong>My Athletes → Assign 1:1 program</strong> (coach) or{' '}
-            <strong>Program Management → Custom → Assign</strong> (admin). You
-            can build week-by-week or assign sessions to specific dates from My
-            Athletes → Assign session to date. Changes propagate immediately.
+            For 90 Unchained (premier 1:1) or 1:1 S&C. Assigned to exactly one
+            athlete. Build as Week → Day → Block → Exercise or assign sessions
+            to specific dates (like Amber). Coach:{' '}
+            <strong>My Athletes → Assign 1:1 program</strong> and{' '}
+            <strong>Assign session to date</strong>. Admin:{' '}
+            <strong>Program Management → Custom → Assign</strong> (visibility,
+            reassign if coach leaves). 1:1 Nutrition does not use a custom
+            training program. Changes propagate immediately.
           </p>
         </div>
       )}
@@ -2164,6 +2187,7 @@ export function ProgramBuilderForm({
   /** Repeat modal: how many weeks to repeat into */
   const [repeatWeeksModalOpen, setRepeatWeeksModalOpen] = useState(false)
   const [repeatWeeksCount, setRepeatWeeksCount] = useState(1)
+  const [repeatConfirmLoading, setRepeatConfirmLoading] = useState(false)
   const [publishingToggle, setPublishingToggle] = useState(false)
   /** MASS 2.8: Save as Program — create new program from selected sessions */
   const [saveAsProgramModalOpen, setSaveAsProgramModalOpen] = useState(false)
@@ -2182,7 +2206,8 @@ export function ProgramBuilderForm({
     null
   )
   const isSelectingRef = useRef(false)
-  /** MASS 2.8: Right-click context menu (Paste, Copy, Open) */
+  /** MASS 2.8: Right-click context menu (Paste, Copy, Open) — setContextMenu used; contextMenu reserved for future UI */
+  /* eslint-disable-next-line @typescript-eslint/no-unused-vars */ // @ts-expect-error TS6133 - contextMenu reserved for future UI
   const [contextMenu, setContextMenu] = useState<{
     x: number
     y: number
@@ -2530,6 +2555,8 @@ export function ProgramBuilderForm({
 
   const showCategory =
     cycle?.name === 'Red' || cycle?.name === 'Green' || cycle?.name === 'Amber'
+  /** 3.1 Red Cycle (Foundations): Fixed-length sequential; athlete starts Week 1 Day 1, progresses linearly. */
+  const isRedCycle = cycle?.name === 'Red'
   const isAmberCycle = cycle?.name === 'Amber'
   /** 3.3 Green: Show Green duration (event-aligned scheduling). */
   const isGreenCycle = cycle?.name === 'Green'
@@ -2576,44 +2603,47 @@ export function ProgramBuilderForm({
     if (!program?.id) setNumberOfWeeks(prev => prev + 1)
   }
 
-  const addDay = async (weekIdx: number) => {
-    const week = structure.weeks[weekIdx]
-    if ((week?.days?.length ?? 0) >= 7) return
-    if (program?.id && week?.id) {
-      try {
-        await programService.addDay(week.id, {
-          dayName:
-            cycle?.name === 'Amber'
-              ? undefined
-              : `Day ${(week.days?.length ?? 0) + 1}`,
-        })
-        const next = await refetchProgram()
-        const updatedWeek = next?.weeks?.[weekIdx]
-        if (updatedWeek?.days?.length) {
-          setSessionDesignerCell({
-            weekIdx,
-            dayIdx: updatedWeek.days.length - 1,
+  const addDay = useCallback(
+    async (weekIdx: number) => {
+      const week = structure.weeks[weekIdx]
+      if ((week?.days?.length ?? 0) >= 7) return
+      if (program?.id && week?.id) {
+        try {
+          await programService.addDay(week.id, {
+            dayName:
+              cycle?.name === 'Amber'
+                ? undefined
+                : `Day ${(week.days?.length ?? 0) + 1}`,
           })
+          const next = await refetchProgram()
+          const updatedWeek = next?.weeks?.[weekIdx]
+          if (updatedWeek?.days?.length) {
+            setSessionDesignerCell({
+              weekIdx,
+              dayIdx: updatedWeek.days.length - 1,
+            })
+          }
+        } catch (e) {
+          const err = e as AxiosError<{ message?: string }>
+          showError(err.response?.data?.message ?? 'Failed to add session')
         }
-      } catch (e) {
-        const err = e as AxiosError<{ message?: string }>
-        showError(err.response?.data?.message ?? 'Failed to add session')
+        return
       }
-      return
-    }
-    const weeks = [...structure.weeks]
-    const w = { ...weeks[weekIdx], days: [...(weeks[weekIdx].days ?? [])] }
-    const nextDayIdx = w.days.length
-    const defaultDayName =
-      cycle?.name === 'Amber' ? '' : `Day ${nextDayIdx + 1}`
-    w.days.push({
-      dayIndex: nextDayIdx,
-      dayName: defaultDayName,
-      sections: [],
-    })
-    weeks[weekIdx] = w
-    setStructure({ weeks })
-  }
+      const weeks = [...structure.weeks]
+      const w = { ...weeks[weekIdx], days: [...(weeks[weekIdx].days ?? [])] }
+      const nextDayIdx = w.days.length
+      const defaultDayName =
+        cycle?.name === 'Amber' ? '' : `Day ${nextDayIdx + 1}`
+      w.days.push({
+        dayIndex: nextDayIdx,
+        dayName: defaultDayName,
+        sections: [],
+      })
+      weeks[weekIdx] = w
+      setStructure({ weeks })
+    },
+    [structure.weeks, program?.id, cycle?.name, refetchProgram, showError]
+  )
 
   /** MASS 2.5.1: Update one exercise block section (category, exercise, setsRows, coachingNotes). */
   const updateExerciseBlockSection = (
@@ -3071,7 +3101,8 @@ export function ProgramBuilderForm({
     }
   }
 
-  /** MASS 2.3: Duplicate week (API when program exists, else local) */
+  /** MASS 2.3: Duplicate week (API when program exists, else local) — reserved for future UI */
+  /* eslint-disable-next-line @typescript-eslint/no-unused-vars */ // @ts-expect-error TS6133 - duplicateWeek reserved for future UI
   const duplicateWeek = async (weekIdx: number) => {
     const week = structure.weeks[weekIdx]
     if (program?.id && week?.id) {
@@ -3337,6 +3368,46 @@ export function ProgramBuilderForm({
     [program?.id, showError]
   )
 
+  /** Amber: open session designer for session by programDayId (extracted to reduce nesting). */
+  const handleAmberSessionEdit = useCallback(
+    (row: { programDayId?: number; weekIndex?: number; dayIndex?: number }) => {
+      let weekIdx = (row.weekIndex ?? 1) - 1
+      let dayIdx = row.dayIndex ?? 0
+      for (let w = 0; w < structure.weeks.length; w++) {
+        const week = structure.weeks[w] as {
+          days?: Array<{ id?: number }>
+        }
+        const days = week.days ?? []
+        const dIdx = days.findIndex(d => d.id === row.programDayId)
+        if (dIdx >= 0) {
+          weekIdx = w
+          dayIdx = dIdx
+          break
+        }
+      }
+      setSessionDesignerCell({ weekIdx, dayIdx })
+    },
+    [structure.weeks]
+  )
+
+  /** Amber calendar: previous month (extracted to reduce nesting). */
+  const handleAmberCalendarMonthPrev = useCallback(() => {
+    setAmberCalendarMonth(s =>
+      s.month === 0
+        ? { year: s.year - 1, month: 11 }
+        : { ...s, month: s.month - 1 }
+    )
+  }, [])
+
+  /** Amber calendar: next month (extracted to reduce nesting). */
+  const handleAmberCalendarMonthNext = useCallback(() => {
+    setAmberCalendarMonth(s =>
+      s.month === 11
+        ? { year: s.year + 1, month: 0 }
+        : { ...s, month: s.month + 1 }
+    )
+  }, [])
+
   /** Calendar cell drag start: set drag data and dragged state (extracted to reduce nesting). */
   const handleCellDragStart = useCallback(
     (
@@ -3392,9 +3463,82 @@ export function ProgramBuilderForm({
     [structure.weeks, refetchProgram, showSuccess, showError]
   )
 
+  /** Calendar day cell event handlers (extracted to satisfy Sonar nest-functions rule). */
+  const getCalendarDayCellHandlers = useCallback(
+    (p: {
+      weekIdx: number
+      dayIdx: number
+      week: { id?: number; days?: Array<{ id?: number }> }
+      day: { id?: number } | undefined
+      key: string
+    }) => ({
+      onMouseEnter: (e: React.MouseEvent) => {
+        if (isSelectingRef.current) extendSelection(p.weekIdx, p.dayIdx)
+        else if (p.day)
+          setHoveredCell({
+            weekIdx: p.weekIdx,
+            dayIdx: p.dayIdx,
+            x: e.clientX,
+            y: e.clientY + 12,
+          })
+      },
+      onMouseLeave: () => setHoveredCell(null),
+      onDragOver: (e: React.DragEvent) => {
+        e.preventDefault()
+        e.dataTransfer.dropEffect = 'move'
+      },
+      onDragStart: (e: React.DragEvent<HTMLButtonElement>) => {
+        if (p.day?.id == null || p.week.id == null) return
+        handleCellDragStart(e, {
+          dayId: p.day.id,
+          sourceWeekId: p.week.id,
+          weekIdx: p.weekIdx,
+          dayIdx: p.dayIdx,
+        })
+      },
+      onDragEnd: () => setDraggedSession(null),
+      onMouseDown: () => {
+        selectionAnchorRef.current = { weekIdx: p.weekIdx, dayIdx: p.dayIdx }
+        isSelectingRef.current = true
+        setSelectedCells(new Set([p.key]))
+      },
+      onClick: () => {
+        if (selectedCells.size === 1 && selectedCells.has(p.key))
+          setSessionDesignerCell({ weekIdx: p.weekIdx, dayIdx: p.dayIdx })
+      },
+      onContextMenu: (e: React.MouseEvent) => {
+        e.preventDefault()
+        e.stopPropagation()
+        setContextMenu({
+          x: e.clientX,
+          y: e.clientY,
+          weekIdx: p.weekIdx,
+          dayIdx: p.dayIdx,
+        })
+      },
+      onAddDay: () => {
+        if (selectedCells.size === 1 && selectedCells.has(p.key)) {
+          addDay(p.weekIdx)
+          setSessionDesignerCell({
+            weekIdx: p.weekIdx,
+            dayIdx: p.week.days?.length ?? 0,
+          })
+        }
+      },
+    }),
+    [extendSelection, handleCellDragStart, addDay, selectedCells]
+  )
+
   /** Repeat: duplicate selected days into the next N weeks (weeks after selection) */
   const handleRepeatConfirm = useCallback(async () => {
-    if (!program?.id || selectedCells.size === 0) return
+    if (!program?.id) {
+      showError('Save the program first to repeat sessions')
+      return
+    }
+    if (selectedCells.size === 0) {
+      showError('Select at least one session to repeat')
+      return
+    }
     const daysToRepeat = Array.from(selectedCells)
       .map(k => {
         const [w, d] = k.split('-').map(Number)
@@ -3403,13 +3547,14 @@ export function ProgramBuilderForm({
       })
       .filter((x): x is { dayId: number } => x != null)
     if (daysToRepeat.length === 0) {
-      showError('No sessions with ID to repeat')
+      showError('No sessions with ID to repeat — save the program first')
       return
     }
     const maxSelectedWeekIdx = Math.max(
       ...Array.from(selectedCells).map(k => Number(k.split('-')[0]))
     )
     const N = Math.max(1, repeatWeeksCount)
+    setRepeatConfirmLoading(true)
     try {
       let currentStructure = structure
       for (let n = 1; n <= N; n++) {
@@ -3438,6 +3583,8 @@ export function ProgramBuilderForm({
     } catch (e) {
       const err = e as AxiosError<{ message?: string }>
       showError(err.response?.data?.message ?? 'Failed to repeat')
+    } finally {
+      setRepeatConfirmLoading(false)
     }
   }, [
     program?.id,
@@ -3548,6 +3695,8 @@ export function ProgramBuilderForm({
     if (!cycleId) return 'Cycle is required'
     if (showCategory && (!category || !subCategory))
       return 'Category and Goal Type are required for this cycle'
+    if (isRedCycle && (numberOfWeeks < 1 || !Number.isInteger(numberOfWeeks)))
+      return 'Red cycle programs require at least 1 week (set number of weeks or add weeks in the calendar)'
     if (isGreenCycle && (durationWeeks < 1 || !Number.isInteger(durationWeeks)))
       return 'Green duration (weeks) must be at least 1'
     if (isSustainmentCycle && !constraintCategory.trim())
@@ -3593,6 +3742,8 @@ export function ProgramBuilderForm({
   const getResolvedWeeksForCreate = (): number => {
     const cycleType = getCycleTypeFromName(cycle?.name)
     if (cycleType === 'AMBER') return 0
+    if (cycleType === 'RED')
+      return Math.max(1, numberOfWeeks, structure.weeks?.length ?? 0)
     if (numberOfWeeks >= 1) return numberOfWeeks
     return structure.weeks?.length ?? 1
   }
@@ -3652,10 +3803,520 @@ export function ProgramBuilderForm({
     }
   }
 
+  /** Calendar vs session designer (nested to reduce ProgramBuilderForm cognitive complexity). */
+  function renderCalendarOrDesigner() {
+    if (sessionDesignerCell == null) return renderCalendarView()
+    const w = sessionDesignerCell.weekIdx
+    const d = sessionDesignerCell.dayIdx
+    const week = structure.weeks[w]
+    const day = week?.days?.[d]
+    if (!week || !day) return null
+    return (
+      <SessionDesignerPanel
+        day={day}
+        weekIdx={w}
+        dayIdx={d}
+        structure={structure}
+        setStructure={setStructure}
+        setSessionDesignerCell={setSessionDesignerCell}
+        setPreviewSessionOpen={setPreviewSessionOpen}
+        setLibraryDrawerOpen={setLibraryDrawerOpen}
+        setSaveSessionToLibraryName={setSaveSessionToLibraryName}
+        setSaveSessionToLibraryOpen={setSaveSessionToLibraryOpen}
+        setAddBlockModalOpen={setAddBlockModalOpen}
+        draggedBlock={draggedBlock}
+        setDraggedBlock={setDraggedBlock}
+        getExerciseName={getExerciseName}
+        blockMenuOpen={blockMenuOpen}
+        setBlockMenuOpen={setBlockMenuOpen}
+        setEditingExerciseBlock={setEditingExerciseBlock}
+        setEditingCircuitBlock={setEditingCircuitBlock}
+        setEditingSupersetBlock={setEditingSupersetBlock}
+        moveBlockToIndex={moveBlockToIndex}
+        removeSection={removeSection}
+        onSaveCircuitToLibrary={handleSaveCircuitToLibrary}
+      />
+    )
+  }
+
+  /** Calendar grid UI (nested function so Sonar excludes its complexity from ProgramBuilderForm). */
+  function renderCalendarView() {
+    return (
+      <>
+        {/* Calendar toolbar: program name, status, duration (when saved), Publish/Unpublish (when saved), Add from Library */}
+        <div className="flex flex-wrap items-center gap-3 p-2 rounded-lg bg-gray-50 border border-gray-200">
+          <span className="text-sm font-medium text-gray-700">
+            {program?.name ?? (name || 'New Program')}
+          </span>
+          {program && (
+            <>
+              <span
+                className={`text-xs px-2 py-0.5 rounded ${program.isPublished ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}
+              >
+                {program.isPublished ? 'Published' : 'Draft'}
+              </span>
+              {(program as { durationWeeks?: number | null }).durationWeeks !=
+                null && (
+                <span className="text-xs text-gray-600">
+                  Duration:{' '}
+                  {(program as { durationWeeks?: number }).durationWeeks}{' '}
+                  week(s)
+                </span>
+              )}
+              {(program as { sessionsPerWeek?: number | null })
+                .sessionsPerWeek != null && (
+                <span className="text-xs text-gray-600">
+                  Sessions/week:{' '}
+                  {(program as { sessionsPerWeek?: number }).sessionsPerWeek}
+                </span>
+              )}
+            </>
+          )}
+          {program?.isPublished ? (
+            <Button
+              type="button"
+              variant="secondary"
+              size="small"
+              disabled={publishingToggle}
+              onClick={async () => {
+                setPublishingToggle(true)
+                try {
+                  await programService.update(program.id, {
+                    isPublished: false,
+                  })
+                  showSuccess('Program unpublished')
+                  onSuccess?.()
+                } catch (e) {
+                  const err = e as AxiosError<{ message?: string }>
+                  showError(
+                    err.response?.data?.message ?? 'Failed to unpublish'
+                  )
+                } finally {
+                  setPublishingToggle(false)
+                }
+              }}
+            >
+              {publishingToggle ? 'Updating...' : 'Unpublish'}
+            </Button>
+          ) : (
+            program != null && (
+              <Button
+                type="button"
+                variant="secondary"
+                size="small"
+                disabled={publishingToggle}
+                onClick={async () => {
+                  setPublishingToggle(true)
+                  try {
+                    await programService.publish(program.id)
+                    showSuccess('Program published')
+                    onSuccess?.()
+                  } catch (e) {
+                    const err = e as AxiosError<{ message?: string }>
+                    showError(
+                      err.response?.data?.message ??
+                        'Failed to publish (admin only)'
+                    )
+                  } finally {
+                    setPublishingToggle(false)
+                  }
+                }}
+                title="Publish program (makes all sessions visible to athletes)"
+              >
+                {publishingToggle ? 'Publishing...' : 'Publish program'}
+              </Button>
+            )
+          )}
+          <Button
+            type="button"
+            variant="secondary"
+            size="small"
+            onClick={() => setLibraryDrawerOpen(true)}
+          >
+            Add from Library
+          </Button>
+        </div>
+        {/* Toolbar when cells selected: Copy, Delete, Repeat, Save as Program, Publish/Unpublish (2.8) */}
+        {selectedCells.size > 0 && (
+          <div className="flex flex-wrap items-center gap-2 p-2 rounded-lg bg-gray-100 border border-gray-200">
+            <span className="text-sm text-gray-600 mr-2">
+              {selectedCells.size} session(s) selected
+            </span>
+            <Button
+              type="button"
+              variant="secondary"
+              size="small"
+              onClick={() => handleCopy()}
+            >
+              Copy
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              size="small"
+              onClick={() => setDeleteSelectedConfirmOpen(true)}
+            >
+              Delete
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              size="small"
+              onClick={() => setRepeatWeeksModalOpen(true)}
+            >
+              Repeat…
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              size="small"
+              onClick={() => {
+                setSaveAsProgramName(`Copy of ${program?.name ?? 'Program'}`)
+                setSaveAsProgramModalOpen(true)
+              }}
+            >
+              Save as Program
+            </Button>
+            {program && (
+              <>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="small"
+                  disabled={publishingToggle || program.isPublished}
+                  onClick={async () => {
+                    setPublishingToggle(true)
+                    try {
+                      await programService.publish(program.id)
+                      showSuccess('Program published')
+                      onSuccess?.()
+                    } catch (e) {
+                      const err = e as AxiosError<{ message?: string }>
+                      showError(
+                        err.response?.data?.message ?? 'Failed to publish'
+                      )
+                    } finally {
+                      setPublishingToggle(false)
+                    }
+                  }}
+                >
+                  {publishingToggle ? 'Publishing...' : 'Publish program'}
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="small"
+                  disabled={publishingToggle || !program.isPublished}
+                  onClick={async () => {
+                    setPublishingToggle(true)
+                    try {
+                      await programService.update(program.id, {
+                        isPublished: false,
+                      })
+                      showSuccess('Program unpublished')
+                      onSuccess?.()
+                    } catch (e) {
+                      const err = e as AxiosError<{ message?: string }>
+                      showError(
+                        err.response?.data?.message ?? 'Failed to unpublish'
+                      )
+                    } finally {
+                      setPublishingToggle(false)
+                    }
+                  }}
+                >
+                  {publishingToggle ? 'Unpublishing...' : 'Unpublish program'}
+                </Button>
+              </>
+            )}
+            <Button
+              type="button"
+              variant="ghost"
+              size="small"
+              onClick={() => setSelectedCells(new Set())}
+            >
+              Clear selection
+            </Button>
+          </div>
+        )}
+        {/* MASS 2.8 Level 1: Program Calendar View (Overview) — rows = weeks, columns = days */}
+        <h2 className="text-lg font-semibold text-gray-900 mb-2 mt-4">
+          Program Calendar
+        </h2>
+        <p className="text-sm text-gray-600 mb-3">
+          Click a session to open it. Hover to preview contents. Drag to
+          multi-select; toolbar: Copy, Delete, Save as Program, Repeat,
+          Publish/Unpublish. Right-click for Copy / Paste / Open. Shortcuts:
+          Ctrl+C copy, Ctrl+V paste (with cell selected).
+        </p>
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse border border-gray-200 rounded-lg overflow-hidden bg-white">
+            <thead>
+              <tr className="bg-gray-50">
+                <th className="border border-gray-200 px-3 py-2 text-left text-sm font-medium text-gray-700 w-24">
+                  {isAmberCycle ? 'Session templates' : 'Week'}
+                </th>
+                {[1, 2, 3, 4, 5, 6, 7].map(d => (
+                  <th
+                    key={d}
+                    className="border border-gray-200 px-2 py-2 text-center text-xs font-medium text-gray-600 min-w-[100px]"
+                  >
+                    Day {d}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {structure.weeks.map((week, weekIdx) => (
+                <tr
+                  key={week.id ?? weekIdx}
+                  className={
+                    draggedWeekIdx === weekIdx
+                      ? 'opacity-60 bg-gray-100'
+                      : undefined
+                  }
+                >
+                  <td
+                    className="border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 bg-gray-50 align-top"
+                    title={
+                      structure.weeks.length > 1 &&
+                      editingWeekNameIdx !== weekIdx
+                        ? 'Drag to reorder weeks'
+                        : undefined
+                    }
+                    draggable={
+                      structure.weeks.length > 1 &&
+                      editingWeekNameIdx !== weekIdx
+                    }
+                    onDragStart={e => {
+                      if (editingWeekNameIdx === weekIdx) return
+                      setDraggedWeekIdx(weekIdx)
+                      e.dataTransfer.setData('text/plain', String(weekIdx))
+                      e.dataTransfer.effectAllowed = 'move'
+                    }}
+                    onDragEnd={() => setDraggedWeekIdx(null)}
+                    onDragOver={e => {
+                      e.preventDefault()
+                      e.dataTransfer.dropEffect = 'move'
+                    }}
+                    onDrop={e => {
+                      e.preventDefault()
+                      if (draggedWeekIdx == null) return
+                      moveWeekToIndex(draggedWeekIdx, weekIdx)
+                      setDraggedWeekIdx(null)
+                    }}
+                  >
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center gap-1 flex-wrap">
+                        {editingWeekNameIdx === weekIdx ? (
+                          <>
+                            <input
+                              type="text"
+                              value={editingWeekNameValue}
+                              onChange={e =>
+                                setEditingWeekNameValue(e.target.value)
+                              }
+                              onKeyDown={e => {
+                                if (e.key === 'Enter') saveWeekName(weekIdx)
+                                if (e.key === 'Escape') {
+                                  setEditingWeekNameIdx(null)
+                                  setEditingWeekNameValue('')
+                                }
+                              }}
+                              className="w-24 rounded border border-gray-300 px-2 py-0.5 text-xs"
+                              autoFocus
+                            />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="small"
+                              className="text-xs"
+                              onClick={() => saveWeekName(weekIdx)}
+                            >
+                              Save
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="small"
+                              className="text-xs"
+                              onClick={() => {
+                                setEditingWeekNameIdx(null)
+                                setEditingWeekNameValue('')
+                              }}
+                            >
+                              Cancel
+                            </Button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              type="button"
+                              className="cursor-pointer hover:underline bg-transparent border-0 p-0 text-left font-inherit"
+                              onClick={() => {
+                                setEditingWeekNameIdx(weekIdx)
+                                setEditingWeekNameValue(
+                                  getDisplayWeekName(week, weekIdx)
+                                )
+                              }}
+                              title="Click to edit name"
+                            >
+                              {getDisplayWeekName(week, weekIdx)}
+                            </button>
+                            {!isAmberCycle && (
+                              <>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="small"
+                                  className="text-xs"
+                                  title="Move up"
+                                  disabled={weekIdx === 0}
+                                  onClick={() => reorderWeeks(weekIdx, 'up')}
+                                >
+                                  ↑
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="small"
+                                  className="text-xs"
+                                  title="Move down"
+                                  disabled={
+                                    weekIdx === structure.weeks.length - 1
+                                  }
+                                  onClick={() => reorderWeeks(weekIdx, 'down')}
+                                >
+                                  ↓
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="small"
+                                  className="text-red-600 hover:text-red-700 hover:bg-red-50 text-xs"
+                                  onClick={() => removeWeek(weekIdx)}
+                                  title="Remove week"
+                                >
+                                  ×
+                                </Button>
+                              </>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </td>
+                  {[0, 1, 2, 3, 4, 5, 6].map(dayIdx => {
+                    const day = week.days?.[dayIdx]
+                    const sections = day?.sections ?? []
+                    const blockCount = sections.length
+                    const { exerciseNames, setCounts, blockCategories } =
+                      getCellSummary(sections, getExerciseName)
+                    const key = cellKey(weekIdx, dayIdx)
+                    const isSelected = selectedCells.has(key)
+                    const isDragging =
+                      draggedSession?.weekIdx === weekIdx &&
+                      draggedSession?.dayIdx === dayIdx
+                    return (
+                      <CalendarDayCell
+                        key={dayIdx}
+                        weekIdx={weekIdx}
+                        dayIdx={dayIdx}
+                        day={day}
+                        week={week}
+                        isSelected={isSelected}
+                        isDragging={isDragging}
+                        program={program}
+                        exerciseNames={exerciseNames}
+                        setCounts={setCounts}
+                        blockCategories={blockCategories}
+                        blockCount={blockCount}
+                        {...getCalendarDayCellHandlers({
+                          weekIdx,
+                          dayIdx,
+                          week,
+                          day,
+                          key,
+                        })}
+                        onDrop={handleCalendarCellDrop}
+                      />
+                    )
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {/* 3.2 Amber: No multi-week; only session templates. Red/Green: Add Week. */}
+          {!isAmberCycle && (
+            <div className="mt-2">
+              <Button
+                type="button"
+                variant="secondary"
+                size="small"
+                onClick={() => addWeek()}
+              >
+                + Add Week
+              </Button>
+            </div>
+          )}
+        </div>
+        {/* MASS 2.8: Hover preview — session contents without opening */}
+        {hoveredCell != null &&
+          (() => {
+            const week = structure.weeks[hoveredCell.weekIdx]
+            const day = week?.days?.[hoveredCell.dayIdx]
+            if (!day) return null
+            const sections = day.sections ?? []
+            const { exerciseNames, setCounts } = getCellSummary(
+              sections,
+              getExerciseName
+            )
+            const blockNames = sections
+              .map(s => getBlockDisplayName(s, getExerciseName))
+              .slice(0, 6)
+            return (
+              <div
+                className="fixed z-40 max-w-sm rounded-lg border border-gray-200 bg-white px-3 py-2.5 shadow-lg text-left pointer-events-none"
+                style={{ left: hoveredCell.x, top: hoveredCell.y }}
+              >
+                <div className="text-xs font-semibold text-gray-900">
+                  {day.dayName || `Day ${hoveredCell.dayIdx + 1}`}
+                </div>
+                {day.isRestDay ? (
+                  <div className="text-[11px] text-gray-500 mt-1">Rest day</div>
+                ) : (
+                  <div className="text-[11px] text-gray-600 mt-1 space-y-0.5">
+                    {exerciseNames.length > 0 && (
+                      <div title={exerciseNames.join(', ')}>
+                        {exerciseNames.join(', ')}
+                      </div>
+                    )}
+                    {setCounts.length > 0 && (
+                      <div className="text-gray-500">
+                        {setCounts.join(', ')}
+                      </div>
+                    )}
+                    {blockNames.length > 0 && (
+                      <ul className="list-disc pl-3 mt-0.5 text-gray-500">
+                        {blockNames.map((b, j) => (
+                          <li key={j}>{b}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                )}
+              </div>
+            )
+          })()}
+      </>
+    )
+  }
+
   return (
     <div className="space-y-6 max-w-5xl">
       <ProgramMetadataSection
         program={program}
+        isRedCycle={isRedCycle}
         isAmberCycle={isAmberCycle}
         isGreenCycle={isGreenCycle}
         isSustainmentCycle={isSustainmentCycle}
@@ -3686,1321 +4347,555 @@ export function ProgramBuilderForm({
         setIsPublished={setIsPublished}
       />
 
-      {/* 3.2 Amber: Calendar view — assign sessions to dates. One session per date; all athletes see same workout on same date. */}
-      {isAmberCycle && !program?.id && (
-        <div className="rounded-xl border border-amber-200 bg-amber-50/30 p-4">
-          <Text variant="default" className="font-medium text-amber-900">
-            Amber Calendar
-          </Text>
-          <p className="text-sm text-amber-800 mt-1">
-            Save the program to unlock the Amber Calendar. Then assign sessions
-            to calendar dates (or from library); all athletes on this program
-            see the same workout on the same date.
-          </p>
-        </div>
-      )}
-      {Boolean(program?.id && isAmberCycle) && (
-        <div className="rounded-xl border border-amber-200 bg-amber-50/30 p-4 space-y-3">
-          <Text variant="default" className="font-medium text-amber-900">
-            Amber Calendar
-          </Text>
-          <p className="text-sm text-amber-800">
-            Assign a session to a calendar date. All athletes on this program
-            see that session on that date. One session per date; edits propagate
-            immediately.
-          </p>
-          {/* 3.2 Amber: Calendar view — click a date to assign or create a session for that date */}
-          {(() => {
-            const { year, month } = amberCalendarMonth
-            const first = new Date(year, month, 1)
-            const last = new Date(year, month + 1, 0)
-            const startPad = first.getDay()
-            const daysInMonth = last.getDate()
-            const sessionDatesSet = new Set(
-              amberSessionsList.map(r => r.sessionDate)
-            )
-            const weeks: (number | null)[][] = []
-            let week: (number | null)[] = []
-            for (let i = 0; i < startPad; i++) week.push(null)
-            for (let d = 1; d <= daysInMonth; d++) {
-              week.push(d)
-              if (week.length === 7) {
-                weeks.push(week)
-                week = []
-              }
-            }
-            if (week.length) {
-              while (week.length < 7) week.push(null)
-              weeks.push(week)
-            }
-            const monthLabel = first.toLocaleString('default', {
-              month: 'long',
-              year: 'numeric',
-            })
-            const handleAmberDateClick = async (
-              dateStr: string,
-              y: number,
-              m: number
-            ) => {
-              setAmberAssignDate(dateStr)
-              if (!amberFrom || !amberTo || amberSessionsList.length === 0) {
-                setAmberFrom(dateStr)
-                const end = new Date(y, m + 1, 0)
-                const toStr = end.toISOString().slice(0, 10)
-                setAmberTo(toStr)
-                if (program?.id) {
-                  setAmberLoading(true)
-                  try {
-                    const res = await programService.getAmberSessions(
-                      program.id,
-                      {
-                        from: dateStr,
-                        to: toStr,
-                      }
-                    )
-                    setAmberSessionsList(res.data?.data?.rows ?? [])
-                  } catch {
-                    setAmberSessionsList([])
-                  } finally {
-                    setAmberLoading(false)
-                  }
-                }
-              }
-            }
-            return (
-              <div className="rounded border border-amber-200 bg-white p-2">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-amber-900">
-                    {monthLabel}
-                  </span>
-                  <span className="flex gap-1">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="small"
-                      className="h-7 w-7 p-0 text-amber-800"
-                      onClick={() =>
-                        setAmberCalendarMonth(s =>
-                          s.month === 0
-                            ? { year: s.year - 1, month: 11 }
-                            : { ...s, month: s.month - 1 }
-                        )
-                      }
-                    >
-                      ‹
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="small"
-                      className="h-7 w-7 p-0 text-amber-800"
-                      onClick={() =>
-                        setAmberCalendarMonth(s =>
-                          s.month === 11
-                            ? { year: s.year + 1, month: 0 }
-                            : { ...s, month: s.month + 1 }
-                        )
-                      }
-                    >
-                      ›
-                    </Button>
-                  </span>
-                </div>
-                <div className="grid grid-cols-7 text-center text-xs">
-                  {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(
-                    day => (
-                      <div
-                        key={day}
-                        className="font-medium text-amber-800 py-0.5"
-                      >
-                        {day}
-                      </div>
-                    )
-                  )}
-                  <AmberCalendarMonthGrid
-                    year={year}
-                    month={month}
-                    weeks={weeks}
-                    sessionDatesSet={sessionDatesSet}
-                    amberAssignDate={amberAssignDate}
-                    onDateClick={handleAmberDateClick}
-                  />
-                </div>
-                <p className="text-xs text-amber-800 mt-2">
-                  Click a date to select it, then use &quot;Create new
-                  session&quot; or &quot;Assign to date&quot; below.
+      {/* 3.2 Amber: Calendar view — assign sessions to dates. One session per date; all athletes see same workout on same date. (IIFE reduces ProgramBuilderForm cognitive complexity.) */}
+      {(() => {
+        return (
+          <>
+            {isAmberCycle && !program?.id && (
+              <div className="rounded-xl border border-amber-200 bg-amber-50/30 p-4">
+                <Text variant="default" className="font-medium text-amber-900">
+                  Amber Calendar (3.2 Operational Readiness)
+                </Text>
+                <p className="text-sm text-amber-800 mt-1">
+                  Save the program to unlock the Amber Calendar. Then assign
+                  sessions to calendar dates (or from library). One session per
+                  date; all athletes see the same workout on the same date;
+                  typically publish 1–2 weeks in advance.
                 </p>
               </div>
-            )
-          })()}
-          <div className="flex flex-wrap items-center gap-2">
-            <label htmlFor="program-builder-amber-from" className="sr-only">
-              From date
-            </label>
-            <Input
-              id="program-builder-amber-from"
-              type="date"
-              value={amberFrom}
-              onChange={e => setAmberFrom(e.target.value)}
-              size="small"
-              className="w-40"
-            />
-            <span className="text-sm text-gray-600">to</span>
-            <label htmlFor="program-builder-amber-to" className="sr-only">
-              To date
-            </label>
-            <Input
-              id="program-builder-amber-to"
-              type="date"
-              value={amberTo}
-              onChange={e => setAmberTo(e.target.value)}
-              size="small"
-              className="w-40"
-            />
-            <Button
-              type="button"
-              variant="secondary"
-              size="small"
-              disabled={amberLoading}
-              onClick={async () => {
-                if (!program?.id) return
-                setAmberLoading(true)
-                try {
-                  const res = await programService.getAmberSessions(
-                    program.id,
-                    { from: amberFrom, to: amberTo }
-                  )
-                  setAmberSessionsList(res.data?.data?.rows ?? [])
-                } catch {
-                  setAmberSessionsList([])
-                } finally {
-                  setAmberLoading(false)
-                }
-              }}
-            >
-              Load dates
-            </Button>
-          </div>
-          {amberSessionsList.length > 0 && (
-            <div className="overflow-x-auto">
-              <table className="w-full border border-gray-200 rounded text-sm">
-                <thead>
-                  <tr className="bg-gray-100">
-                    <th className="border border-gray-200 px-2 py-1 text-left">
-                      Date
-                    </th>
-                    <th className="border border-gray-200 px-2 py-1 text-left">
-                      Session
-                    </th>
-                    <th className="border border-gray-200 px-2 py-1 text-right">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {amberSessionsList.map(row => (
-                    <tr key={row.id}>
-                      <td className="border border-gray-200 px-2 py-1">
-                        {row.sessionDate}
-                      </td>
-                      <td className="border border-gray-200 px-2 py-1">
-                        {row.isRestDay
-                          ? 'Rest'
-                          : row.dayName || `Day ${row.dayIndex + 1}`}
-                      </td>
-                      <td className="border border-gray-200 px-2 py-1 text-right space-x-1">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="small"
-                          className="text-gray-700 text-xs"
-                          onClick={() => {
-                            // 3.2 Amber: Open session designer for this date's session (find day by programDayId)
-                            let weekIdx = (row.weekIndex ?? 1) - 1
-                            let dayIdx = row.dayIndex ?? 0
-                            for (let w = 0; w < structure.weeks.length; w++) {
-                              const week = structure.weeks[w] as {
-                                days?: Array<{ id?: number }>
-                              }
-                              const days = week.days ?? []
-                              const dIdx = days.findIndex(
-                                d => d.id === row.programDayId
-                              )
-                              if (dIdx >= 0) {
-                                weekIdx = w
-                                dayIdx = dIdx
-                                break
-                              }
-                            }
-                            setSessionDesignerCell({ weekIdx, dayIdx })
-                          }}
-                        >
-                          Edit
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="small"
-                          className="text-red-600 text-xs"
-                          onClick={() => void handleRemoveAmberSession(row)}
-                        >
-                          Remove
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-          <div className="flex flex-wrap items-end gap-2 pt-2 border-t border-amber-200">
-            <div>
-              <label
-                htmlFor="program-builder-amber-assign-date"
-                className="block text-xs font-medium text-gray-600 mb-1"
-              >
-                Date
-              </label>
-              <Input
-                id="program-builder-amber-assign-date"
-                type="date"
-                value={amberAssignDate}
-                onChange={e => setAmberAssignDate(e.target.value)}
-                size="small"
-                className="w-40"
-              />
-            </div>
-            <Button
-              type="button"
-              variant="primary"
-              size="small"
-              disabled={!amberAssignDate || amberLoading}
-              onClick={async () => {
-                if (!program?.id || !amberAssignDate) return
-                setAmberLoading(true)
-                try {
-                  const res = await programService.createEmptyAmberSession(
-                    program.id,
-                    { date: amberAssignDate }
-                  )
-                  const data = res.data?.data as
-                    | {
-                        programDayId: number
-                        weekIndex: number
-                        dayIndex: number
-                      }
-                    | undefined
-                  if (data) {
-                    await refetchProgram()
-                    const listRes = await programService.getAmberSessions(
-                      program.id,
-                      { from: amberFrom, to: amberTo }
-                    )
-                    setAmberSessionsList(listRes.data?.data?.rows ?? [])
-                    setAmberAssignDate('')
-                    setSessionDesignerCell({
-                      weekIdx: data.weekIndex - 1,
-                      dayIdx: data.dayIndex,
-                    })
-                    showSuccess(
-                      'Session created — add blocks and exercises below'
-                    )
-                  }
-                } catch {
-                  showError('Failed to create session')
-                } finally {
-                  setAmberLoading(false)
-                }
-              }}
-            >
-              Create new session
-            </Button>
-            {structure.weeks.length > 0 && (
-              <>
-                <div>
-                  <label
-                    htmlFor="program-builder-amber-assign-day"
-                    className="block text-xs font-medium text-gray-600 mb-1"
-                  >
-                    Or assign existing template
-                  </label>
-                  <Dropdown
-                    placeholder="Select template"
-                    value={amberAssignDayId}
-                    onValueChange={v =>
-                      setAmberAssignDayId(
-                        Array.isArray(v) ? (v[0] ?? '') : (v ?? '')
-                      )
-                    }
-                    options={structure.weeks.flatMap(w =>
-                      (w.days ?? [])
-                        .map(d => ({
-                          id: (d as { id?: number }).id,
-                          dayName: d.dayName,
-                          weekIndex: w.weekIndex,
-                          dayIndex: d.dayIndex,
-                          isRestDay: d.isRestDay,
-                        }))
-                        .filter(d => d.id != null)
-                        .map(d => {
-                          const dayOrSessionName =
-                            d.dayName ??
-                            (d.isRestDay
-                              ? `Day ${d.dayIndex + 1}`
-                              : `Session ${d.dayIndex + 1}`)
-                          const label = d.isRestDay
-                            ? `Rest - ${dayOrSessionName}`
-                            : dayOrSessionName
-                          return { value: String(d.id!), label }
-                        })
-                    )}
-                    size="small"
-                    className="min-w-[180px]"
-                  />
-                </div>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="small"
-                  disabled={!amberAssignDate || !amberAssignDayId}
-                  onClick={async () => {
-                    const dayId = Number(amberAssignDayId)
-                    if (!dayId || !program?.id) return
-                    try {
-                      await programService.setAmberSession(program.id, {
-                        date: amberAssignDate,
-                        programDayId: dayId,
-                      })
-                      const res = await programService.getAmberSessions(
-                        program.id,
-                        { from: amberFrom, to: amberTo }
-                      )
-                      setAmberSessionsList(res.data?.data?.rows ?? [])
-                      setAmberAssignDate('')
-                      setAmberAssignDayId('')
-                      showSuccess('Session assigned')
-                    } catch {
-                      showError('Failed to assign')
-                    }
-                  }}
-                >
-                  Assign to date
-                </Button>
-              </>
             )}
-            <div className="flex flex-wrap items-end gap-2 pt-2 border-t border-amber-200 mt-2">
-              <span className="text-xs font-medium text-amber-900">
-                Copy from date to date:
-              </span>
-              <Input
-                type="date"
-                value={amberCopyFrom}
-                onChange={e => setAmberCopyFrom(e.target.value)}
-                size="small"
-                className="w-36"
-                placeholder="From"
-              />
-              <Input
-                type="date"
-                value={amberCopyTo}
-                onChange={e => setAmberCopyTo(e.target.value)}
-                size="small"
-                className="w-36"
-                placeholder="To"
-              />
-              <Button
-                type="button"
-                variant="ghost"
-                size="small"
-                disabled={!amberCopyFrom || !amberCopyTo || amberLoading}
-                onClick={async () => {
-                  if (!program?.id) return
-                  try {
-                    await programService.copyAmberSession(program.id, {
-                      fromDate: amberCopyFrom,
-                      toDate: amberCopyTo,
-                    })
-                    const res = await programService.getAmberSessions(
-                      program.id,
-                      { from: amberFrom, to: amberTo }
-                    )
-                    setAmberSessionsList(res.data?.data?.rows ?? [])
-                    setAmberCopyFrom('')
-                    setAmberCopyTo('')
-                    showSuccess('Session copied')
-                  } catch {
-                    showError('Failed to copy session')
-                  }
-                }}
-              >
-                Copy
-              </Button>
-            </div>
-            {/* 3.2 Amber: Assign from library — one session per date; visible to all athletes on this program */}
-            <div className="flex flex-wrap items-end gap-2 pt-2 border-t border-amber-200 mt-2">
-              <span className="text-xs font-medium text-amber-900 w-full">
-                Assign from library
-              </span>
-              <Input
-                id="program-builder-amber-library-date"
-                type="date"
-                value={amberAssignFromLibraryDate}
-                onChange={e => setAmberAssignFromLibraryDate(e.target.value)}
-                size="small"
-                className="w-40"
-                placeholder="Date"
-              />
-              <Dropdown
-                placeholder={
-                  amberLibrarySessions.length === 0 &&
-                  !amberLibrarySessionsLoading
-                    ? 'Load sessions first'
-                    : 'Select session'
-                }
-                value={amberAssignLibrarySessionId}
-                onValueChange={v =>
-                  setAmberAssignLibrarySessionId(
-                    Array.isArray(v) ? (v[0] ?? '') : (v ?? '')
+            {Boolean(program?.id && isAmberCycle) && (
+              <div className="rounded-xl border border-amber-200 bg-amber-50/30 p-4 space-y-3">
+                <Text variant="default" className="font-medium text-amber-900">
+                  Amber Calendar (3.2 — calendar-based; no Week→Day grid)
+                </Text>
+                <p className="text-sm text-amber-800">
+                  Click a date to assign or create a session. One live session
+                  per date per program; all athletes see the same workout on the
+                  same date; coach/admin edits propagate immediately to all
+                  athletes.
+                </p>
+                {/* 3.2 Amber: Calendar view — click a date to assign or create a session for that date */}
+                {(() => {
+                  const { year, month } = amberCalendarMonth
+                  const first = new Date(year, month, 1)
+                  const last = new Date(year, month + 1, 0)
+                  const startPad = first.getDay()
+                  const daysInMonth = last.getDate()
+                  const sessionDatesSet = new Set(
+                    amberSessionsList.map(r => r.sessionDate)
                   )
-                }
-                options={amberLibrarySessions.map(s => ({
-                  value: String(s.id),
-                  label: s.name,
-                }))}
-                size="small"
-                className="min-w-[180px]"
-              />
-              <Button
-                type="button"
-                variant="secondary"
-                size="small"
-                disabled={amberLibrarySessionsLoading}
-                onClick={async () => {
-                  setAmberLibrarySessionsLoading(true)
-                  try {
-                    const res = await libraryService.search({
-                      type: 'sessions',
-                      limit: 100,
-                    })
-                    const rows = res.data?.data?.sessions?.rows ?? []
-                    setAmberLibrarySessions(
-                      rows.map(s => ({ id: s.id, name: s.name }))
-                    )
-                  } catch {
-                    setAmberLibrarySessions([])
-                  } finally {
-                    setAmberLibrarySessionsLoading(false)
+                  const weeks: (number | null)[][] = []
+                  let week: (number | null)[] = []
+                  for (let i = 0; i < startPad; i++) week.push(null)
+                  for (let d = 1; d <= daysInMonth; d++) {
+                    week.push(d)
+                    if (week.length === 7) {
+                      weeks.push(week)
+                      week = []
+                    }
                   }
-                }}
-              >
-                {amberLibrarySessionsLoading ? 'Loading…' : 'Load sessions'}
-              </Button>
-              <Button
-                type="button"
-                variant="primary"
-                size="small"
-                disabled={
-                  !amberAssignFromLibraryDate ||
-                  !amberAssignLibrarySessionId ||
-                  amberLoading
-                }
-                onClick={async () => {
-                  const date = amberAssignFromLibraryDate
-                  const libId = Number(amberAssignLibrarySessionId)
-                  if (!program?.id || !date || !libId) return
-                  setAmberLoading(true)
-                  try {
-                    await programService.setAmberSessionFromLibrary(
-                      program.id,
-                      { date, librarySessionId: libId }
-                    )
-                    const res = await programService.getAmberSessions(
-                      program.id,
-                      { from: amberFrom, to: amberTo }
-                    )
-                    setAmberSessionsList(res.data?.data?.rows ?? [])
-                    setAmberAssignFromLibraryDate('')
-                    setAmberAssignLibrarySessionId('')
-                    showSuccess('Session assigned to date')
-                  } catch (e) {
-                    const err = e as AxiosError<{ message?: string }>
-                    showError(
-                      err.response?.data?.message ??
-                        'Failed to assign from library'
-                    )
-                  } finally {
-                    setAmberLoading(false)
+                  if (week.length) {
+                    while (week.length < 7) week.push(null)
+                    weeks.push(week)
                   }
-                }}
-              >
-                Assign to date
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* MASS 2.8: Calendar grid view (Level 1) — show when we have weeks (create or edit). Pre-generated empty weeks in create mode (2.1). */}
-      {structure.weeks.length > 0 && (
-        <div className="space-y-4">
-          {sessionDesignerCell == null ? (
-            <>
-              {/* Calendar toolbar: program name, status, duration (when saved), Publish/Unpublish (when saved), Add from Library */}
-              <div className="flex flex-wrap items-center gap-3 p-2 rounded-lg bg-gray-50 border border-gray-200">
-                <span className="text-sm font-medium text-gray-700">
-                  {program?.name ?? (name || 'New Program')}
-                </span>
-                {program && (
-                  <>
-                    <span
-                      className={`text-xs px-2 py-0.5 rounded ${program.isPublished ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}
-                    >
-                      {program.isPublished ? 'Published' : 'Draft'}
-                    </span>
-                    {(program as { durationWeeks?: number | null })
-                      .durationWeeks != null && (
-                      <span className="text-xs text-gray-600">
-                        Duration:{' '}
-                        {(program as { durationWeeks?: number }).durationWeeks}{' '}
-                        week(s)
-                      </span>
-                    )}
-                    {(program as { sessionsPerWeek?: number | null })
-                      .sessionsPerWeek != null && (
-                      <span className="text-xs text-gray-600">
-                        Sessions/week:{' '}
-                        {
-                          (program as { sessionsPerWeek?: number })
-                            .sessionsPerWeek
+                  const monthLabel = first.toLocaleString('default', {
+                    month: 'long',
+                    year: 'numeric',
+                  })
+                  const handleAmberDateClick = async (
+                    dateStr: string,
+                    y: number,
+                    m: number
+                  ) => {
+                    setAmberAssignDate(dateStr)
+                    if (
+                      !amberFrom ||
+                      !amberTo ||
+                      amberSessionsList.length === 0
+                    ) {
+                      setAmberFrom(dateStr)
+                      const end = new Date(y, m + 1, 0)
+                      const toStr = end.toISOString().slice(0, 10)
+                      setAmberTo(toStr)
+                      if (program?.id) {
+                        setAmberLoading(true)
+                        try {
+                          const res = await programService.getAmberSessions(
+                            program.id,
+                            {
+                              from: dateStr,
+                              to: toStr,
+                            }
+                          )
+                          setAmberSessionsList(res.data?.data?.rows ?? [])
+                        } catch {
+                          setAmberSessionsList([])
+                        } finally {
+                          setAmberLoading(false)
                         }
-                      </span>
-                    )}
-                  </>
-                )}
-                {program?.isPublished ? (
+                      }
+                    }
+                  }
+                  return (
+                    <div className="rounded border border-amber-200 bg-white p-2">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-medium text-amber-900">
+                          {monthLabel}
+                        </span>
+                        <span className="flex gap-1">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="small"
+                            className="h-7 w-7 p-0 text-amber-800"
+                            onClick={handleAmberCalendarMonthPrev}
+                          >
+                            ‹
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="small"
+                            className="h-7 w-7 p-0 text-amber-800"
+                            onClick={handleAmberCalendarMonthNext}
+                          >
+                            ›
+                          </Button>
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-7 text-center text-xs">
+                        {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(
+                          day => (
+                            <div
+                              key={day}
+                              className="font-medium text-amber-800 py-0.5"
+                            >
+                              {day}
+                            </div>
+                          )
+                        )}
+                        <AmberCalendarMonthGrid
+                          year={year}
+                          month={month}
+                          weeks={weeks}
+                          sessionDatesSet={sessionDatesSet}
+                          amberAssignDate={amberAssignDate}
+                          onDateClick={handleAmberDateClick}
+                        />
+                      </div>
+                      <p className="text-xs text-amber-800 mt-2">
+                        Click a date to select it, then use &quot;Create new
+                        session&quot; or &quot;Assign to date&quot; below.
+                      </p>
+                    </div>
+                  )
+                })()}
+                <div className="flex flex-wrap items-center gap-2">
+                  <label
+                    htmlFor="program-builder-amber-from"
+                    className="sr-only"
+                  >
+                    From date
+                  </label>
+                  <Input
+                    id="program-builder-amber-from"
+                    type="date"
+                    value={amberFrom}
+                    onChange={e => setAmberFrom(e.target.value)}
+                    size="small"
+                    className="w-40"
+                  />
+                  <span className="text-sm text-gray-600">to</span>
+                  <label htmlFor="program-builder-amber-to" className="sr-only">
+                    To date
+                  </label>
+                  <Input
+                    id="program-builder-amber-to"
+                    type="date"
+                    value={amberTo}
+                    onChange={e => setAmberTo(e.target.value)}
+                    size="small"
+                    className="w-40"
+                  />
                   <Button
                     type="button"
                     variant="secondary"
                     size="small"
-                    disabled={publishingToggle}
+                    disabled={amberLoading}
                     onClick={async () => {
-                      setPublishingToggle(true)
+                      if (!program?.id) return
+                      setAmberLoading(true)
                       try {
-                        await programService.update(program.id, {
-                          isPublished: false,
-                        })
-                        showSuccess('Program unpublished')
-                        onSuccess?.()
-                      } catch (e) {
-                        const err = e as AxiosError<{ message?: string }>
-                        showError(
-                          err.response?.data?.message ?? 'Failed to unpublish'
+                        const res = await programService.getAmberSessions(
+                          program.id,
+                          { from: amberFrom, to: amberTo }
                         )
+                        setAmberSessionsList(res.data?.data?.rows ?? [])
+                      } catch {
+                        setAmberSessionsList([])
                       } finally {
-                        setPublishingToggle(false)
+                        setAmberLoading(false)
                       }
                     }}
                   >
-                    {publishingToggle ? 'Updating...' : 'Unpublish'}
+                    Load dates
                   </Button>
-                ) : (
-                  program != null && (
+                </div>
+                {amberSessionsList.length > 0 && (
+                  <div className="overflow-x-auto">
+                    <table className="w-full border border-gray-200 rounded text-sm">
+                      <thead>
+                        <tr className="bg-gray-100">
+                          <th className="border border-gray-200 px-2 py-1 text-left">
+                            Date
+                          </th>
+                          <th className="border border-gray-200 px-2 py-1 text-left">
+                            Session
+                          </th>
+                          <th className="border border-gray-200 px-2 py-1 text-right">
+                            Actions
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {amberSessionsList.map(row => (
+                          <tr key={row.id}>
+                            <td className="border border-gray-200 px-2 py-1">
+                              {row.sessionDate}
+                            </td>
+                            <td className="border border-gray-200 px-2 py-1">
+                              {row.isRestDay
+                                ? 'Rest'
+                                : row.dayName || `Day ${row.dayIndex + 1}`}
+                            </td>
+                            <td className="border border-gray-200 px-2 py-1 text-right space-x-1">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="small"
+                                className="text-gray-700 text-xs"
+                                onClick={() => handleAmberSessionEdit(row)}
+                              >
+                                Edit
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="small"
+                                className="text-red-600 text-xs"
+                                onClick={() =>
+                                  void handleRemoveAmberSession(row)
+                                }
+                              >
+                                Remove
+                              </Button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+                <div className="flex flex-wrap items-end gap-2 pt-2 border-t border-amber-200">
+                  <div>
+                    <label
+                      htmlFor="program-builder-amber-assign-date"
+                      className="block text-xs font-medium text-gray-600 mb-1"
+                    >
+                      Date
+                    </label>
+                    <Input
+                      id="program-builder-amber-assign-date"
+                      type="date"
+                      value={amberAssignDate}
+                      onChange={e => setAmberAssignDate(e.target.value)}
+                      size="small"
+                      className="w-40"
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    variant="primary"
+                    size="small"
+                    disabled={!amberAssignDate || amberLoading}
+                    onClick={async () => {
+                      if (!program?.id || !amberAssignDate) return
+                      setAmberLoading(true)
+                      try {
+                        const res =
+                          await programService.createEmptyAmberSession(
+                            program.id,
+                            { date: amberAssignDate }
+                          )
+                        const data = res.data?.data as
+                          | {
+                              programDayId: number
+                              weekIndex: number
+                              dayIndex: number
+                            }
+                          | undefined
+                        if (data) {
+                          await refetchProgram()
+                          const listRes = await programService.getAmberSessions(
+                            program.id,
+                            { from: amberFrom, to: amberTo }
+                          )
+                          setAmberSessionsList(listRes.data?.data?.rows ?? [])
+                          setAmberAssignDate('')
+                          setSessionDesignerCell({
+                            weekIdx: data.weekIndex - 1,
+                            dayIdx: data.dayIndex,
+                          })
+                          showSuccess(
+                            'Session created — add blocks and exercises below'
+                          )
+                        }
+                      } catch {
+                        showError('Failed to create session')
+                      } finally {
+                        setAmberLoading(false)
+                      }
+                    }}
+                  >
+                    Create new session
+                  </Button>
+                  {structure.weeks.length > 0 && (
+                    <>
+                      <div>
+                        <label
+                          htmlFor="program-builder-amber-assign-day"
+                          className="block text-xs font-medium text-gray-600 mb-1"
+                        >
+                          Or assign existing template
+                        </label>
+                        <Dropdown
+                          placeholder="Select template"
+                          value={amberAssignDayId}
+                          onValueChange={v =>
+                            setAmberAssignDayId(
+                              Array.isArray(v) ? (v[0] ?? '') : (v ?? '')
+                            )
+                          }
+                          options={structure.weeks.flatMap(w =>
+                            (w.days ?? [])
+                              .map(d => ({
+                                id: (d as { id?: number }).id,
+                                dayName: d.dayName,
+                                weekIndex: w.weekIndex,
+                                dayIndex: d.dayIndex,
+                                isRestDay: d.isRestDay,
+                              }))
+                              .filter(d => d.id != null)
+                              .map(d => {
+                                const dayOrSessionName =
+                                  d.dayName ??
+                                  (d.isRestDay
+                                    ? `Day ${d.dayIndex + 1}`
+                                    : `Session ${d.dayIndex + 1}`)
+                                const label = d.isRestDay
+                                  ? `Rest - ${dayOrSessionName}`
+                                  : dayOrSessionName
+                                return { value: String(d.id!), label }
+                              })
+                          )}
+                          size="small"
+                          className="min-w-[180px]"
+                        />
+                      </div>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="small"
+                        disabled={!amberAssignDate || !amberAssignDayId}
+                        onClick={async () => {
+                          const dayId = Number(amberAssignDayId)
+                          if (!dayId || !program?.id) return
+                          try {
+                            await programService.setAmberSession(program.id, {
+                              date: amberAssignDate,
+                              programDayId: dayId,
+                            })
+                            const res = await programService.getAmberSessions(
+                              program.id,
+                              { from: amberFrom, to: amberTo }
+                            )
+                            setAmberSessionsList(res.data?.data?.rows ?? [])
+                            setAmberAssignDate('')
+                            setAmberAssignDayId('')
+                            showSuccess('Session assigned')
+                          } catch {
+                            showError('Failed to assign')
+                          }
+                        }}
+                      >
+                        Assign to date
+                      </Button>
+                    </>
+                  )}
+                  <div className="flex flex-wrap items-end gap-2 pt-2 border-t border-amber-200 mt-2">
+                    <span className="text-xs font-medium text-amber-900">
+                      Copy from date to date:
+                    </span>
+                    <Input
+                      type="date"
+                      value={amberCopyFrom}
+                      onChange={e => setAmberCopyFrom(e.target.value)}
+                      size="small"
+                      className="w-36"
+                      placeholder="From"
+                    />
+                    <Input
+                      type="date"
+                      value={amberCopyTo}
+                      onChange={e => setAmberCopyTo(e.target.value)}
+                      size="small"
+                      className="w-36"
+                      placeholder="To"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="small"
+                      disabled={!amberCopyFrom || !amberCopyTo || amberLoading}
+                      onClick={async () => {
+                        if (!program?.id) return
+                        try {
+                          await programService.copyAmberSession(program.id, {
+                            fromDate: amberCopyFrom,
+                            toDate: amberCopyTo,
+                          })
+                          const res = await programService.getAmberSessions(
+                            program.id,
+                            { from: amberFrom, to: amberTo }
+                          )
+                          setAmberSessionsList(res.data?.data?.rows ?? [])
+                          setAmberCopyFrom('')
+                          setAmberCopyTo('')
+                          showSuccess('Session copied')
+                        } catch {
+                          showError('Failed to copy session')
+                        }
+                      }}
+                    >
+                      Copy
+                    </Button>
+                  </div>
+                  {/* 3.2 Amber: Assign from library — one session per date; visible to all athletes on this program */}
+                  <div className="flex flex-wrap items-end gap-2 pt-2 border-t border-amber-200 mt-2">
+                    <span className="text-xs font-medium text-amber-900 w-full">
+                      Assign from library
+                    </span>
+                    <Input
+                      id="program-builder-amber-library-date"
+                      type="date"
+                      value={amberAssignFromLibraryDate}
+                      onChange={e =>
+                        setAmberAssignFromLibraryDate(e.target.value)
+                      }
+                      size="small"
+                      className="w-40"
+                      placeholder="Date"
+                    />
+                    <Dropdown
+                      placeholder={
+                        amberLibrarySessions.length === 0 &&
+                        !amberLibrarySessionsLoading
+                          ? 'Load sessions first'
+                          : 'Select session'
+                      }
+                      value={amberAssignLibrarySessionId}
+                      onValueChange={v =>
+                        setAmberAssignLibrarySessionId(
+                          Array.isArray(v) ? (v[0] ?? '') : (v ?? '')
+                        )
+                      }
+                      options={amberLibrarySessions.map(s => ({
+                        value: String(s.id),
+                        label: s.name,
+                      }))}
+                      size="small"
+                      className="min-w-[180px]"
+                    />
                     <Button
                       type="button"
                       variant="secondary"
                       size="small"
-                      disabled={publishingToggle}
+                      disabled={amberLibrarySessionsLoading}
                       onClick={async () => {
-                        setPublishingToggle(true)
+                        setAmberLibrarySessionsLoading(true)
                         try {
-                          await programService.publish(program.id)
-                          showSuccess('Program published')
-                          onSuccess?.()
+                          const res = await libraryService.search({
+                            type: 'sessions',
+                            limit: 100,
+                          })
+                          const rows = res.data?.data?.sessions?.rows ?? []
+                          setAmberLibrarySessions(
+                            rows.map(s => ({ id: s.id, name: s.name }))
+                          )
+                        } catch {
+                          setAmberLibrarySessions([])
+                        } finally {
+                          setAmberLibrarySessionsLoading(false)
+                        }
+                      }}
+                    >
+                      {amberLibrarySessionsLoading
+                        ? 'Loading…'
+                        : 'Load sessions'}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="primary"
+                      size="small"
+                      disabled={
+                        !amberAssignFromLibraryDate ||
+                        !amberAssignLibrarySessionId ||
+                        amberLoading
+                      }
+                      onClick={async () => {
+                        const date = amberAssignFromLibraryDate
+                        const libId = Number(amberAssignLibrarySessionId)
+                        if (!program?.id || !date || !libId) return
+                        setAmberLoading(true)
+                        try {
+                          await programService.setAmberSessionFromLibrary(
+                            program.id,
+                            { date, librarySessionId: libId }
+                          )
+                          const res = await programService.getAmberSessions(
+                            program.id,
+                            { from: amberFrom, to: amberTo }
+                          )
+                          setAmberSessionsList(res.data?.data?.rows ?? [])
+                          setAmberAssignFromLibraryDate('')
+                          setAmberAssignLibrarySessionId('')
+                          showSuccess('Session assigned to date')
                         } catch (e) {
                           const err = e as AxiosError<{ message?: string }>
                           showError(
                             err.response?.data?.message ??
-                              'Failed to publish (admin only)'
+                              'Failed to assign from library'
                           )
                         } finally {
-                          setPublishingToggle(false)
+                          setAmberLoading(false)
                         }
                       }}
-                      title="Publish program (makes all sessions visible to athletes)"
                     >
-                      {publishingToggle ? 'Publishing...' : 'Publish program'}
-                    </Button>
-                  )
-                )}
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="small"
-                  onClick={() => setLibraryDrawerOpen(true)}
-                >
-                  Add from Library
-                </Button>
-              </div>
-              {/* Toolbar when cells selected: Copy, Delete, Repeat, Save as Program, Publish/Unpublish (2.8) */}
-              {selectedCells.size > 0 && (
-                <div className="flex flex-wrap items-center gap-2 p-2 rounded-lg bg-gray-100 border border-gray-200">
-                  <span className="text-sm text-gray-600 mr-2">
-                    {selectedCells.size} session(s) selected
-                  </span>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="small"
-                    onClick={() => handleCopy()}
-                  >
-                    Copy
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="small"
-                    onClick={() => setDeleteSelectedConfirmOpen(true)}
-                  >
-                    Delete
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="small"
-                    onClick={() => setRepeatWeeksModalOpen(true)}
-                  >
-                    Repeat…
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="small"
-                    onClick={() => {
-                      setSaveAsProgramName(
-                        `Copy of ${program?.name ?? 'Program'}`
-                      )
-                      setSaveAsProgramModalOpen(true)
-                    }}
-                  >
-                    Save as Program
-                  </Button>
-                  {program && (
-                    <>
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        size="small"
-                        disabled={publishingToggle || program.isPublished}
-                        onClick={async () => {
-                          setPublishingToggle(true)
-                          try {
-                            await programService.publish(program.id)
-                            showSuccess('Program published')
-                            onSuccess?.()
-                          } catch (e) {
-                            const err = e as AxiosError<{ message?: string }>
-                            showError(
-                              err.response?.data?.message ?? 'Failed to publish'
-                            )
-                          } finally {
-                            setPublishingToggle(false)
-                          }
-                        }}
-                      >
-                        {publishingToggle ? 'Publishing...' : 'Publish program'}
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        size="small"
-                        disabled={publishingToggle || !program.isPublished}
-                        onClick={async () => {
-                          setPublishingToggle(true)
-                          try {
-                            await programService.update(program.id, {
-                              isPublished: false,
-                            })
-                            showSuccess('Program unpublished')
-                            onSuccess?.()
-                          } catch (e) {
-                            const err = e as AxiosError<{ message?: string }>
-                            showError(
-                              err.response?.data?.message ??
-                                'Failed to unpublish'
-                            )
-                          } finally {
-                            setPublishingToggle(false)
-                          }
-                        }}
-                      >
-                        {publishingToggle
-                          ? 'Unpublishing...'
-                          : 'Unpublish program'}
-                      </Button>
-                    </>
-                  )}
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="small"
-                    onClick={() => setSelectedCells(new Set())}
-                  >
-                    Clear selection
-                  </Button>
-                </div>
-              )}
-              {/* MASS 2.8 Level 1: Program Calendar View (Overview) — rows = weeks, columns = days */}
-              <h2 className="text-lg font-semibold text-gray-900 mb-2 mt-4">
-                Program Calendar
-              </h2>
-              <p className="text-sm text-gray-600 mb-3">
-                Click a session to open it. Hover to preview contents. Drag to
-                multi-select; toolbar: Copy, Delete, Save as Program, Repeat,
-                Publish/Unpublish. Right-click for Copy / Paste / Open.
-                Shortcuts: Ctrl+C copy, Ctrl+V paste (with cell selected).
-              </p>
-              <div className="overflow-x-auto">
-                <table className="w-full border-collapse border border-gray-200 rounded-lg overflow-hidden bg-white">
-                  <thead>
-                    <tr className="bg-gray-50">
-                      <th className="border border-gray-200 px-3 py-2 text-left text-sm font-medium text-gray-700 w-24">
-                        {isAmberCycle ? 'Session templates' : 'Week'}
-                      </th>
-                      {[1, 2, 3, 4, 5, 6, 7].map(d => (
-                        <th
-                          key={d}
-                          className="border border-gray-200 px-2 py-2 text-center text-xs font-medium text-gray-600 min-w-[100px]"
-                        >
-                          Day {d}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {structure.weeks.map((week, weekIdx) => (
-                      <tr
-                        key={week.id ?? weekIdx}
-                        className={
-                          draggedWeekIdx === weekIdx
-                            ? 'opacity-60 bg-gray-100'
-                            : undefined
-                        }
-                      >
-                        <td
-                          className="border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 bg-gray-50 align-top"
-                          title={
-                            structure.weeks.length > 1 &&
-                            editingWeekNameIdx !== weekIdx
-                              ? 'Drag to reorder weeks'
-                              : undefined
-                          }
-                          draggable={
-                            structure.weeks.length > 1 &&
-                            editingWeekNameIdx !== weekIdx
-                          }
-                          onDragStart={e => {
-                            if (editingWeekNameIdx === weekIdx) return
-                            setDraggedWeekIdx(weekIdx)
-                            e.dataTransfer.setData(
-                              'text/plain',
-                              String(weekIdx)
-                            )
-                            e.dataTransfer.effectAllowed = 'move'
-                          }}
-                          onDragEnd={() => setDraggedWeekIdx(null)}
-                          onDragOver={e => {
-                            e.preventDefault()
-                            e.dataTransfer.dropEffect = 'move'
-                          }}
-                          onDrop={e => {
-                            e.preventDefault()
-                            if (draggedWeekIdx == null) return
-                            moveWeekToIndex(draggedWeekIdx, weekIdx)
-                            setDraggedWeekIdx(null)
-                          }}
-                        >
-                          <div className="flex flex-col gap-1">
-                            <div className="flex items-center gap-1 flex-wrap">
-                              {editingWeekNameIdx === weekIdx ? (
-                                <>
-                                  <input
-                                    type="text"
-                                    value={editingWeekNameValue}
-                                    onChange={e =>
-                                      setEditingWeekNameValue(e.target.value)
-                                    }
-                                    onKeyDown={e => {
-                                      if (e.key === 'Enter')
-                                        saveWeekName(weekIdx)
-                                      if (e.key === 'Escape') {
-                                        setEditingWeekNameIdx(null)
-                                        setEditingWeekNameValue('')
-                                      }
-                                    }}
-                                    className="w-24 rounded border border-gray-300 px-2 py-0.5 text-xs"
-                                    autoFocus
-                                  />
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="small"
-                                    className="text-xs"
-                                    onClick={() => saveWeekName(weekIdx)}
-                                  >
-                                    Save
-                                  </Button>
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="small"
-                                    className="text-xs"
-                                    onClick={() => {
-                                      setEditingWeekNameIdx(null)
-                                      setEditingWeekNameValue('')
-                                    }}
-                                  >
-                                    Cancel
-                                  </Button>
-                                </>
-                              ) : (
-                                <>
-                                  <button
-                                    type="button"
-                                    className="cursor-pointer hover:underline bg-transparent border-0 p-0 text-left font-inherit"
-                                    onClick={() => {
-                                      setEditingWeekNameIdx(weekIdx)
-                                      setEditingWeekNameValue(
-                                        getDisplayWeekName(week, weekIdx)
-                                      )
-                                    }}
-                                    title="Click to edit name"
-                                  >
-                                    {getDisplayWeekName(week, weekIdx)}
-                                  </button>
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="small"
-                                    className="text-xs"
-                                    title="Duplicate week"
-                                    onClick={() => duplicateWeek(weekIdx)}
-                                  >
-                                    Copy
-                                  </Button>
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="small"
-                                    className="text-xs"
-                                    title="Move up"
-                                    disabled={weekIdx === 0}
-                                    onClick={() => reorderWeeks(weekIdx, 'up')}
-                                  >
-                                    ↑
-                                  </Button>
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="small"
-                                    className="text-xs"
-                                    title="Move down"
-                                    disabled={
-                                      weekIdx === structure.weeks.length - 1
-                                    }
-                                    onClick={() =>
-                                      reorderWeeks(weekIdx, 'down')
-                                    }
-                                  >
-                                    ↓
-                                  </Button>
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="small"
-                                    className="text-red-600 hover:text-red-700 hover:bg-red-50 text-xs"
-                                    onClick={() => removeWeek(weekIdx)}
-                                    title="Remove week"
-                                  >
-                                    ×
-                                  </Button>
-                                </>
-                              )}
-                            </div>
-                          </div>
-                        </td>
-                        {[0, 1, 2, 3, 4, 5, 6].map(dayIdx => {
-                          const day = week.days?.[dayIdx]
-                          const sections = day?.sections ?? []
-                          const blockCount = sections.length
-                          const { exerciseNames, setCounts, blockCategories } =
-                            getCellSummary(sections, getExerciseName)
-                          const key = cellKey(weekIdx, dayIdx)
-                          const isSelected = selectedCells.has(key)
-                          const isDragging =
-                            draggedSession?.weekIdx === weekIdx &&
-                            draggedSession?.dayIdx === dayIdx
-                          return (
-                            <CalendarDayCell
-                              key={dayIdx}
-                              weekIdx={weekIdx}
-                              dayIdx={dayIdx}
-                              day={day}
-                              week={week}
-                              isSelected={isSelected}
-                              isDragging={isDragging}
-                              program={program}
-                              exerciseNames={exerciseNames}
-                              setCounts={setCounts}
-                              blockCategories={blockCategories}
-                              blockCount={blockCount}
-                              onMouseEnter={e => {
-                                if (isSelectingRef.current)
-                                  extendSelection(weekIdx, dayIdx)
-                                else if (day)
-                                  setHoveredCell({
-                                    weekIdx,
-                                    dayIdx,
-                                    x: e.clientX,
-                                    y: e.clientY + 12,
-                                  })
-                              }}
-                              onMouseLeave={() => setHoveredCell(null)}
-                              onDragOver={e => {
-                                e.preventDefault()
-                                e.dataTransfer.dropEffect = 'move'
-                              }}
-                              onDrop={handleCalendarCellDrop}
-                              onDragStart={e => {
-                                if (day?.id == null || week.id == null) return
-                                handleCellDragStart(e, {
-                                  dayId: day.id,
-                                  sourceWeekId: week.id,
-                                  weekIdx,
-                                  dayIdx,
-                                })
-                              }}
-                              onDragEnd={() => setDraggedSession(null)}
-                              onMouseDown={() => {
-                                selectionAnchorRef.current = { weekIdx, dayIdx }
-                                isSelectingRef.current = true
-                                setSelectedCells(new Set([key]))
-                              }}
-                              onClick={() => {
-                                if (
-                                  selectedCells.size === 1 &&
-                                  selectedCells.has(key)
-                                ) {
-                                  setSessionDesignerCell({ weekIdx, dayIdx })
-                                }
-                              }}
-                              onContextMenu={e => {
-                                e.preventDefault()
-                                e.stopPropagation()
-                                setContextMenu({
-                                  x: e.clientX,
-                                  y: e.clientY,
-                                  weekIdx,
-                                  dayIdx,
-                                })
-                              }}
-                              onAddDay={() => {
-                                if (
-                                  selectedCells.size === 1 &&
-                                  selectedCells.has(key)
-                                ) {
-                                  addDay(weekIdx)
-                                  setSessionDesignerCell({
-                                    weekIdx,
-                                    dayIdx: week.days?.length ?? 0,
-                                  })
-                                }
-                              }}
-                            />
-                          )
-                        })}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                {/* 3.2 Amber: No multi-week; only session templates. Red/Green: Add Week. */}
-                {!isAmberCycle && (
-                  <div className="mt-2">
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      size="small"
-                      onClick={() => addWeek()}
-                    >
-                      + Add Week
+                      Assign to date
                     </Button>
                   </div>
-                )}
-              </div>
-              {/* MASS 2.8: Hover preview — session contents without opening */}
-              {hoveredCell != null &&
-                (() => {
-                  const week = structure.weeks[hoveredCell.weekIdx]
-                  const day = week?.days?.[hoveredCell.dayIdx]
-                  if (!day) return null
-                  const sections = day.sections ?? []
-                  const { exerciseNames, setCounts, blockCategories } =
-                    getCellSummary(sections, getExerciseName)
-                  const blockNames = sections
-                    .map(s => getBlockDisplayName(s, getExerciseName))
-                    .slice(0, 6)
-                  return (
-                    <div
-                      className="fixed z-40 max-w-sm rounded-lg border border-gray-200 bg-white px-3 py-2.5 shadow-lg text-left pointer-events-none"
-                      style={{ left: hoveredCell.x, top: hoveredCell.y }}
-                    >
-                      <div className="text-xs font-semibold text-gray-900">
-                        {day.dayName || `Day ${hoveredCell.dayIdx + 1}`}
-                      </div>
-                      {day.isRestDay ? (
-                        <div className="text-[11px] text-gray-500 mt-1">
-                          Rest day
-                        </div>
-                      ) : (
-                        <div className="text-[11px] text-gray-600 mt-1 space-y-0.5">
-                          {exerciseNames.length > 0 && (
-                            <div title={exerciseNames.join(', ')}>
-                              {exerciseNames.join(', ')}
-                            </div>
-                          )}
-                          {(setCounts.length > 0 ||
-                            blockCategories.length > 0) && (
-                            <div className="text-gray-500">
-                              {setCounts.length > 0 && setCounts.join(', ')}
-                              {setCounts.length > 0 &&
-                                blockCategories.length > 0 &&
-                                ' · '}
-                              {blockCategories.length > 0 &&
-                                blockCategories.join(', ')}
-                            </div>
-                          )}
-                          {blockNames.length > 0 &&
-                            exerciseNames.length === 0 && (
-                              <div>{blockNames.join(' · ')}</div>
-                            )}
-                        </div>
-                      )}
-                    </div>
-                  )
-                })()}
-              {/* Right-click context menu */}
-              {contextMenu && (
-                <div
-                  className="fixed z-50 min-w-[140px] rounded-lg border border-gray-200 bg-white py-1 shadow-lg"
-                  style={{
-                    left: contextMenu.x,
-                    top: contextMenu.y,
-                  }}
-                >
-                  {copiedDays.length > 0 && (
-                    <button
-                      type="button"
-                      className="w-full px-3 py-1.5 text-left text-sm hover:bg-gray-100"
-                      onClick={() => {
-                        handlePasteAt(contextMenu.weekIdx)
-                        setContextMenu(null)
-                      }}
-                    >
-                      Paste
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    className="w-full px-3 py-1.5 text-left text-sm hover:bg-gray-100"
-                    onClick={() => {
-                      setSelectedCells(
-                        new Set([
-                          cellKey(contextMenu.weekIdx, contextMenu.dayIdx),
-                        ])
-                      )
-                      handleCopy()
-                      setContextMenu(null)
-                    }}
-                  >
-                    Copy
-                  </button>
-                  <button
-                    type="button"
-                    className="w-full px-3 py-1.5 text-left text-sm hover:bg-gray-100"
-                    onClick={() => {
-                      const week = structure.weeks[contextMenu.weekIdx]
-                      const day = week?.days?.[contextMenu.dayIdx]
-                      if (day) {
-                        setSessionDesignerCell({
-                          weekIdx: contextMenu.weekIdx,
-                          dayIdx: contextMenu.dayIdx,
-                        })
-                      } else {
-                        addDay(contextMenu.weekIdx)
-                        setSessionDesignerCell({
-                          weekIdx: contextMenu.weekIdx,
-                          dayIdx: week?.days?.length ?? 0,
-                        })
-                      }
-                      setContextMenu(null)
-                    }}
-                  >
-                    Open
-                  </button>
-                  {(() => {
-                    const week = structure.weeks[contextMenu.weekIdx]
-                    const day = week?.days?.[contextMenu.dayIdx]
-                    if (!program?.id || !week?.id || !day?.id) return null
-                    const weekId = week.id
-                    const dayId = day.id
-                    return (
-                      <>
-                        <button
-                          type="button"
-                          className="w-full px-3 py-1.5 text-left text-sm hover:bg-gray-100"
-                          onClick={async () => {
-                            setContextMenu(null)
-                            try {
-                              await programService.duplicateDay(weekId, {
-                                sourceDayId: dayId,
-                              })
-                              await refetchProgram()
-                              showSuccess('Day duplicated')
-                            } catch (e) {
-                              const err = e as AxiosError<{ message?: string }>
-                              showError(
-                                err.response?.data?.message ??
-                                  'Failed to duplicate day'
-                              )
-                            }
-                          }}
-                        >
-                          Copy day
-                        </button>
-                        {week.days &&
-                          week.days.length > 1 &&
-                          week.days.every(d => d?.id) && (
-                            <>
-                              <button
-                                type="button"
-                                className="w-full px-3 py-1.5 text-left text-sm hover:bg-gray-100 disabled:opacity-50"
-                                disabled={contextMenu.dayIdx <= 0}
-                                onClick={async () => {
-                                  setContextMenu(null)
-                                  const dayIds = (week.days ?? [])
-                                    .map(d => d.id)
-                                    .filter((id): id is number => id != null)
-                                  if (contextMenu.dayIdx <= 0) return
-                                  const [a, b] = [
-                                    contextMenu.dayIdx - 1,
-                                    contextMenu.dayIdx,
-                                  ]
-                                  ;[dayIds[a], dayIds[b]] = [
-                                    dayIds[b],
-                                    dayIds[a],
-                                  ]
-                                  try {
-                                    await programService.reorderDays(weekId, {
-                                      dayIds,
-                                    })
-                                    await refetchProgram()
-                                    showSuccess('Day moved left')
-                                  } catch (e) {
-                                    const err = e as AxiosError<{
-                                      message?: string
-                                    }>
-                                    showError(
-                                      err.response?.data?.message ??
-                                        'Failed to reorder'
-                                    )
-                                  }
-                                }}
-                              >
-                                Move day left
-                              </button>
-                              <button
-                                type="button"
-                                className="w-full px-3 py-1.5 text-left text-sm hover:bg-gray-100 disabled:opacity-50"
-                                disabled={
-                                  contextMenu.dayIdx >=
-                                  (week.days?.length ?? 0) - 1
-                                }
-                                onClick={async () => {
-                                  setContextMenu(null)
-                                  const dayIds = (week.days ?? [])
-                                    .map(d => d.id)
-                                    .filter((id): id is number => id != null)
-                                  if (contextMenu.dayIdx >= dayIds.length - 1)
-                                    return
-                                  const [a, b] = [
-                                    contextMenu.dayIdx,
-                                    contextMenu.dayIdx + 1,
-                                  ]
-                                  ;[dayIds[a], dayIds[b]] = [
-                                    dayIds[b],
-                                    dayIds[a],
-                                  ]
-                                  try {
-                                    await programService.reorderDays(weekId, {
-                                      dayIds,
-                                    })
-                                    await refetchProgram()
-                                    showSuccess('Day moved right')
-                                  } catch (e) {
-                                    const err = e as AxiosError<{
-                                      message?: string
-                                    }>
-                                    showError(
-                                      err.response?.data?.message ??
-                                        'Failed to reorder'
-                                    )
-                                  }
-                                }}
-                              >
-                                Move day right
-                              </button>
-                            </>
-                          )}
-                      </>
-                    )
-                  })()}
                 </div>
-              )}
-            </>
-          ) : (
-            (() => {
-              const w = sessionDesignerCell.weekIdx
-              const d = sessionDesignerCell.dayIdx
-              const week = structure.weeks[w]
-              const day = week?.days?.[d]
-              if (!week || !day) return null
-              return (
-                <SessionDesignerPanel
-                  day={day}
-                  weekIdx={w}
-                  dayIdx={d}
-                  structure={structure}
-                  setStructure={setStructure}
-                  setSessionDesignerCell={setSessionDesignerCell}
-                  setPreviewSessionOpen={setPreviewSessionOpen}
-                  setLibraryDrawerOpen={setLibraryDrawerOpen}
-                  setSaveSessionToLibraryName={setSaveSessionToLibraryName}
-                  setSaveSessionToLibraryOpen={setSaveSessionToLibraryOpen}
-                  setAddBlockModalOpen={setAddBlockModalOpen}
-                  draggedBlock={draggedBlock}
-                  setDraggedBlock={setDraggedBlock}
-                  getExerciseName={getExerciseName}
-                  blockMenuOpen={blockMenuOpen}
-                  setBlockMenuOpen={setBlockMenuOpen}
-                  setEditingExerciseBlock={setEditingExerciseBlock}
-                  setEditingCircuitBlock={setEditingCircuitBlock}
-                  setEditingSupersetBlock={setEditingSupersetBlock}
-                  moveBlockToIndex={moveBlockToIndex}
-                  removeSection={removeSection}
-                  onSaveCircuitToLibrary={handleSaveCircuitToLibrary}
-                />
-              )
-            })()
-          )}
+              </div>
+            )}
+          </>
+        )
+      })()}
+
+      {/* MASS 2.8: Calendar grid view (Level 1) — Red/Green only. 3.2 Amber: do NOT show Week→Day grid; Amber uses calendar-date view only (see Amber Calendar above). */}
+      {structure.weeks.length > 0 && !isAmberCycle && (
+        <div className="space-y-4">
+          {renderCalendarOrDesigner()}
           {previewSessionOpen &&
             sessionDesignerCell &&
             (() => {
@@ -7399,9 +7294,10 @@ export function ProgramBuilderForm({
                     type="button"
                     variant="primary"
                     size="small"
+                    disabled={repeatConfirmLoading}
                     onClick={() => void handleRepeatConfirm()}
                   >
-                    Repeat
+                    {repeatConfirmLoading ? 'Repeating…' : 'Repeat'}
                   </Button>
                 </div>
               </div>
