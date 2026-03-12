@@ -2534,35 +2534,34 @@ export function ProgramBuilderForm({
 
   const cycle = cycles.find(c => c.id === cycleId)
   const isSustainmentCycle = cycle?.name === 'Sustainment'
-
-  /** MASS 2.10: Debounced auto-save when program exists — any change (calendar or session designer) saves automatically */
+  /** MASS 2.10: Debounced auto-save when editing an existing program.
+   * Uses the same payload as manual Update and strips embedded exercise
+   * details via getStructureForSave. Skips the first run on modal open.
+   */
+  const autoSaveInitializedRef = useRef(false)
   useEffect(() => {
     if (!program?.id) return
+    if (!autoSaveInitializedRef.current) {
+      autoSaveInitializedRef.current = true
+      return
+    }
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current)
     saveTimeoutRef.current = setTimeout(() => {
       saveTimeoutRef.current = null
       void (async () => {
         try {
-          await programService.update(program.id, {
-            program_name: name.trim(),
-            program_description: description.trim(),
-            cycleId,
-            category: category || null,
-            subCategory: subCategory || null,
-            isActive,
-            programStructure: structure,
-            ...(isSustainmentCycle && {
-              constraintCategory: constraintCategory.trim() || null,
-            }),
-          })
+          await programService.update(program.id, buildUpdatePayload())
         } catch {
-          // silent; user can save explicitly
+          // silent; user can still click Update explicitly
         }
       })()
     }, 1500)
     return () => {
       if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current)
     }
+    // buildUpdatePayload already captures these values; we intentionally keep the
+    // dependency list explicit instead of including the function reference.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     program?.id,
     structure,
@@ -2572,7 +2571,7 @@ export function ProgramBuilderForm({
     category,
     subCategory,
     isActive,
-    isSustainmentCycle,
+    durationWeeks,
     constraintCategory,
   ])
 
