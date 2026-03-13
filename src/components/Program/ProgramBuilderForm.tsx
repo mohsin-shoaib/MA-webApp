@@ -6202,48 +6202,46 @@ export function ProgramBuilderForm({
                         </Button>
                       </div>
                       <div className="border border-gray-200 rounded-lg overflow-hidden mt-2">
-                        <div className="overflow-x-auto min-w-0">
-                          <table className="w-full min-w-lg text-sm">
-                            <thead>
-                              <tr className="bg-gray-100 border-b border-gray-200">
-                                <th className="text-left py-2 px-2 font-medium text-gray-700 w-10 shrink-0">
-                                  Set
-                                </th>
-                                <th className="text-left py-2 px-2 font-medium text-gray-700 min-w-24">
-                                  Reps
-                                </th>
-                                <th className="text-left py-2 px-2 font-medium text-gray-700 min-w-28">
-                                  Weight
-                                </th>
-                                <th className="text-left py-2 px-2 font-medium text-gray-700 w-14 shrink-0">
-                                  RPE
-                                </th>
-                                <th className="text-left py-2 px-2 font-medium text-gray-700 min-w-24">
-                                  Tempo
-                                </th>
-                                <th className="text-left py-2 px-2 font-medium text-gray-700 w-16 shrink-0">
-                                  Rest (s)
-                                </th>
-                                <th
-                                  className="w-9 shrink-0"
-                                  aria-label="Remove set"
-                                />
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {rows.map((row, ri) => (
-                                <ExerciseBlockPrescriptionRow
-                                  key={ri}
-                                  row={row}
-                                  rowIndex={ri}
-                                  updateRowAt={updateRowAt}
-                                  onRemoveSet={handleRemoveSet}
-                                  canRemoveSet={rows.length > 1}
-                                />
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="bg-gray-100 border-b border-gray-200">
+                              <th className="text-left py-2 px-2 font-medium text-gray-700 w-10 shrink-0">
+                                Set
+                              </th>
+                              <th className="text-left py-2 px-2 font-medium text-gray-700 min-w-24">
+                                Reps
+                              </th>
+                              <th className="text-left py-2 px-2 font-medium text-gray-700 min-w-28">
+                                Weight
+                              </th>
+                              <th className="text-left py-2 px-2 font-medium text-gray-700 w-14 shrink-0">
+                                RPE
+                              </th>
+                              <th className="text-left py-2 px-2 font-medium text-gray-700 min-w-24">
+                                Tempo
+                              </th>
+                              <th className="text-left py-2 px-2 font-medium text-gray-700 w-16 shrink-0">
+                                Rest (s)
+                              </th>
+                              <th
+                                className="w-9 shrink-0"
+                                aria-label="Remove set"
+                              />
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {rows.map((row, ri) => (
+                              <ExerciseBlockPrescriptionRow
+                                key={ri}
+                                row={row}
+                                rowIndex={ri}
+                                updateRowAt={updateRowAt}
+                                onRemoveSet={handleRemoveSet}
+                                canRemoveSet={rows.length > 1}
+                              />
+                            ))}
+                          </tbody>
+                        </table>
                       </div>
                     </div>
                     <div>
@@ -7177,9 +7175,18 @@ export function ProgramBuilderForm({
                 )?.data
                 const libWeeks = prog?.programStructure?.weeks ?? []
                 if (libWeeks.length) {
+                  const existingCount = structure.weeks?.length ?? 0
                   setStructure(prev => ({
                     weeks: [...prev.weeks, ...libWeeks],
                   }))
+                  if (!program?.id) {
+                    const nextTotal = existingCount + libWeeks.length
+                    setNumberOfWeeks(prev =>
+                      Number.isFinite(prev) && prev > 0
+                        ? Math.max(prev, nextTotal)
+                        : nextTotal
+                    )
+                  }
                   showSuccess('Program weeks added from library')
                 } else {
                   showError('Library program has no weeks')
