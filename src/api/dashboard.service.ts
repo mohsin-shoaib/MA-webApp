@@ -14,13 +14,13 @@ function toTodaySummary(
 ): TodayWorkoutSummary {
   const rawStatus = data.sessionStatus ?? data.status
   const status = normalizeSessionStatus(rawStatus)
+  const dayKey = data.dayKey ?? data.date
   return {
     date: data.date,
     phase: data.phase,
     weekIndex: data.weekIndex,
     dayIndex: data.dayIndex,
-    dayKey: data.dayKey ?? data.dayExercise?.day ?? data.date,
-    dayExercise: data.dayExercise,
+    dayKey,
     currentCycle: data.currentCycle ?? data.currentCycleName,
     programId: data.programId,
     programName: data.programName,
@@ -131,22 +131,18 @@ export const dashboardService = {
           if (!d) {
             return { date, hasWorkout: false }
           }
-          const dayEx = d.dayExercise as {
-            exercises?: unknown[]
-            isRestDay?: boolean
-            exercise_name?: string
-            day?: string
-          }
-          const isRestDay = dayEx?.isRestDay === true
-          const hasWorkout =
-            !isRestDay && dayEx?.exercises != null && dayEx.exercises.length > 0
           const rawStatus = d.sessionStatus ?? d.status
           const sessionStatus = normalizeSessionStatus(rawStatus)
-          const dayKey = d.dayKey ?? d.dayExercise?.day
+          const dayKey = d.dayKey ?? d.date
+          const hasWorkout =
+            sessionStatus === 'scheduled' ||
+            sessionStatus === 'in_progress' ||
+            sessionStatus === 'completed'
+          const daySummary =
+            sessionStatus === 'completed' ? 'Completed session' : dayKey
           return {
             date,
             hasWorkout,
-            isRestDay: isRestDay || undefined,
             programName: d.programName,
             phase: d.phase,
             weekIndex: d.weekIndex,
@@ -154,9 +150,7 @@ export const dashboardService = {
             dayKey,
             sessionId: d.sessionId,
             sessionStatus,
-            daySummary: isRestDay
-              ? 'Rest day'
-              : (d.dayExercise?.exercise_name ?? dayKey),
+            daySummary,
           }
         } catch {
           return { date, hasWorkout: false }
@@ -201,31 +195,24 @@ export const dashboardService = {
           const r = await trainService.getScheduledWorkout(date)
           const d = r.data?.statusCode === 200 ? r.data.data : null
           if (!d) return { date, hasWorkout: false }
-          const dayEx = d.dayExercise as {
-            exercises?: unknown[]
-            isRestDay?: boolean
-            exercise_name?: string
-            day?: string
-          }
-          const isRestDay = dayEx?.isRestDay === true
-          const hasWorkout =
-            !isRestDay && dayEx?.exercises != null && dayEx.exercises.length > 0
           const rawStatus = d.sessionStatus ?? d.status
           const sessionStatus = normalizeSessionStatus(rawStatus)
-          const dayKey = d.dayKey ?? d.dayExercise?.day
+          const dayKey = d.dayKey ?? d.date
+          const hasWorkout =
+            sessionStatus === 'scheduled' ||
+            sessionStatus === 'in_progress' ||
+            sessionStatus === 'completed'
           return {
             date,
             hasWorkout,
-            isRestDay: isRestDay || undefined,
             programName: d.programName,
             phase: d.phase,
             weekIndex: d.weekIndex,
             dayKey,
             sessionId: d.sessionId,
             sessionStatus,
-            daySummary: isRestDay
-              ? 'Rest day'
-              : (d.dayExercise?.exercise_name ?? dayKey),
+            daySummary:
+              sessionStatus === 'completed' ? 'Completed session' : dayKey,
           }
         } catch {
           return { date, hasWorkout: false }

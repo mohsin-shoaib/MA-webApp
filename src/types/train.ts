@@ -1,4 +1,4 @@
-import type { DailyExerciseDTO } from '@/types/program'
+import type { ProgramStructure } from '@/types/program'
 
 /** MASS Phase 7: exercise swap for this session (apply when rendering blocks) */
 export interface ExerciseSwapItem {
@@ -16,9 +16,10 @@ export interface TodayWorkoutResponse {
     phase: string
     weekIndex: number
     dayIndex?: number
-    /** Optional: API may send only dayExercise.day */
+    /** Optional: legacy day key; content now comes from dayStructure/programStructure. */
     dayKey?: string
-    dayExercise: DailyExerciseDTO
+    /** MASS Phase 7: full day structure (sections with exercises) for block view */
+    dayStructure?: ProgramStructure | Record<string, unknown>
     currentCycle?: string
     currentCycleId?: number
     currentCycleName?: string
@@ -33,8 +34,6 @@ export interface TodayWorkoutResponse {
     completedAt?: string
     /** MASS Phase 7: session notes from ProgramDay */
     sessionNotes?: string
-    /** MASS Phase 7: full day structure (sections with exercises) for block view */
-    dayStructure?: Record<string, unknown>
     /** MASS Phase 7: exercise swaps for this session */
     exerciseSwaps?: ExerciseSwapItem[]
     /** Red 3.1: when Red program is complete (last day done or past endDate) */

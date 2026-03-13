@@ -18,15 +18,17 @@ import { useSnackbar } from '@/components/Snackbar/useSnackbar'
 const SHOW_ENROLL_BUTTON = true
 
 function renderDaySummary(day: RoadmapDayExercise) {
-  const exercises = day.exercises ?? []
+  const exercises = (day.exercises ?? []) as { name?: string }[]
   const names = exercises
     .slice(0, 3)
     .map(ex => ex.name)
-    .filter(Boolean)
+    .filter((n): n is string => Boolean(n))
   const more = exercises.length > 3 ? ` +${exercises.length - 3} more` : ''
   return (
     <div className="text-sm py-1">
-      <span className="font-medium">{day.exercise_name || day.day}</span>
+      <span className="font-medium">
+        {day.exercise_name || day.day || day.dayName || `Day ${day.dayIndex}`}
+      </span>
       {names.length > 0 && (
         <span className="text-gray-600 ml-1">
           – {names.join(', ')}
@@ -259,9 +261,7 @@ export function ProgramDetail() {
                   (acc, w) => acc + (w.days?.length ?? 0),
                   0
                 )
-              : Array.isArray(program.dailyExercise)
-                ? program.dailyExercise.length
-                : 0
+              : 0
             return dayCount > 0 ? (
               <p className="text-sm text-gray-600">
                 {dayCount} day(s) in program

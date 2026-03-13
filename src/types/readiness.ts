@@ -91,8 +91,6 @@ export interface ReadinessRecommendation {
     category?: string
     subCategory?: string
     cycleId?: number
-    dailyExercise?: Record<string, unknown>
-    alternateExercise?: Record<string, unknown>
   }
   goalProgram?: {
     id: number

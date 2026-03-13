@@ -250,15 +250,12 @@ export default function DashboardPage() {
 
   const today = summary?.today
   const cycleName = summary?.cycle?.name ?? null
-  const isRestDayToday =
-    today?.status === 'rest' ||
-    (today?.dayExercise as { isRestDay?: boolean } | undefined)?.isRestDay ===
-      true
+  const isRestDayToday = today?.status === 'rest'
   const hasWorkoutToday =
     !isRestDayToday &&
-    today?.dayExercise?.exercises != null &&
-    Array.isArray(today.dayExercise.exercises) &&
-    today.dayExercise.exercises.length > 0
+    (today?.status === 'scheduled' ||
+      today?.status === 'in_progress' ||
+      today?.status === 'completed')
   const isCompleted =
     today?.status?.toLowerCase() === 'completed' || today?.completed === true
 
@@ -630,21 +627,11 @@ function TodayCard({
           </Text>
           <Text variant="secondary" className="wrap-break-word">
             {(() => {
-              const de = today.dayExercise as
-                | {
-                    exercise_name?: string
-                    exercises?: unknown[]
-                    notSet?: boolean
-                  }
-                | undefined
-              const noWorkoutSet =
-                !de ||
-                de.notSet === true ||
-                (!de.exercises?.length && !de.exercise_name)
-              const label = noWorkoutSet
-                ? 'No workout set'
-                : ((today.dayExercise as { exercise_name?: string } | undefined)
-                    ?.exercise_name ?? today.dayKey)
+              const hasSession =
+                Boolean(today.sessionId) ||
+                today.status === 'in_progress' ||
+                today.status === 'completed'
+              const label = hasSession ? today.dayKey : 'No workout set'
               return typeof label === 'string' ? label : String(label ?? '')
             })()}
           </Text>

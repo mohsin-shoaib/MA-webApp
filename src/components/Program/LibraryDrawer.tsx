@@ -136,21 +136,28 @@ export function LibraryDrawer({
       showCloseButton
     >
       <div className="space-y-4">
-        <div className="flex flex-wrap gap-2">
-          {TABS.map(tab => (
-            <button
-              key={tab.value}
-              type="button"
-              onClick={() => setActiveTab(tab.value)}
-              className={`rounded-lg px-3 py-1.5 text-sm font-medium ${
-                activeTab === tab.value
-                  ? 'bg-primary-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
+        <div className="border-b border-gray-200">
+          <nav className="flex gap-1" aria-label="Library tabs">
+            {TABS.map(tab => {
+              const isActive = activeTab === tab.value
+              return (
+                <button
+                  key={tab.value}
+                  type="button"
+                  role="tab"
+                  aria-selected={isActive}
+                  onClick={() => setActiveTab(tab.value)}
+                  className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${
+                    isActive
+                      ? 'border-[#3AB8ED] text-[#3AB8ED] bg-sky-50/50'
+                      : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              )
+            })}
+          </nav>
         </div>
         <div className="rounded-lg border border-gray-200 bg-gray-50/50 p-3 space-y-3">
           <span className="text-xs font-medium text-gray-600 uppercase tracking-wide">

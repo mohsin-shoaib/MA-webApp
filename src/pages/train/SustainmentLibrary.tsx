@@ -116,13 +116,14 @@ export function SustainmentLibrary() {
 
       <Card className="p-4 border-slate-200 bg-slate-50/50">
         <Text variant="default" className="font-medium text-slate-900">
-          3.4 Sustainment: temporary override
+          3.4 Sustainment (Constraint-Based Override)
         </Text>
         <Text variant="secondary" className="text-sm mt-1 block">
-          For travel, limited equipment, rehab, time limits, or deployed/field
-          conditions. Starting a sustainment program pauses your current cycle
-          program; your roadmap and event date stay unchanged. When you finish
-          or stop sustainment, resume your previous program from here or the
+          Temporary programs for travel, limited equipment, rehab, time limits,
+          or deployed/field conditions. Sustainment is not part of Red → Amber →
+          Green; it pauses your current training. Only one program is active at
+          a time. Your roadmap and event date stay unchanged. When you finish or
+          stop sustainment, resume your previous program from here or the
           Program browser.
         </Text>
       </Card>
