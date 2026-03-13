@@ -2629,27 +2629,70 @@ export function ProgramBuilderForm({
     async (weekIdx: number) => {
       const week = structure.weeks[weekIdx]
       if ((week?.days?.length ?? 0) >= 7) return
-      if (program?.id && week?.id) {
-        try {
-          await programService.addDay(week.id, {
-            dayName:
-              cycle?.name === 'Amber'
-                ? undefined
-                : `Day ${(week.days?.length ?? 0) + 1}`,
-          })
-          const next = await refetchProgram()
-          const updatedWeek = next?.weeks?.[weekIdx]
-          if (updatedWeek?.days?.length) {
-            setSessionDesignerCell({
-              weekIdx,
-              dayIdx: updatedWeek.days.length - 1,
+      if (program?.id) {
+        let weekId = week?.id
+        if (!weekId) {
+          try {
+            for (let i = 0; i <= weekIdx; i++) {
+              const w = structure.weeks[i]
+              if (!w?.id) {
+                await programService.addWeek(program.id, {
+                  weekName: w?.weekName ?? `Week ${i + 1}`,
+                })
+              }
+            }
+            const next = await refetchProgram()
+            weekId = next?.weeks?.[weekIdx]?.id
+          } catch (e) {
+            const err = e as AxiosError<{ message?: string }>
+            showError(err.response?.data?.message ?? 'Failed to add week')
+            return
+          }
+        }
+        if (weekId) {
+          const tryAddDay = async (id: number) => {
+            const dayCount = structure.weeks[weekIdx]?.days?.length ?? 0
+            await programService.addDay(id, {
+              dayName:
+                cycle?.name === 'Amber' ? undefined : `Day ${dayCount + 1}`,
             })
           }
-        } catch (e) {
-          const err = e as AxiosError<{ message?: string }>
-          showError(err.response?.data?.message ?? 'Failed to add session')
+          try {
+            await tryAddDay(weekId)
+            const next = await refetchProgram()
+            const updatedWeek = next?.weeks?.[weekIdx]
+            if (updatedWeek?.days?.length) {
+              setSessionDesignerCell({
+                weekIdx,
+                dayIdx: updatedWeek.days.length - 1,
+              })
+            }
+          } catch (e) {
+            const err = e as AxiosError<{ message?: string }>
+            if (err.response?.status === 404) {
+              try {
+                const fresh = await refetchProgram()
+                const freshWeekId = fresh?.weeks?.[weekIdx]?.id
+                if (freshWeekId) {
+                  await tryAddDay(freshWeekId)
+                  const next = await refetchProgram()
+                  const updatedWeek = next?.weeks?.[weekIdx]
+                  if (updatedWeek?.days?.length) {
+                    setSessionDesignerCell({
+                      weekIdx,
+                      dayIdx: updatedWeek.days.length - 1,
+                    })
+                  }
+                  return
+                }
+              } catch {
+                // fall through to showError below
+              }
+            }
+            showError(err.response?.data?.message ?? 'Failed to add session')
+          }
+          return
         }
-        return
       }
       const weeks = [...structure.weeks]
       const w = { ...weeks[weekIdx], days: [...(weeks[weekIdx].days ?? [])] }
@@ -4930,11 +4973,11 @@ export function ProgramBuilderForm({
                   s.parentSectionIndex == null && s.parentSectionId == null
               )
               return (
-                <Modal
+                <Drawer
                   visible={true}
                   title="Preview Session"
                   onClose={() => setPreviewSessionOpen(false)}
-                  size="medium"
+                  width="md"
                   showCloseButton
                 >
                   <p className="text-sm text-gray-500 px-4 pt-1 pb-2">
@@ -5090,7 +5133,7 @@ export function ProgramBuilderForm({
                       </p>
                     )}
                   </div>
-                </Modal>
+                </Drawer>
               )
             })()}
 
@@ -6551,11 +6594,11 @@ export function ProgramBuilderForm({
                     s.parentSectionId === parentSection?.id
                 )
               return (
-                <Modal
+                <Drawer
                   visible={true}
                   title="Edit Superset Block"
                   onClose={() => setEditingSupersetBlock(null)}
-                  size="large"
+                  width="lg"
                   showCloseButton
                 >
                   <p className="text-sm text-gray-500 px-4 pt-1 pb-0">
@@ -6947,7 +6990,7 @@ export function ProgramBuilderForm({
                       </Button>
                     </div>
                   </div>
-                </Modal>
+                </Drawer>
               )
             })()}
 
