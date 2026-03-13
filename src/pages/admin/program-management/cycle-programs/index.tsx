@@ -391,36 +391,7 @@ const CyclePrograms = () => {
         )
       },
     },
-    ...(isCustomCycle
-      ? [
-          {
-            key: 'assignedToUser',
-            label: 'Assigned to',
-            sortable: false,
-            render: (_value: unknown, row: Program) => {
-              const u = (
-                row as {
-                  assignedToUser?: {
-                    firstName?: string
-                    lastName?: string
-                    email?: string
-                  }
-                }
-              ).assignedToUser
-              if (!u) return <Text variant="muted">—</Text>
-              const name = [u.firstName, u.lastName]
-                .filter(Boolean)
-                .join(' ')
-                .trim()
-              return (
-                <Text variant="default" className="text-sm">
-                  {name || u.email || '—'}
-                </Text>
-              )
-            },
-          },
-        ]
-      : []),
+    ...(isCustomCycle ? [] : []),
     {
       key: 'actions',
       label: 'Actions',

@@ -378,31 +378,6 @@ const AdminProgramManagement = () => {
       },
     },
     {
-      key: 'assignedToUser',
-      label: 'Assigned to',
-      sortable: false,
-      render: (_value, row) => {
-        if ((row as { cycleType?: string }).cycleType !== 'CUSTOM')
-          return <Text variant="muted">—</Text>
-        const u = (
-          row as {
-            assignedToUser?: {
-              firstName?: string
-              lastName?: string
-              email?: string
-            }
-          }
-        ).assignedToUser
-        if (!u) return <Text variant="muted">—</Text>
-        const name = [u.firstName, u.lastName].filter(Boolean).join(' ').trim()
-        return (
-          <Text variant="default" className="text-sm">
-            {name || u.email || '—'}
-          </Text>
-        )
-      },
-    },
-    {
       key: 'actions',
       label: 'Actions',
       sortable: false,

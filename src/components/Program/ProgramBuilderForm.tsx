@@ -679,6 +679,7 @@ function CalendarDayCell(
     onDragEnd: () => void
     onMouseDown: () => void
     onClick: () => void
+    onDoubleClick: () => void
     onContextMenu: (e: MouseEvent<HTMLElement>) => void
     onAddDay: () => void
   }>
@@ -703,6 +704,7 @@ function CalendarDayCell(
     onDragEnd,
     onMouseDown,
     onClick,
+    onDoubleClick,
     onContextMenu,
     onAddDay,
   } = props
@@ -750,9 +752,11 @@ function CalendarDayCell(
           onDragEnd={onDragEnd}
           onMouseDown={onMouseDown}
           onClick={onClick}
+          onDoubleClick={onDoubleClick}
           onContextMenu={onContextMenu}
           className={sessionCardClass}
           aria-label={sessionAriaLabel}
+          title="Single-click to select. Double-click to open session."
         >
           {dayCellContent}
         </button>
@@ -764,6 +768,7 @@ function CalendarDayCell(
           onContextMenu={onContextMenu}
           className={sessionCardClass}
           aria-label="Add session"
+          title="Single-click to select. Double-click to add session."
         >
           <span className="opacity-40 group-hover:opacity-0 transition-opacity">
             +
@@ -839,6 +844,7 @@ interface SessionBlocksProps {
   getExerciseName: (id: number) => string
   blockMenuOpen: string | null
   setBlockMenuOpen: (s: string | null) => void
+  disabled?: boolean
   setEditingExerciseBlock: (
     x: {
       weekIdx: number
@@ -1950,6 +1956,7 @@ function SessionDesignerPanel(
               variant="secondary"
               size="small"
               onClick={() => setLibraryDrawerOpen(true)}
+              disabled={day.isRestDay}
             >
               Add from Library
             </Button>
@@ -1961,6 +1968,7 @@ function SessionDesignerPanel(
                 setSaveSessionToLibraryName(day.dayName || 'Session')
                 setSaveSessionToLibraryOpen(true)
               }}
+              disabled={day.isRestDay}
             >
               Save session to library
             </Button>
@@ -1997,6 +2005,7 @@ function SessionDesignerPanel(
             size="small"
             leftIcon={<Icon name="plus" family="solid" size={12} />}
             onClick={() => setAddBlockModalOpen(true)}
+            disabled={day.isRestDay}
             className="mt-2"
           >
             + Add Block
@@ -2229,8 +2238,6 @@ export function ProgramBuilderForm({
     null
   )
   const isSelectingRef = useRef(false)
-  /** MASS 2.8: Right-click context menu (Paste, Copy, Open) — setContextMenu used; contextMenu reserved for future UI */
-  /* eslint-disable-next-line @typescript-eslint/no-unused-vars */ // @ts-expect-error TS6133 - contextMenu reserved for future UI
   const [contextMenu, setContextMenu] = useState<{
     x: number
     y: number
@@ -3546,7 +3553,10 @@ export function ProgramBuilderForm({
           setDraggedSession(null)
           showSuccess('Session moved')
         })
-        .catch(() => showError('Failed to move session'))
+        .catch(err => {
+          const e = err as AxiosError<{ message?: string }>
+          showError(e.response?.data?.message ?? 'Failed to move session')
+        })
     },
     [structure.weeks, refetchProgram, showSuccess, showError]
   )
@@ -3586,13 +3596,25 @@ export function ProgramBuilderForm({
       },
       onDragEnd: () => setDraggedSession(null),
       onMouseDown: () => {
+        const isAlreadySingleSelected =
+          selectedCells.size === 1 && selectedCells.has(p.key)
+        if (isAlreadySingleSelected) {
+          selectionAnchorRef.current = null
+          isSelectingRef.current = false
+          setSelectedCells(new Set())
+          setSessionDesignerCell(null)
+          return
+        }
         selectionAnchorRef.current = { weekIdx: p.weekIdx, dayIdx: p.dayIdx }
         isSelectingRef.current = true
         setSelectedCells(new Set([p.key]))
       },
       onClick: () => {
-        if (selectedCells.size === 1 && selectedCells.has(p.key))
-          setSessionDesignerCell({ weekIdx: p.weekIdx, dayIdx: p.dayIdx })
+        // Single-click: select cell (handled in onMouseDown). No-op here to avoid
+        // accidentally opening the session on single click.
+      },
+      onDoubleClick: () => {
+        setSessionDesignerCell({ weekIdx: p.weekIdx, dayIdx: p.dayIdx })
       },
       onContextMenu: (e: React.MouseEvent) => {
         e.preventDefault()
@@ -3614,7 +3636,13 @@ export function ProgramBuilderForm({
         }
       },
     }),
-    [extendSelection, handleCellDragStart, addDay, selectedCells]
+    [
+      extendSelection,
+      handleCellDragStart,
+      addDay,
+      selectedCells,
+      setSessionDesignerCell,
+    ]
   )
 
   /** Repeat: duplicate selected days into the next N weeks (weeks after selection) */
@@ -4024,118 +4052,132 @@ export function ProgramBuilderForm({
             Add from Library
           </Button>
         </div>
-        {/* Toolbar when cells selected: Copy, Delete, Repeat, Save as Program, Publish/Unpublish (2.8) */}
-        {selectedCells.size > 0 && (
-          <div className="flex flex-wrap items-center gap-2 p-2 rounded-lg bg-gray-100 border border-gray-200">
-            <span className="text-sm text-gray-600 mr-2">
-              {selectedCells.size} session(s) selected
-            </span>
-            <Button
-              type="button"
-              variant="secondary"
-              size="small"
-              onClick={() => handleCopy()}
-            >
-              Copy
-            </Button>
-            <Button
-              type="button"
-              variant="secondary"
-              size="small"
-              onClick={() => setDeleteSelectedConfirmOpen(true)}
-            >
-              Delete
-            </Button>
-            <Button
-              type="button"
-              variant="secondary"
-              size="small"
-              onClick={() => setRepeatWeeksModalOpen(true)}
-            >
-              Repeat…
-            </Button>
-            <Button
-              type="button"
-              variant="secondary"
-              size="small"
-              onClick={() => {
-                setSaveAsProgramName(`Copy of ${program?.name ?? 'Program'}`)
-                setSaveAsProgramModalOpen(true)
-              }}
-            >
-              Save as Program
-            </Button>
-            {program && (
-              <>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="small"
-                  disabled={publishingToggle || program.isPublished}
-                  onClick={async () => {
-                    setPublishingToggle(true)
-                    try {
-                      await programService.publish(program.id)
-                      showSuccess('Program published')
-                      onSuccess?.()
-                    } catch (e) {
-                      const err = e as AxiosError<{ message?: string }>
-                      showError(
-                        err.response?.data?.message ?? 'Failed to publish'
-                      )
-                    } finally {
-                      setPublishingToggle(false)
-                    }
-                  }}
-                >
-                  {publishingToggle ? 'Publishing...' : 'Publish program'}
-                </Button>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="small"
-                  disabled={publishingToggle || !program.isPublished}
-                  onClick={async () => {
-                    setPublishingToggle(true)
-                    try {
-                      await programService.update(program.id, {
-                        isPublished: false,
-                      })
-                      showSuccess('Program unpublished')
-                      onSuccess?.()
-                    } catch (e) {
-                      const err = e as AxiosError<{ message?: string }>
-                      showError(
-                        err.response?.data?.message ?? 'Failed to unpublish'
-                      )
-                    } finally {
-                      setPublishingToggle(false)
-                    }
-                  }}
-                >
-                  {publishingToggle ? 'Unpublishing...' : 'Unpublish program'}
-                </Button>
-              </>
-            )}
-            <Button
-              type="button"
-              variant="ghost"
-              size="small"
-              onClick={() => setSelectedCells(new Set())}
-            >
-              Clear selection
-            </Button>
-          </div>
-        )}
+        {/* Selection toolbar: always visible; actions enabled when there is a selection */}
+        <div className="flex flex-wrap items-center gap-2 p-2 rounded-lg bg-gray-100 border border-gray-200 mt-2">
+          <span className="text-sm text-gray-600 mr-2">
+            {selectedCells.size > 0
+              ? `${selectedCells.size} session(s) selected`
+              : 'No sessions selected'}
+          </span>
+          <Button
+            type="button"
+            variant="secondary"
+            size="small"
+            onClick={() => handleCopy()}
+            disabled={selectedCells.size === 0}
+          >
+            Copy
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            size="small"
+            onClick={() => setDeleteSelectedConfirmOpen(true)}
+            disabled={selectedCells.size === 0}
+          >
+            Delete
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            size="small"
+            onClick={() => setRepeatWeeksModalOpen(true)}
+            disabled={selectedCells.size === 0}
+          >
+            Repeat…
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            size="small"
+            onClick={() => {
+              setSaveAsProgramName(`Copy of ${program?.name ?? 'Program'}`)
+              setSaveAsProgramModalOpen(true)
+            }}
+            disabled={selectedCells.size === 0 || !program}
+          >
+            Save as Program
+          </Button>
+          {program && (
+            <>
+              <Button
+                type="button"
+                variant="secondary"
+                size="small"
+                disabled={
+                  publishingToggle ||
+                  program.isPublished ||
+                  selectedCells.size === 0
+                }
+                onClick={async () => {
+                  setPublishingToggle(true)
+                  try {
+                    await programService.publish(program.id)
+                    showSuccess('Program published')
+                    onSuccess?.()
+                  } catch (e) {
+                    const err = e as AxiosError<{ message?: string }>
+                    showError(
+                      err.response?.data?.message ?? 'Failed to publish'
+                    )
+                  } finally {
+                    setPublishingToggle(false)
+                  }
+                }}
+              >
+                {publishingToggle ? 'Publishing...' : 'Publish program'}
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                size="small"
+                disabled={
+                  publishingToggle ||
+                  !program.isPublished ||
+                  selectedCells.size === 0
+                }
+                onClick={async () => {
+                  setPublishingToggle(true)
+                  try {
+                    await programService.update(program.id, {
+                      isPublished: false,
+                    })
+                    showSuccess('Program unpublished')
+                    onSuccess?.()
+                  } catch (e) {
+                    const err = e as AxiosError<{ message?: string }>
+                    showError(
+                      err.response?.data?.message ?? 'Failed to unpublish'
+                    )
+                  } finally {
+                    setPublishingToggle(false)
+                  }
+                }}
+              >
+                {publishingToggle ? 'Unpublishing...' : 'Unpublish program'}
+              </Button>
+            </>
+          )}
+          <Button
+            type="button"
+            variant="ghost"
+            size="small"
+            onClick={() => setSelectedCells(new Set())}
+            disabled={selectedCells.size === 0}
+          >
+            Clear selection
+          </Button>
+        </div>
         {/* MASS 2.8 Level 1: Program Calendar View (Overview) — rows = weeks, columns = days */}
         <h2 className="text-lg font-semibold text-gray-900 mb-2 mt-4">
           Program Calendar
         </h2>
         <p className="text-sm text-gray-600 mb-3">
-          Click a session to open it. Hover to preview contents. Drag to
-          multi-select; toolbar: Copy, Delete, Save as Program, Repeat,
-          Publish/Unpublish. Right-click for Copy / Paste / Open. Shortcuts:
-          Ctrl+C copy, Ctrl+V paste (with cell selected).
+          <span className="font-medium text-gray-700">Tips:</span> Single-click
+          a session to select or unselect it (for Copy, Delete, Repeat, Save as
+          Program). Double-click to open or create a session. Hover to preview.
+          Drag to multi-select. Right-click for Copy / Paste / Open. Shortcuts:
+          Ctrl+C to copy, Ctrl+V to paste (with a cell selected).
         </p>
         <div className="overflow-x-auto">
           <table className="w-full border-collapse border border-gray-200 rounded-lg overflow-hidden bg-white">
@@ -4358,6 +4400,53 @@ export function ProgramBuilderForm({
             </div>
           )}
         </div>
+        {contextMenu && (
+          <div
+            className="fixed z-50 rounded-md border border-gray-200 bg-white shadow-lg text-sm"
+            style={{ top: contextMenu.y, left: contextMenu.x }}
+            onClick={e => e.stopPropagation()}
+            onContextMenu={e => {
+              e.preventDefault()
+              e.stopPropagation()
+            }}
+          >
+            <button
+              type="button"
+              className="block w-full px-3 py-1.5 text-left hover:bg-gray-100"
+              onClick={() => {
+                handleCopy()
+                setContextMenu(null)
+              }}
+            >
+              Copy session
+            </button>
+            <button
+              type="button"
+              className="block w-full px-3 py-1.5 text-left hover:bg-gray-100 disabled:text-gray-400"
+              disabled={copiedDays.length === 0 || !program?.id}
+              onClick={() => {
+                if (copiedDays.length === 0 || !program?.id) return
+                void handlePasteAt(contextMenu.weekIdx)
+                setContextMenu(null)
+              }}
+            >
+              Paste into week
+            </button>
+            <button
+              type="button"
+              className="block w-full px-3 py-1.5 text-left hover:bg-gray-100"
+              onClick={() => {
+                setSessionDesignerCell({
+                  weekIdx: contextMenu.weekIdx,
+                  dayIdx: contextMenu.dayIdx,
+                })
+                setContextMenu(null)
+              }}
+            >
+              Open session
+            </button>
+          </div>
+        )}
         {/* MASS 2.8: Hover preview — session contents without opening */}
         {hoveredCell != null &&
           (() => {
