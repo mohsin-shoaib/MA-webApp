@@ -1567,9 +1567,9 @@ function ProgramMetadataSection(
     if (isGreenCycle)
       return 'Green (Mission-Specific Readiness): Event-aligned. Set number of weeks and Green duration below. Green start = event date − duration; if athlete has less time to event, they start at the appropriate week so the program ends on event day. Completion recommends transition to Red.'
     if (isSustainmentCycle)
-      return '3.4 Sustainment (Constraint-Based Override): Fixed-length, sequential (same as Red). Week → Day → Block → Exercise. Does not change athlete roadmap or event date; when active it pauses the current cycle program. When sustainment ends, athlete returns to prior program. Tag with constraint category below for Sustainment Library.'
+      return 'Sustainment (Constraint-Based Override): Fixed-length, sequential (same as Red). Week → Day → Block → Exercise. Does not change athlete roadmap or event date; when active it pauses the current cycle program. When sustainment ends, athlete returns to prior program. Tag with constraint category below for Sustainment Library.'
     if (isCustomCycle)
-      return '3.5 Custom / 1:1 (Coach-Assigned): Individualized program for one athlete (90 Unchained or 1:1 S&C). Structure is flexible: build Week → Day → Block → Exercise (like Red) or assign sessions per date (like Amber). Assign to exactly one athlete; overrides current cycle; roadmap and event date unchanged. When engagement ends, athlete returns to roadmap-driven cycle. Changes propagate immediately.'
+      return 'Custom / 1:1 (Coach-Assigned): Individualized program for one athlete (90 Unchained or 1:1 S&C). Structure is flexible: build Week → Day → Block → Exercise (like Red) or assign sessions per date (like Amber). Assign to exactly one athlete; overrides current cycle; roadmap and event date unchanged. When engagement ends, athlete returns to roadmap-driven cycle. Changes propagate immediately.'
     return 'Auto-calculated from the number of weeks in the calendar below.'
   }
   return (
@@ -1601,10 +1601,10 @@ function ProgramMetadataSection(
         )}
         {!program && isAmberCycle && (
           <p className="md:col-span-2 text-sm text-amber-800">
-            3.2 Amber: No Week→Day hierarchy. After saving, use the Amber
-            Calendar to assign sessions to calendar dates (or from library). One
-            session per date; all athletes see the same workout on the same
-            date; edits propagate immediately.
+            Amber: No Week→Day hierarchy. After saving, use the Amber Calendar
+            to assign sessions to calendar dates (or from library). One session
+            per date; all athletes see the same workout on the same date; edits
+            propagate immediately.
           </p>
         )}
         <div>
@@ -1688,7 +1688,7 @@ function ProgramMetadataSection(
             variant="default"
             className="text-sm font-medium text-emerald-900 mb-1 block"
           >
-            Green duration (weeks) * — 3.3 Mission-Specific Readiness
+            Green duration (weeks) — Mission-Specific Readiness
           </Text>
           <p className="text-xs text-emerald-800 mb-2">
             Configurable per program. Green start date = event date − this many
@@ -1718,7 +1718,7 @@ function ProgramMetadataSection(
             variant="default"
             className="text-sm font-medium text-slate-900 mb-1 block"
           >
-            Constraint category * — 3.4 Sustainment Library
+            Constraint category — Sustainment Library
           </Text>
           <p className="text-xs text-slate-700 mb-2">
             Tag for Sustainment Library: Travel, Limited Equipment, Rehab, Time,
@@ -1742,7 +1742,7 @@ function ProgramMetadataSection(
       {isCustomCycle && (
         <div className="rounded-xl border border-violet-200 bg-violet-50/30 p-4">
           <Text variant="default" className="font-medium text-violet-900">
-            3.5 Custom / 1:1 (Coach-Assigned)
+            Custom / 1:1 (Coach-Assigned)
           </Text>
           <p className="text-sm text-violet-800 mt-1">
             For 90 Unchained (premier 1:1) or 1:1 S&C. Assigned to exactly one
@@ -4376,7 +4376,7 @@ export function ProgramBuilderForm({
             {isAmberCycle && !program?.id && (
               <div className="rounded-xl border border-amber-200 bg-amber-50/30 p-4">
                 <Text variant="default" className="font-medium text-amber-900">
-                  Amber Calendar (3.2 Operational Readiness)
+                  Amber Calendar (Operational Readiness)
                 </Text>
                 <p className="text-sm text-amber-800 mt-1">
                   Save the program to unlock the Amber Calendar. Then assign
@@ -4389,7 +4389,7 @@ export function ProgramBuilderForm({
             {Boolean(program?.id && isAmberCycle) && (
               <div className="rounded-xl border border-amber-200 bg-amber-50/30 p-4 space-y-3">
                 <Text variant="default" className="font-medium text-amber-900">
-                  Amber Calendar (3.2 — calendar-based; no Week→Day grid)
+                  Amber Calendar (calendar-based; no Week→Day grid)
                 </Text>
                 <p className="text-sm text-amber-800">
                   Click a date to assign or create a session. One live session
