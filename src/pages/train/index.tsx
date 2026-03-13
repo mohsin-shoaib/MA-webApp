@@ -7,7 +7,7 @@ import { Spinner } from '@/components/Spinner'
 import { Icon } from '@/components/Icon'
 import { Tooltip } from '@/components/Tooltip'
 import { trainService } from '@/api/train.service'
-import type { WorkoutSession } from '@/types/train'
+import type { TodayWorkoutResponse, WorkoutSession } from '@/types/train'
 import type { AxiosError } from 'axios'
 import { RecoverySection } from './RecoverySection'
 
@@ -21,23 +21,18 @@ function getLastWeekDates(): { from: string; to: string } {
   }
 }
 
+type TodayWorkoutState = TodayWorkoutResponse['data'] & {
+  dayKey: string
+}
+
 export default function TrainPage() {
   const navigate = useNavigate()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [recentSessions, setRecentSessions] = useState<WorkoutSession[]>([])
-  const [todayWorkout, setTodayWorkout] = useState<{
-    date: string
-    phase: string
-    weekIndex: number
-    dayKey: string
-    dayExercise: { exercise_name: string; exercises: unknown[] }
-    currentCycle?: string
-    programName?: string
-    completed?: boolean
-    sessionId?: number
-    status?: string
-  } | null>(null)
+  const [todayWorkout, setTodayWorkout] = useState<TodayWorkoutState | null>(
+    null
+  )
 
   useEffect(() => {
     const cancelled = { current: false }
@@ -52,9 +47,10 @@ export default function TrainPage() {
           const apiRes = res.data
           if (apiRes.statusCode === 200 && apiRes.data) {
             const d = apiRes.data
+            const dayKey = d.dayKey ?? d.date
             setTodayWorkout({
               ...d,
-              dayKey: d.dayKey ?? d.dayExercise?.day ?? d.date,
+              dayKey,
             })
           } else {
             setTodayWorkout(null)
@@ -186,22 +182,13 @@ export default function TrainPage() {
                   </Text>
                   <Text variant="secondary" className="wrap-break-word">
                     {(() => {
-                      const de = todayWorkout.dayExercise as
-                        | {
-                            exercise_name?: string
-                            exercises?: unknown[]
-                            notSet?: boolean
-                          }
-                        | undefined
-                      const noWorkoutSet =
-                        !de ||
-                        de.notSet === true ||
-                        (!de.exercises?.length && !de.exercise_name)
-                      const label = noWorkoutSet
-                        ? 'No workout set'
-                        : ((typeof de?.exercise_name === 'string'
-                            ? de.exercise_name
-                            : null) ?? todayWorkout.dayKey)
+                      const hasSession =
+                        Boolean(todayWorkout.sessionId) ||
+                        todayWorkout.status === 'in_progress' ||
+                        todayWorkout.status === 'completed'
+                      const label = hasSession
+                        ? todayWorkout.dayKey
+                        : 'No workout set'
                       return typeof label === 'string'
                         ? label
                         : String(label ?? '')

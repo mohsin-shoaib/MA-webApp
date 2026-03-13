@@ -1,10 +1,25 @@
-import type { DailyExerciseDTO, ExerciseDTO } from '@/types/program'
+import type {
+  ProgramStructureDay,
+  ProgramStructureSectionExercise,
+} from '@/types/program'
 
-/** One day's exercise block (matches program dailyExercise element). Used for roadmap timeline. */
-export type RoadmapDayExercise = DailyExerciseDTO
+/** One day's exercise block as seen on roadmap (derived from ProgramStructureDay). */
+export type RoadmapDayExercise = {
+  dayIndex: number
+  dayName?: string
+  isRestDay?: boolean
+  sections?: ProgramStructureDay['sections']
+  /** Legacy / summary fields kept for UI components that still expect them. */
+  day?: string
+  exercise_name?: string
+  exercises?: RoadmapExerciseItem[]
+  workout_timer?: string
+  exercise_time?: string
+  rest_timer?: string
+}
 
 /** Single exercise item within a day (name, video, reps, sets, etc.). */
-export type RoadmapExerciseItem = ExerciseDTO
+export type RoadmapExerciseItem = ProgramStructureSectionExercise
 
 /** Legacy: week -> string[] (mock). New: week -> array of day objects. */
 export type TimelineWeekValue = string[] | RoadmapDayExercise[]

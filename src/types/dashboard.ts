@@ -45,7 +45,8 @@ export interface TodayWorkoutSummary {
   weekIndex: number
   dayIndex?: number
   dayKey: string
-  dayExercise: {
+  /** Legacy summary; may be undefined for newer responses. */
+  dayExercise?: {
     exercise_name?: string
     exercises?: unknown[]
     isRestDay?: boolean

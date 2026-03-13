@@ -8,7 +8,6 @@ import { programService } from '@/api/program.service'
 import { trainService } from '@/api/train.service'
 import type {
   UserProgram,
-  DailyExerciseDTO,
   ExerciseDTO,
   AlternateExerciseDTO,
   ProgramStructure,
@@ -16,26 +15,16 @@ import type {
 import type { AxiosError } from 'axios'
 import { useSnackbar } from '@/components/Snackbar/useSnackbar'
 
-/** Normalise dailyExercise (array or object keyed by day) to ordered array. */
-function normalizeDailyExercise(
-  raw: DailyExerciseDTO[] | Record<string, DailyExerciseDTO> | undefined
-): DailyExerciseDTO[] {
-  if (!raw) return []
-  const list = Array.isArray(raw)
-    ? raw
-    : Object.entries(raw).map(([day, d]) => ({ ...d, day }))
-  return list.sort((a, b) => {
-    const numA = Number.parseInt(a.day.replaceAll(/\D/g, '') || '0', 10)
-    const numB = Number.parseInt(b.day.replaceAll(/\D/g, '') || '0', 10)
-    return numA - numB
-  })
+type LibraryDay = {
+  day: string
+  isRestDay: boolean
+  exercise_name: string
+  exercises: ExerciseDTO[]
 }
 
 /** Build day list from programStructure (relational) for Exercise Library. */
-function daysFromProgramStructure(
-  structure: ProgramStructure
-): DailyExerciseDTO[] {
-  const days: DailyExerciseDTO[] = []
+function daysFromProgramStructure(structure: ProgramStructure): LibraryDay[] {
+  const days: LibraryDay[] = []
   let dayNumber = 1
   for (const week of structure.weeks ?? []) {
     for (const day of week.days ?? []) {
@@ -152,8 +141,8 @@ function DaysView({
   onBack,
 }: Readonly<{
   programName: string
-  days: DailyExerciseDTO[]
-  onDayClick: (day: DailyExerciseDTO) => void
+  days: LibraryDay[]
+  onDayClick: (day: LibraryDay) => void
   onBack: () => void
 }>) {
   const [daySearch, setDaySearch] = useState('')
@@ -347,7 +336,7 @@ function DayExercisesView({
   exerciseFilter,
   setExerciseFilter,
 }: Readonly<{
-  day: DailyExerciseDTO
+  day: LibraryDay
   onBack: () => void
   onExerciseClick: (ex: ExerciseDTO) => void
   exerciseSearch: string
@@ -516,9 +505,9 @@ export default function ExerciseLibrary() {
   const { showSuccess, showError } = useSnackbar()
   const [loading, setLoading] = useState(true)
   const [userProgram, setUserProgram] = useState<UserProgram | null>(null)
-  const [days, setDays] = useState<DailyExerciseDTO[]>([])
+  const [days, setDays] = useState<LibraryDay[]>([])
   const [view, setView] = useState<View>('days')
-  const [selectedDay, setSelectedDay] = useState<DailyExerciseDTO | null>(null)
+  const [selectedDay, setSelectedDay] = useState<LibraryDay | null>(null)
   const [selectedExercise, setSelectedExercise] = useState<ExerciseDTO | null>(
     null
   )
@@ -541,7 +530,7 @@ export default function ExerciseLibrary() {
     if (program.programStructure?.weeks?.length) {
       setDays(daysFromProgramStructure(program.programStructure))
     } else {
-      setDays(normalizeDailyExercise(program.dailyExercise))
+      setDays([])
     }
   }, [])
 
@@ -570,7 +559,7 @@ export default function ExerciseLibrary() {
     loadCurrentProgram()
   }, [loadCurrentProgram])
 
-  const handleDayClick = (day: DailyExerciseDTO) => {
+  const handleDayClick = (day: LibraryDay) => {
     setSelectedDay(day)
     setView('day-exercises')
   }
@@ -622,7 +611,7 @@ export default function ExerciseLibrary() {
     try {
       const scheduledRes = await trainService.getScheduledWorkout(calendarDate)
       const scheduled = scheduledRes.data?.data
-      if (!scheduled?.dayExercise) {
+      if (!scheduled) {
         showError("Can't log for this date – no scheduled workout.")
         return null
       }
@@ -632,7 +621,9 @@ export default function ExerciseLibrary() {
         phase: scheduled.phase,
         weekIndex: scheduled.weekIndex,
         dayIndex: dayIndexFromApi,
-        dayKey: scheduled.dayKey ?? scheduled.dayExercise?.day,
+        dayKey:
+          scheduled.dayKey ??
+          (scheduled.dayStructure as { dayKey?: string })?.dayKey,
         programId,
       })
       const session = createRes.data?.data

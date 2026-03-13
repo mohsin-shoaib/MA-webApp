@@ -505,19 +505,6 @@ function structureHasContent(structure: ProgramStructure): boolean {
 }
 
 /** Returns true if any non-rest day has a block with empty name (for submit validation). */
-function structureHasBlockMissingName(structure: ProgramStructure): boolean {
-  for (const w of structure.weeks) {
-    for (const d of w.days ?? []) {
-      if (d.isRestDay === true) continue
-      const sections = d.sections ?? []
-      for (const s of sections) {
-        if ((s.name?.trim()?.length ?? 0) === 0) return true
-      }
-    }
-  }
-  return false
-}
-
 /** Strip heavy embedded exercise details from ProgramStructure before saving.
  * We keep exerciseId and prescription fields, but drop the nested `exercise`
  * object so the payload stays small; exercise details are fetched separately.
@@ -3820,8 +3807,6 @@ export function ProgramBuilderForm({
     if (!program) return null
     if (!structureHasContent(structure))
       return 'Add at least one block with content to the program'
-    if (structureHasBlockMissingName(structure))
-      return 'Every block must have a name'
     return null
   }
 
@@ -6124,13 +6109,24 @@ export function ProgramBuilderForm({
                         value={blockCategoryValue}
                         onValueChange={v => {
                           const val = (Array.isArray(v) ? v[0] : v) ?? ''
-                          const custom =
-                            val === '__custom__' ? blockCategoryCustom : ''
+                          if (!val) {
+                            updateExerciseBlockSection(w, d, sectionIdx, {
+                              blockCategory: undefined,
+                            })
+                            return
+                          }
+                          if (val === '__custom__') {
+                            // When switching to custom, preserve any existing custom text or
+                            // seed with a generic placeholder so the input shows immediately.
+                            const nextCustom =
+                              blockCategoryCustom || 'Custom block'
+                            updateExerciseBlockSection(w, d, sectionIdx, {
+                              blockCategory: nextCustom,
+                            })
+                            return
+                          }
                           updateExerciseBlockSection(w, d, sectionIdx, {
-                            blockCategory:
-                              val === '__custom__'
-                                ? custom || undefined
-                                : val || undefined,
+                            blockCategory: val,
                           })
                         }}
                         options={BLOCK_CATEGORY_OPTIONS}
@@ -6339,13 +6335,22 @@ export function ProgramBuilderForm({
                         value={blockCategoryValue}
                         onValueChange={v => {
                           const val = (Array.isArray(v) ? v[0] : v) ?? ''
-                          const custom =
-                            val === '__custom__' ? blockCategoryCustom : ''
+                          if (!val) {
+                            updateCircuitBlockSection(w, d, sectionIdx, {
+                              blockCategory: undefined,
+                            })
+                            return
+                          }
+                          if (val === '__custom__') {
+                            const nextCustom =
+                              blockCategoryCustom || 'Custom block'
+                            updateCircuitBlockSection(w, d, sectionIdx, {
+                              blockCategory: nextCustom,
+                            })
+                            return
+                          }
                           updateCircuitBlockSection(w, d, sectionIdx, {
-                            blockCategory:
-                              val === '__custom__'
-                                ? custom || undefined
-                                : val || undefined,
+                            blockCategory: val,
                           })
                         }}
                         options={BLOCK_CATEGORY_OPTIONS}

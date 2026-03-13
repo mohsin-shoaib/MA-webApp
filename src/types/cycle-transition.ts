@@ -36,8 +36,6 @@ export interface CycleTransition {
     category?: string
     subCategory?: string
     cycleId?: number
-    dailyExercise?: Record<string, unknown>
-    alternateExercise?: Record<string, unknown>
   } | null
   createdAt?: string
   updatedAt?: string

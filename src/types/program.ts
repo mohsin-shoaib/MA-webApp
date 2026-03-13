@@ -46,18 +46,6 @@ export interface ExerciseDTO {
   alternate_exercise?: AlternateExerciseDTO | null
 }
 
-export interface DailyExerciseDTO {
-  day: string // "day1", "day2" for Red/Green, ISO date string for Amber
-  /** If true, this day is a rest day; no exercises required. */
-  isRestDay?: boolean
-  exercise_name: string
-  exercise_description?: string
-  exercise_time?: string
-  workout_timer?: string
-  rest_timer?: string
-  exercises: ExerciseDTO[]
-}
-
 // --- Program Builder hierarchy: Program → Weeks → Days → Blocks → Exercises (MASS 2.2). In code, blocks are typed as ProgramStructureSection (Section = Block). ---
 /** MASS Phase 4: per-set prescription row */
 export interface ProgramStructureSetRow {
@@ -170,14 +158,11 @@ export interface CreateProgramDTO {
   cycleId?: number
   /** MASS 2.1: Required at creation. Pre-generates that many empty week rows when createEmptyWeeks. */
   numberOfWeeks: number
-  /** MASS 2.1: Required for Green programs (links to Goal Type table). */
   goalTypeId?: number
-  /** 3.3 Green: Duration in weeks for event-aligned scheduling. Green start = event date − durationWeeks. */
   durationWeeks?: number
   isActive?: boolean
   /** Only ADMIN can set true at create; coach-created start as draft. */
   isPublished?: boolean
-  dailyExercises?: DailyExerciseDTO[]
   programStructure?: ProgramStructure
 }
 
@@ -191,14 +176,12 @@ export interface UpdateProgramDTO {
   isActive?: boolean
   /** Only ADMIN can set true (publish); coach can set false (unpublish) */
   isPublished?: boolean
-  /** 3.3 Green: goalTypeId and durationWeeks for event-aligned scheduling. */
   goalTypeId?: number | null
   durationWeeks?: number | null
-  dailyExercises?: DailyExerciseDTO[]
   programStructure?: ProgramStructure
 }
 
-// Program response from API (relational: programStructure is source of truth; dailyExercise deprecated)
+// Program response from API (relational: programStructure is source of truth for content)
 export interface Program extends Record<string, unknown> {
   id: number
   name: string
@@ -213,8 +196,6 @@ export interface Program extends Record<string, unknown> {
   durationWeeks?: number | null
   /** MASS 2.1: Average training days per week. Returned by getProgramById. */
   sessionsPerWeek?: number | null
-  /** @deprecated Use programStructure for program content */
-  dailyExercise?: DailyExerciseDTO[]
   alternateExercise?: Record<string, unknown>
   programStructure?: ProgramStructure | null
   createdAt: string
@@ -340,8 +321,6 @@ export interface UserProgram {
   startDate: string
   endDate: string | null
   program: Program & {
-    /** @deprecated Use programStructure */
-    dailyExercise?: DailyExerciseDTO[] | Record<string, DailyExerciseDTO>
     programStructure?: ProgramStructure | null
     cycle?: {
       id: number
@@ -356,32 +335,4 @@ export interface CurrentProgramResponse {
   statusCode: number
   data: UserProgram | null
   message?: string
-}
-
-// Legacy types (kept for backward compatibility)
-export interface ProgramProps {
-  name: string
-  description: string
-  isActive: boolean
-  category: string
-  subCategory?: string
-  cycleId: number
-  dailyExercise: DailyExerciseDTO[]
-  alternateExercise?: Record<string, unknown>
-}
-
-export interface ProgramResponse {
-  data: {
-    id: number
-    name: string
-    description: string
-    isActive: boolean
-    category: string
-    subCategory?: string
-    cycleId: number
-    dailyExercise: DailyExerciseDTO[]
-    alternateExercise?: Record<string, unknown>
-    createdAt: string
-    updatedAt: string
-  }
 }

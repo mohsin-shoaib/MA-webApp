@@ -6,8 +6,14 @@ import { Button } from '@/components/Button'
 import { Spinner } from '@/components/Spinner'
 import { trainService } from '@/api/train.service'
 import { cycleTransitionService } from '@/api/cycle-transition.service'
-import type { DailyExerciseDTO, ExerciseDTO } from '@/types/program'
+import type { ExerciseDTO } from '@/types/program'
 import type { AxiosError } from 'axios'
+
+type WorkoutDay = {
+  exercises?: ExerciseDTO[]
+  exercise_name?: string
+  notSet?: boolean
+}
 
 export default function WorkoutPlayer() {
   const navigate = useNavigate()
@@ -15,7 +21,7 @@ export default function WorkoutPlayer() {
   const sessionIdParam = searchParams.get('sessionId')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [dayExercise, setDayExercise] = useState<DailyExerciseDTO | null>(null)
+  const [dayExercise, setDayExercise] = useState<WorkoutDay | null>(null)
   const [phase, setPhase] = useState<string>('')
   const [weekIndex, setWeekIndex] = useState<number>(0)
   const [dayKey, setDayKey] = useState<string>('')
@@ -56,7 +62,7 @@ export default function WorkoutPlayer() {
               setDayExercise(null)
             } else {
               setRedCompleteState(null)
-              setDayExercise(d.dayExercise as DailyExerciseDTO)
+              setDayExercise((d.dayStructure as WorkoutDay) ?? null)
               setPhase((d.phase as string) ?? '')
               setWeekIndex((d.weekIndex as number) ?? 0)
               setDayKey(
@@ -169,7 +175,7 @@ export default function WorkoutPlayer() {
 
   const noWorkoutSet =
     !dayExercise ||
-    (dayExercise as { notSet?: boolean }).notSet === true ||
+    dayExercise.notSet === true ||
     (!dayExercise.exercises?.length && !dayExercise.exercise_name)
 
   if (error && !dayExercise && !redCompleteState) {
