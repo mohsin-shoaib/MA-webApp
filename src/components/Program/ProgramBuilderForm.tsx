@@ -3167,7 +3167,6 @@ export function ProgramBuilderForm({
   }
 
   /** MASS 2.3: Duplicate week (API when program exists, else local) — reserved for future UI */
-  /* eslint-disable-next-line @typescript-eslint/no-unused-vars */ // @ts-expect-error TS6133 - duplicateWeek reserved for future UI
   const duplicateWeek = async (weekIdx: number) => {
     const week = structure.weeks[weekIdx]
     if (program?.id && week?.id) {
@@ -3383,29 +3382,53 @@ export function ProgramBuilderForm({
     return () => document.removeEventListener('keydown', onKeyDown)
   }, [selectedCells.size, sessionDesignerCell, handleCopy])
 
-  /** Delete selected sessions (only those with day id when program exists) */
+  /** Delete selected sessions: API delete for saved days (with id), local remove for unsaved days. */
   const handleDeleteSelected = useCallback(async () => {
-    if (!program?.id) {
-      showError('Save the program first to use delete')
+    if (selectedCells.size === 0) {
+      showError('No sessions selected')
       return
     }
-    const toDelete: number[] = []
+    const toDeleteIds: number[] = []
+    const toRemoveLocal: Array<{ weekIdx: number; dayIdx: number }> = []
     selectedCells.forEach(k => {
       const [w, d] = k.split('-').map(Number)
       const day = structure.weeks[w]?.days?.[d]
-      if (day?.id) toDelete.push(day.id)
+      if (!day) return
+      if (day.id != null && program?.id) {
+        toDeleteIds.push(day.id)
+      } else {
+        toRemoveLocal.push({ weekIdx: w, dayIdx: d })
+      }
     })
-    if (toDelete.length === 0) {
-      showError('No sessions selected or sessions not yet saved')
+    if (toDeleteIds.length === 0 && toRemoveLocal.length === 0) {
+      showError('No sessions selected')
       return
     }
     try {
-      for (const dayId of toDelete) {
-        await programService.deleteDay(dayId)
+      if (toDeleteIds.length > 0 && program?.id) {
+        for (const dayId of toDeleteIds) {
+          await programService.deleteDay(dayId)
+        }
+        await refetchProgram()
       }
-      await refetchProgram()
+      if (toRemoveLocal.length > 0) {
+        const sortedRemovals = [...toRemoveLocal].sort(
+          (a, b) => b.weekIdx - a.weekIdx || b.dayIdx - a.dayIdx
+        )
+        setStructure(prev => {
+          const weeks = [...(prev.weeks ?? [])]
+          sortedRemovals.forEach(({ weekIdx, dayIdx }) => {
+            const week = weeks[weekIdx]
+            if (!week?.days) return
+            const newDays = week.days.filter((_, i) => i !== dayIdx)
+            weeks[weekIdx] = { ...week, days: newDays }
+          })
+          return { weeks }
+        })
+      }
       setSelectedCells(new Set())
-      showSuccess(`Deleted ${toDelete.length} session(s)`)
+      const total = toDeleteIds.length + toRemoveLocal.length
+      showSuccess(`Deleted ${total} session(s)`)
     } catch (e) {
       const err = e as AxiosError<{ message?: string }>
       showError(err.response?.data?.message ?? 'Failed to delete')
@@ -4217,7 +4240,7 @@ export function ProgramBuilderForm({
                           <>
                             <button
                               type="button"
-                              className="cursor-pointer hover:underline bg-transparent border-0 p-0 text-left font-inherit"
+                              className="cursor-pointer hover:underline bg-transparent border-0 p-0 text-left font-inherit min-w-18"
                               onClick={() => {
                                 setEditingWeekNameIdx(weekIdx)
                                 setEditingWeekNameValue(
@@ -4253,6 +4276,16 @@ export function ProgramBuilderForm({
                                   onClick={() => reorderWeeks(weekIdx, 'down')}
                                 >
                                   ↓
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="small"
+                                  className="text-xs"
+                                  title="Copy week"
+                                  onClick={() => void duplicateWeek(weekIdx)}
+                                >
+                                  Copy
                                 </Button>
                                 <Button
                                   type="button"
